@@ -3,8 +3,7 @@ name: Build and Push API & Web
 on:
   push:
     branches:
-      - "main"
-      - "deploy/dev"
+      - 'xuut'
   release:
     types: [published]
 
@@ -15,13 +14,13 @@ concurrency:
 env:
   DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-  DIFY_WEB_IMAGE_NAME: ${{ vars.DIFY_WEB_IMAGE_NAME || 'langgenius/dify-web' }}
-  DIFY_API_IMAGE_NAME: ${{ vars.DIFY_API_IMAGE_NAME || 'langgenius/dify-api' }}
+  DIFY_WEB_IMAGE_NAME: ${{ vars.DIFY_WEB_IMAGE_NAME || 'xuut/dify-web' }}
+  DIFY_API_IMAGE_NAME: ${{ vars.DIFY_API_IMAGE_NAME || 'xuut/dify-api' }}
 
 jobs:
   build:
     runs-on: ${{ matrix.platform == 'linux/arm64' && 'arm64_runner' || 'ubuntu-latest' }}
-    if: github.repository == 'langgenius/dify'
+    if: github.repository == 'yuxehi/dify'
     strategy:
       matrix:
         include:
@@ -70,7 +69,7 @@ jobs:
         id: build
         uses: docker/build-push-action@v6
         with:
-          context: "{{defaultContext}}:${{ matrix.context }}"
+          context: ${{ matrix.context }}
           platforms: ${{ matrix.platform }}
           build-args: COMMIT_SHA=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -97,7 +96,7 @@ jobs:
   create-manifest:
     needs: build
     runs-on: ubuntu-latest
-    if: github.repository == 'langgenius/dify'
+    if: github.repository == 'yuxehi/dify'
     strategy:
       matrix:
         include:
