@@ -23,7 +23,7 @@ import Input from '@/app/components/base/input'
 import Textarea from '@/app/components/base/textarea'
 import AppIcon from '@/app/components/base/app-icon'
 import AppsFull from '@/app/components/billing/apps-full-in-dialog'
-import { BubbleTextMod, ChatBot, ListSparkle, Logic } from '@/app/components/base/icons/src/vender/solid/communication'
+import { BubbleTextMod, ChatBot, Logic } from '@/app/components/base/icons/src/vender/solid/communication'
 import { NEED_REFRESH_APP_LIST_KEY } from '@/config'
 import { getRedirection } from '@/utils/app-redirection'
 import FullScreenModal from '@/app/components/base/fullscreen-modal'
@@ -130,16 +130,16 @@ function CreateApp({ onClose, onSuccess, onCreateFromTemplate }: CreateAppProps)
                   onClick={() => {
                     setAppMode('agent-chat')
                   }} />
-                <AppTypeCard
-                  active={appMode === 'completion'}
-                  title={t('app.newApp.completeApp')}
-                  description={t('app.newApp.completionShortDescription')}
-                  icon={<div className='w-6 h-6 bg-components-icon-bg-teal-solid rounded-md flex items-center justify-center'>
-                    <ListSparkle className='w-4 h-4 text-components-avatar-shape-fill-stop-100' />
-                  </div>}
-                  onClick={() => {
-                    setAppMode('completion')
-                  }} />
+                {/* <AppTypeCard */}
+                {/*  active={appMode === 'completion'} */}
+                {/*  title={t('app.newApp.completeApp')} */}
+                {/*  description={t('app.newApp.completionShortDescription')} */}
+                {/*  icon={<div className='w-6 h-6 bg-components-icon-bg-teal-solid rounded-md flex items-center justify-center'> */}
+                {/*    <ListSparkle className='w-4 h-4 text-components-avatar-shape-fill-stop-100' /> */}
+                {/*  </div>} */}
+                {/*  onClick={() => { */}
+                {/*    setAppMode('completion') */}
+                {/*  }} /> */}
               </div>
             </div>
             <div>
@@ -244,7 +244,7 @@ function CreateApp({ onClose, onSuccess, onCreateFromTemplate }: CreateAppProps)
             <AppScreenShot show={appMode === 'chat'} mode='chat' />
             <AppScreenShot show={appMode === 'advanced-chat'} mode='advanced-chat' />
             <AppScreenShot show={appMode === 'agent-chat'} mode='agent-chat' />
-            <AppScreenShot show={appMode === 'completion'} mode='completion' />
+            {/* <AppScreenShot show={appMode === 'completion'} mode='completion' /> */}
             <AppScreenShot show={appMode === 'workflow'} mode='workflow' />
           </div>
           <div className='absolute left-0 right-0 border-b border-b-divider-subtle'></div>
