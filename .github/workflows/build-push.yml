@@ -42,6 +42,9 @@ jobs:
             platform: linux/arm64
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Prepare
         run: |
           platform=${{ matrix.platform }}
