@@ -127,21 +127,21 @@ const FileUploadSetting: FC<Props> = ({
         className='mt-4'
       >
         <div className='grid grid-cols-3 gap-2'>
-          <OptionCard
+          {false && <OptionCard
             title={t('appDebug.variableConfig.localUpload')}
             selected={allowed_file_upload_methods.length === 1 && allowed_file_upload_methods.includes(TransferMethod.local_file)}
             onSelect={handleUploadMethodChange(TransferMethod.local_file)}
-          />
+          />}
           <OptionCard
             title="URL"
             selected={allowed_file_upload_methods.length === 1 && allowed_file_upload_methods.includes(TransferMethod.remote_url)}
             onSelect={handleUploadMethodChange(TransferMethod.remote_url)}
           />
-          <OptionCard
+          {false && <OptionCard
             title={t('appDebug.variableConfig.both')}
             selected={allowed_file_upload_methods.includes(TransferMethod.local_file) && allowed_file_upload_methods.includes(TransferMethod.remote_url)}
             onSelect={handleUploadMethodChange(TransferMethod.all)}
-          />
+          />}
         </div>
       </Field>
       {isMultiple && (

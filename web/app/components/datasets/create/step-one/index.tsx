@@ -136,7 +136,7 @@ const StepOne = ({
               )
             }
             {
-              shouldShowDataSourceTypeList && (
+              false && shouldShowDataSourceTypeList && (
                 <div className='grid grid-cols-3 mb-8 gap-4'>
                   <div
                     className={cn(
@@ -287,7 +287,7 @@ const StepOne = ({
                 </div>
               </>
             )}
-            {!datasetId && (
+            {false && !datasetId && (
               <>
                 <div className={s.dividerLine} />
                 <span className="inline-flex items-center cursor-pointer text-[13px] leading-4 text-text-accent" onClick={modalShowHandle}>

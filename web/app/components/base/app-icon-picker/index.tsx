@@ -113,7 +113,7 @@ const AppIconPicker: FC<AppIconPickerProps> = ({
     wrapperClassName={className}
     className={cn(s.container, '!w-[362px] !p-0')}
   >
-    {!DISABLE_UPLOAD_IMAGE_AS_ICON && <div className="p-2 pb-0 w-full">
+    {false && !DISABLE_UPLOAD_IMAGE_AS_ICON && <div className="p-2 pb-0 w-full">
       <div className='p-1 flex items-center justify-center gap-2 bg-background-body rounded-xl'>
         {tabs.map(tab => (
           <button

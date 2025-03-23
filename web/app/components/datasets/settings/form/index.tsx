@@ -197,7 +197,7 @@ const Form = () => {
           />
         </div>
       </div>
-      <div className={rowClass}>
+      {false && <div className={rowClass}>
         <div className={labelClass}>
           <div className='text-text-secondary system-sm-semibold'>{t('datasetSettings.form.permissions')}</div>
         </div>
@@ -211,7 +211,7 @@ const Form = () => {
             memberList={memberList}
           />
         </div>
-      </div>
+      </div>}
       {currentDataset && currentDataset.indexing_technique && (
         <>
           <div className='w-full h-0 border-b border-divider-subtle my-1' />

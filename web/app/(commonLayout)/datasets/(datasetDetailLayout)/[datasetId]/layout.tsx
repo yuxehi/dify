@@ -122,7 +122,7 @@ const ExtraInfo = ({ isMobile, relatedApps, expand }: IExtraInfoProps) => {
               <RiApps2AddLine className='h-4 w-4 text-text-tertiary' />
             </div>
             <div className='text-xs text-text-tertiary my-2'>{t('common.datasetMenus.emptyTip')}</div>
-            <a
+            {false && <a
               className='inline-flex items-center text-xs text-text-accent mt-2 cursor-pointer'
               href={
                 locale === LanguagesSupported[1]
@@ -133,7 +133,7 @@ const ExtraInfo = ({ isMobile, relatedApps, expand }: IExtraInfoProps) => {
             >
               <BookOpenIcon className='mr-1' />
               {t('common.datasetMenus.viewDoc')}
-            </a>
+            </a>}
           </div>
         }
       >
