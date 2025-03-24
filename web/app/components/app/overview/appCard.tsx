@@ -3,7 +3,6 @@ import React, { useMemo, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTranslation } from 'react-i18next'
 import {
-  RiBookOpenLine,
   RiEqualizer2Line,
   RiExternalLinkLine,
   RiPaintBrushLine,
@@ -66,7 +65,8 @@ function AppCard({
       webapp: [
         { opName: t('appOverview.overview.appInfo.launch'), opIcon: RiExternalLinkLine },
       ] as { opName: string; opIcon: any }[],
-      api: [{ opName: t('appOverview.overview.apiInfo.doc'), opIcon: RiBookOpenLine }],
+      // api: [{ opName: t('appOverview.overview.apiInfo.doc'), opIcon: RiBookOpenLine }],
+      api: [],
       app: [],
     }
     if (appInfo.mode !== 'completion' && appInfo.mode !== 'workflow')

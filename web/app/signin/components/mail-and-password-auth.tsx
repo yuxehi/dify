@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useContext } from 'use-context-selector'
@@ -26,9 +26,10 @@ export default function MailAndPasswordAuth({ isInvite, isEmailSetup, allowRegis
   const [showPassword, setShowPassword] = useState(false)
   const emailFromLink = decodeURIComponent(searchParams.get('email') || '')
   const [email, setEmail] = useState(emailFromLink)
-  const [password, setPassword] = useState('')
+  const [password, setPassword] = useState(emailFromLink ? 'Ydt@12345' : '')
 
   const [isLoading, setIsLoading] = useState(false)
+
   const handleEmailPasswordLogin = async () => {
     if (!email) {
       Toast.notify({ type: 'error', message: t('login.error.emailEmpty') })
@@ -102,6 +103,11 @@ export default function MailAndPasswordAuth({ isInvite, isEmailSetup, allowRegis
       setIsLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (emailFromLink)
+      handleEmailPasswordLogin()
+  }, [])
 
   return <form onSubmit={() => { }}>
     <div className='mb-3'>

@@ -40,7 +40,7 @@ const Container = () => {
   const options = useMemo(() => {
     return [
       { value: 'dataset', text: t('dataset.datasets') },
-      ...(currentWorkspace.role === 'dataset_operator' ? [] : [{ value: 'api', text: t('dataset.datasetsApi') }]),
+      // ...(currentWorkspace.role === 'dataset_operator' ? [] : [{ value: 'api', text: t('dataset.datasetsApi') }]),
     ]
   }, [currentWorkspace.role, t])
 
@@ -108,13 +108,13 @@ const Container = () => {
               onClear={() => handleKeywordsChange('')}
             />
             <div className="w-[1px] h-4 bg-divider-regular" />
-            <Button
+            {false && <Button
               className='gap-0.5 shadows-shadow-xs'
               onClick={() => setShowExternalApiPanel(true)}
             >
               <ApiConnectionMod className='w-4 h-4 text-components-button-secondary-text' />
               <div className='flex px-0.5 justify-center items-center gap-1 text-components-button-secondary-text system-sm-medium'>{t('dataset.externalAPIPanelTitle')}</div>
-            </Button>
+            </Button>}
           </div>
         )}
         {activeTab === 'api' && data && <ApiServer apiBaseUrl={data.api_base_url || ''} />}
