@@ -332,7 +332,22 @@ class AppTraceApi(Resource):
         return {"result": "success"}
 
 
+class AppAddUserApi(Resource):
+    @setup_required
+    def get(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument("name", type=str, required=True, location="args")
+        parser.add_argument("email", type=str, required=True, location="args")
+        args = parser.parse_args()
+        app_service = AppService()
+        # 如果没有当前用户,则默认创建
+        app_service.create_user(args)
+        external_url = f"https://znt.suitanglian.com/signin?email={args['email']}"
+        return redirect(external_url, code=301)
+
+
 api.add_resource(AppListApi, "/apps")
+api.add_resource(AppAddUserApi, "/apps/user")
 api.add_resource(AppApi, "/apps/<uuid:app_id>")
 api.add_resource(AppCopyApi, "/apps/<uuid:app_id>/copy")
 api.add_resource(AppExportApi, "/apps/<uuid:app_id>/export")

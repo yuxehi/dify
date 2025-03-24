@@ -374,3 +374,46 @@ class AppService:
                         meta["tool_icons"][tool_name] = {"background": "#252525", "content": "\ud83d\ude01"}
 
         return meta
+
+    def create_user(self, args: dict) -> App:
+        """
+        添加用户接口
+        """
+        account_user = Account.query.filter_by(email=args['email']).first()
+        if not account_user:
+            account = Account()
+            account.email = args['email']
+            account.name = args['name']
+
+            # generate password salt
+            salt = secrets.token_bytes(16)
+            base64_salt = base64.b64encode(salt).decode()
+
+            # encrypt password with salt
+            password_hashed = hash_password('Ydt@12345', salt)
+            base64_password_hashed = base64.b64encode(password_hashed).decode()
+
+            account.password = base64_password_hashed
+            account.password_salt = base64_salt
+
+            account.interface_language = 'zh-Hans'
+            account.interface_theme = 'light'
+
+            # Set timezone based on language
+            account.timezone = 'Asia/Shanghai'
+
+            db.session.add(account)
+            db.session.flush()
+            # db.session.commit()
+            tenantAccountJoin = TenantAccountJoin()
+            tenantAccountJoin.tenant_id = 'e0dfb194-1d74-4a7c-880e-b3f200d6e1e2'
+            tenantAccountJoin.account_id = account.id
+            tenantAccountJoin.role = 'editor'
+
+            db.session.add(tenantAccountJoin)
+            db.session.commit()
+            return account
+        else:
+            return account_user
+
+

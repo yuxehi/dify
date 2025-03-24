@@ -11,7 +11,7 @@ class SegmentUpdateEntity(BaseModel):
     enabled: Optional[bool] = None
 
 
-class ParentMode(str, Enum):
+class ParentMode(enum.StrEnum):
     FULL_DOC = "full-doc"
     PARAGRAPH = "paragraph"
 

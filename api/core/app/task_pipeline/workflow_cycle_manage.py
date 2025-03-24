@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from typing import Any, Optional, Union, cast
 from uuid import uuid4
 
+import requests
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -54,9 +55,10 @@ from core.workflow.enums import SystemVariableKey
 from core.workflow.nodes import NodeType
 from core.workflow.nodes.tool.entities import ToolNodeData
 from core.workflow.workflow_entry import WorkflowEntry
+from extensions.ext_database import db
 from models.account import Account
 from models.enums import CreatedByRole, WorkflowRunTriggeredFrom
-from models.model import EndUser
+from models.model import App, EndUser
 from models.workflow import (
     Workflow,
     WorkflowNodeExecution,
@@ -173,6 +175,14 @@ class WorkflowCycleManage:
         workflow_run.total_steps = total_steps
         workflow_run.finished_at = datetime.now(UTC).replace(tzinfo=None)
 
+        # 更新token使用数据
+        app = db.session.query(App).filter(App.id == workflow_run.app_id).first()
+        account = db.session.query(Account).filter(Account.id == app.created_by).first()
+        requests.post(
+            "https://www.suitanglian.com:3019/api/setAgentTokens",
+            json={"email": account.email, "total_tokens": total_tokens}
+        )
+
         if trace_manager:
             trace_manager.add_trace_task(
                 TraceTask(
@@ -264,6 +274,15 @@ class WorkflowCycleManage:
             WorkflowNodeExecution.status == WorkflowNodeExecutionStatus.RUNNING.value,
         )
         ids = session.scalars(stmt).all()
+
+        # 更新token使用数据
+        app = db.session.query(App).filter(App.id == self._message.app_id).first()
+        account = db.session.query(Account).filter(Account.id == app.created_by).first()
+        requests.post(
+            "https://www.suitanglian.com:3019/api/setAgentTokens",
+            json={"email": account.email, "total_tokens": total_tokens}
+        )
+
         # Use self._get_workflow_node_execution here to make sure the cache is updated
         running_workflow_node_executions = [
             self._get_workflow_node_execution(session=session, node_execution_id=id) for id in ids if id

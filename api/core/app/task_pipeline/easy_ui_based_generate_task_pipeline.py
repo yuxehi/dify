@@ -5,6 +5,7 @@ from collections.abc import Generator
 from threading import Thread
 from typing import Optional, Union, cast
 
+import requests
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -58,7 +59,7 @@ from core.prompt.utils.prompt_message_util import PromptMessageUtil
 from core.prompt.utils.prompt_template_parser import PromptTemplateParser
 from events.message_event import message_was_created
 from extensions.ext_database import db
-from models.model import AppMode, Conversation, Message, MessageAgentThought
+from models.model import App, AppMode, Conversation, Message, MessageAgentThought
 
 logger = logging.getLogger(__name__)
 
@@ -374,6 +375,14 @@ class EasyUIBasedGenerateTaskPipeline(BasedGenerateTaskPipeline, MessageCycleMan
         message.currency = usage.currency
         message.message_metadata = (
             json.dumps(jsonable_encoder(self._task_state.metadata)) if self._task_state.metadata else None
+        )
+
+        # 更新token使用数据
+        app = db.session.query(App).filter(App.id == self._message.app_id).first()
+        account = db.session.query(Account).filter(Account.id == app.created_by).first()
+        requests.post(
+            "https://www.suitanglian.com:3019/api/setAgentTokens",
+            json={"email": account.email, "total_tokens": usage.prompt_tokens + usage.completion_tokens}
         )
 
         if trace_manager:
