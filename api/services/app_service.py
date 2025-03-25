@@ -8,7 +8,6 @@ from typing import Optional, cast
 from flask_login import current_user  # type: ignore
 from flask_sqlalchemy.pagination import Pagination
 
-from libs.password import compare_password, hash_password, valid_password
 from configs import dify_config
 from constants.model_template import default_app_templates
 from core.agent.entities import AgentToolEntity
@@ -21,10 +20,8 @@ from core.tools.tool_manager import ToolManager
 from core.tools.utils.configuration import ToolParameterConfigurationManager
 from events.app_event import app_was_created
 from extensions.ext_database import db
-from models.account import (
-    Account,
-    TenantAccountJoin
-)
+from libs.password import hash_password
+from models.account import Account, TenantAccountJoin
 from models.model import App, AppMode, AppModelConfig
 from models.tools import ApiToolProvider
 from services.tag_service import TagService

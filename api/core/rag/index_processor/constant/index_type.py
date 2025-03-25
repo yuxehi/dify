@@ -1,5 +1,6 @@
 import enum
 
+
 class IndexType(enum.StrEnum):
     PARAGRAPH_INDEX = "text_model"
     QA_INDEX = "qa_model"
