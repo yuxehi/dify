@@ -1,11 +1,14 @@
+import base64
 import json
 import logging
+import secrets
 from datetime import UTC, datetime
 from typing import Optional, cast
 
 from flask_login import current_user  # type: ignore
 from flask_sqlalchemy.pagination import Pagination
 
+from libs.password import compare_password, hash_password, valid_password
 from configs import dify_config
 from constants.model_template import default_app_templates
 from core.agent.entities import AgentToolEntity
@@ -18,7 +21,10 @@ from core.tools.tool_manager import ToolManager
 from core.tools.utils.configuration import ToolParameterConfigurationManager
 from events.app_event import app_was_created
 from extensions.ext_database import db
-from models.account import Account
+from models.account import (
+    Account,
+    TenantAccountJoin
+)
 from models.model import App, AppMode, AppModelConfig
 from models.tools import ApiToolProvider
 from services.tag_service import TagService
@@ -34,7 +40,7 @@ class AppService:
         :param args: request args
         :return:
         """
-        filters = [App.tenant_id == tenant_id, App.is_universal == False]
+        filters = [App.tenant_id == tenant_id, App.is_universal == False, App.created_by == user_id]
 
         if args["mode"] == "workflow":
             filters.append(App.mode.in_([AppMode.WORKFLOW.value, AppMode.COMPLETION.value]))
@@ -379,7 +385,7 @@ class AppService:
         """
         添加用户接口
         """
-        account_user = Account.query.filter_by(email=args['email']).first()
+        account_user = db.session.query(Account).filter_by(email=args['email']).first()
         if not account_user:
             account = Account()
             account.email = args['email']
@@ -406,7 +412,7 @@ class AppService:
             db.session.flush()
             # db.session.commit()
             tenantAccountJoin = TenantAccountJoin()
-            tenantAccountJoin.tenant_id = 'e0dfb194-1d74-4a7c-880e-b3f200d6e1e2'
+            tenantAccountJoin.tenant_id = '6169e57c-065f-4170-8411-d13b1363ad3f'
             tenantAccountJoin.account_id = account.id
             tenantAccountJoin.role = 'editor'
 

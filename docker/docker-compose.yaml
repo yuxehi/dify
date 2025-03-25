@@ -361,7 +361,7 @@ x-shared-env: &shared-api-worker-env
   OPENSEARCH_NOFILE_SOFT: ${OPENSEARCH_NOFILE_SOFT:-65536}
   OPENSEARCH_NOFILE_HARD: ${OPENSEARCH_NOFILE_HARD:-65536}
   NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-_}
-  NGINX_HTTPS_ENABLED: ${NGINX_HTTPS_ENABLED:-false}
+  NGINX_HTTPS_ENABLED: ${NGINX_HTTPS_ENABLED:-true}
   NGINX_PORT: ${NGINX_PORT:-80}
   NGINX_SSL_PORT: ${NGINX_SSL_PORT:-443}
   NGINX_SSL_CERT_FILENAME: ${NGINX_SSL_CERT_FILENAME:-dify.crt}
@@ -509,6 +509,8 @@ services:
       interval: 1s
       timeout: 3s
       retries: 30
+    ports:
+      - '${EXPOSE_DB_PORT:-5432}:5432'
 
   # The redis cache.
   redis:
@@ -634,7 +636,7 @@ services:
     entrypoint: [ 'sh', '-c', "cp /docker-entrypoint-mount.sh /docker-entrypoint.sh && sed -i 's/\r$$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh && /docker-entrypoint.sh" ]
     environment:
       NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-_}
-      NGINX_HTTPS_ENABLED: ${NGINX_HTTPS_ENABLED:-false}
+      NGINX_HTTPS_ENABLED: ${NGINX_HTTPS_ENABLED:-true}
       NGINX_SSL_PORT: ${NGINX_SSL_PORT:-443}
       NGINX_PORT: ${NGINX_PORT:-80}
       # You're required to add your own SSL certificates/keys to the `./nginx/ssl` directory
