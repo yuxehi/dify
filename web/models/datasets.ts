@@ -21,6 +21,16 @@ export enum ChunkingMode {
   parentChild = 'hierarchical_model', // Parent-Child
 }
 
+export type FileSet = {
+  id: string,
+  name: string,
+  size: number,
+  extension: string,
+  mime_type: string,
+  created_by: string,
+  created_at: number
+}
+
 export type DataSet = {
   id: string
   name: string

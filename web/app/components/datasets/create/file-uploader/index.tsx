@@ -129,6 +129,8 @@ const FileUploader = ({
         }
         const index = fileListRef.current.findIndex(item => item.fileID === fileItem.fileID)
         fileListRef.current[index] = completeFile
+        console.log('上传文件咯')
+        console.log(completeFile, 100, fileListRef.current)
         onFileUpdate(completeFile, 100, fileListRef.current)
         return Promise.resolve({ ...completeFile })
       })
