@@ -6,9 +6,8 @@ import { useGetState, useInfiniteScroll } from 'ahooks'
 import { useTranslation } from 'react-i18next'
 import TypeIcon from '../type-icon'
 import Modal from '@/app/components/base/modal'
-import type { CustomFile as File, FileItem, FileSet } from '@/models/datasets'
+import type { CustomFile as File, FileItem } from '@/models/datasets'
 import Button from '@/app/components/base/button'
-import Loading from '@/app/components/base/loading'
 import { useKnowledge } from '@/hooks/use-knowledge'
 import cn from '@/utils/classnames'
 import DocumentFileIcon from '@/app/components/datasets/common/document-file-icon'
@@ -24,6 +23,7 @@ export type ISelectDataSetProps = {
   onSelect: (files: FileItem[]) => void
   onPreview: (file: File) => void
   selectedFiles: FileItem[]
+  onFileListUpdate?: (files: FileItem[]) => void
 }
 
 const SelectDataSet: FC<ISelectDataSetProps> = ({
@@ -33,11 +33,12 @@ const SelectDataSet: FC<ISelectDataSetProps> = ({
   onPreview,
   onSelect,
   selectedFiles,
+  onFileListUpdate,
 }) => {
   const { t } = useTranslation()
-  const [selected, setSelected] = React.useState<FileSet[]>([])
+  const [selected, setSelected] = React.useState<File[]>([])
   const [loaded, setLoaded] = React.useState(false)
-  const [datasets, setDataSets] = React.useState<FileSet[] | null>(null)
+  const [datasets, setDataSets] = React.useState<File[] | null>(null)
   const hasNoData = !datasets || datasets?.length === 0
   const canSelectMulti = true
 
@@ -48,28 +49,6 @@ const SelectDataSet: FC<ISelectDataSetProps> = ({
 
   useInfiniteScroll(
     async () => {
-      if (!isNoMore) {
-        // const { data, has_more } = await fetchDatasets({ url: '/datasets', params: { page } })
-        // setPage(getPage() + 1)
-        // setIsNoMore(!has_more)
-        // const newList = [...(datasets || []), ...data.filter(item => item.indexing_technique || item.provider === 'external')]
-        // setDataSets(newList)
-        // setLoaded(true)
-        // if (!selected.find(item => !item.name))
-        //   return { list: [] }
-        //
-        // const newSelected = produce(selected, (draft) => {
-        //   selected.forEach((item, index) => {
-        //     if (!item.name) { // not fetched database
-        //       const newItem = newList.find(i => i.id === item.id)
-        //       if (newItem){
-        //         draft[index] = newItem
-        //       }
-        //     }
-        //   })
-        // })
-        // setSelected(newSelected)
-      }
       return { list: [] }
     },
     {
@@ -81,7 +60,7 @@ const SelectDataSet: FC<ISelectDataSetProps> = ({
     },
   )
 
-  const toggleSelect = (dataSet: FileSet) => {
+  const toggleSelect = (dataSet: File) => {
     const isSelected = selected.some(item => item.id === dataSet.id)
     if (isSelected) {
       setSelected(selected.filter(item => item.id !== dataSet.id))
@@ -95,6 +74,12 @@ const SelectDataSet: FC<ISelectDataSetProps> = ({
   }
 
   const handleSelect = () => {
+    const newList = selected.map((file) => {
+      const { created_at } = file
+      return { file, fileID: `file0-${created_at}`, progress: 100 }
+    })
+    onFileListUpdate?.(newList)
+    onClose()
   }
 
   // utils
@@ -114,33 +99,40 @@ const SelectDataSet: FC<ISelectDataSetProps> = ({
   }
 
   const removeFile = (fileID: string) => {
+    const newSelected = selected.filter(({ created_at }) => `file0-${created_at}` !== fileID)
+    const newList = newSelected.map((file) => {
+      const { created_at } = file
+      return { file, fileID: `file0-${created_at}`, progress: 100 }
+    })
+    setSelected(newSelected)
+    onFileListUpdate?.(newList)
   }
 
   const { theme } = useTheme()
   const chartColor = useMemo(() => theme === Theme.dark ? '#5289ff' : '#296dff', [theme])
 
-  const candidateFileList: FileSet[] = [
+  const candidateFileList: File[] = [
     {
-      id: '83472087-d46e-4e56-bebc-3b751c61623a',
-      name: '女装店铺全店宝贝数据.xlsx',
-      size: 20394,
-      extension: 'xlsx',
-      mime_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      created_by: '005f6d83-d33e-4fde-894b-408ee2211cb8',
-      created_at: 1748507118,
-    },
-    {
-      id: 'a8276524-f13d-4fa6-920e-e8c04f68c042',
+      id: '55819c23-96d4-487b-b7f9-821d5e2eec66',
       name: '女装店铺客服常见问题回复.xlsx',
       size: 14283,
       extension: 'xlsx',
       mime_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      created_by: '005f6d83-d33e-4fde-894b-408ee2211cb8',
-      created_at: 1748595763,
+      created_by: '8dc5bfc4-2d2b-4c22-861d-8f85498c4f53',
+      created_at: 1748882627,
+    },
+    {
+      id: '353f2b30-9df8-48bc-95cf-df9fd466ae99',
+      name: '女装店铺全店宝贝数据.xlsx',
+      size: 20394,
+      extension: 'xlsx',
+      mime_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      created_by: '8dc5bfc4-2d2b-4c22-861d-8f85498c4f53',
+      created_at: 1748882631,
     },
   ]
   return (
-    <div className="mb-5">
+    <div className="mb-5 w-[640px]">
       <div className='space-y-1 max-w-[640px] cursor-default'>
         {fileList.map((fileItem, index) => (
           <div
@@ -190,12 +182,6 @@ const SelectDataSet: FC<ISelectDataSetProps> = ({
         ))}
       </div>
       <Modal isShow={isShow} onClose={onClose} className='w-[400px]' title={t('appDebug.feature.dataSet.selectTitle')}>
-        {!loaded && (
-          <div className='flex h-[200px]'>
-            <Loading type='area'/>
-          </div>
-        )}
-
         {candidateFileList && candidateFileList?.length > 0 && (
           <>
             <div ref={listRef} className='mt-7 space-y-1 max-h-[286px] overflow-y-auto'>
@@ -221,17 +207,15 @@ const SelectDataSet: FC<ISelectDataSetProps> = ({
             </div>
           </>
         )}
-        {loaded && (
-          <div className='flex justify-between items-center mt-8'>
-            <div className='text-sm  font-medium text-text-secondary'>
-              {selected.length > 0 && `${selected.length} ${t('appDebug.feature.dataSet.selected')}`}
-            </div>
-            <div className='flex space-x-2'>
-              <Button onClick={onClose}>{t('common.operation.cancel')}</Button>
-              <Button variant='primary' onClick={handleSelect}>{t('common.operation.add')}</Button>
-            </div>
+        <div className='flex justify-between items-center mt-8'>
+          <div className='text-sm  font-medium text-text-secondary'>
+            {selected.length > 0 && `${selected.length} ${t('appDebug.feature.dataSet.selected')}`}
           </div>
-        )}
+          <div className='flex space-x-2'>
+            <Button onClick={onClose}>{t('common.operation.cancel')}</Button>
+            <Button variant='primary' onClick={handleSelect}>{t('common.operation.add')}</Button>
+          </div>
+        </div>
       </Modal>
     </div>
   )

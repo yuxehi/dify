@@ -3,7 +3,6 @@ import React, { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RiArrowRightLine, RiFolder6Line } from '@remixicon/react'
 import FilePreview from '../file-preview'
-import FileUploader from '../file-uploader'
 import FileChooser from '../file-chooser'
 import NotionPagePreview from '../notion-page-preview'
 import EmptyDatasetCreationModal from '../empty-dataset-creation-modal'
@@ -207,28 +206,27 @@ const StepOne = ({
             }
             {dataSourceType === DataSourceType.FILE && (
               <>
-                <FileUploader
-                  fileList={files}
-                  titleClassName={!shouldShowDataSourceTypeList ? 'mt-[30px] !mb-[44px] !text-lg !font-semibold !text-gray-900' : undefined}
-                  prepareFileList={updateFileList}
-                  onFileListUpdate={updateFileList}
-                  onFileUpdate={updateFile}
-                  onPreview={updateCurrentFile}
-                  notSupportBatchUpload={notSupportBatchUpload}
-                />
+                {/* <FileUploader */}
+                {/*  fileList={files} */}
+                {/*  titleClassName={!shouldShowDataSourceTypeList ? 'mt-[30px] !mb-[44px] !text-lg !font-semibold !text-gray-900' : undefined} */}
+                {/*  prepareFileList={updateFileList} */}
+                {/*  onFileListUpdate={updateFileList} */}
+                {/*  onFileUpdate={updateFile} */}
+                {/*  onPreview={updateCurrentFile} */}
+                {/*  notSupportBatchUpload={notSupportBatchUpload} */}
+                {/* /> */}
                 <Button variant="primary" className="mb-4" onClick={showSelectDataSet}>
                   {'选择文件'}
                 </Button>
-                {isShowSelectDataSet && (
-                  <FileChooser
-                    fileList={files}
-                    isShow={isShowSelectDataSet}
-                    onClose={hideSelectDataSet}
-                    onSelect={updateFileList}
-                    onPreview={updateCurrentFile}
-                    selectedFiles={files}
-                  />
-                )}
+                <FileChooser
+                  fileList={files}
+                  isShow={isShowSelectDataSet}
+                  onClose={hideSelectDataSet}
+                  onSelect={updateFileList}
+                  onPreview={updateCurrentFile}
+                  selectedFiles={files}
+                  onFileListUpdate={updateFileList}
+                />
                 {isShowVectorSpaceFull && (
                   <div className='max-w-[640px] mb-4'>
                     <VectorSpaceFull/>
