@@ -215,16 +215,14 @@ const StepOne = ({
                 {/*  onPreview={updateCurrentFile} */}
                 {/*  notSupportBatchUpload={notSupportBatchUpload} */}
                 {/* /> */}
-                <Button variant="primary" className="mb-4" onClick={showSelectDataSet}>
+                <Button variant="primary" className="mb-4 w-full" onClick={showSelectDataSet}>
                   {'选择文件'}
                 </Button>
                 <FileChooser
                   fileList={files}
                   isShow={isShowSelectDataSet}
                   onClose={hideSelectDataSet}
-                  onSelect={updateFileList}
                   onPreview={updateCurrentFile}
-                  selectedFiles={files}
                   onFileListUpdate={updateFileList}
                 />
                 {isShowVectorSpaceFull && (

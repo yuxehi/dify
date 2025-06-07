@@ -117,6 +117,22 @@ export type CustomFile = File & {
   created_at?: number
 }
 
+export type MyFile = {
+  id?: string
+  extension?: string
+  mime_type?: string
+  created_by?: string
+  created_at?: number
+  name?: string
+  size?: number
+}
+
+export type ResFileList = {
+  code?: string
+  message?: string
+  data?: MyFile[]
+}
+
 export type DocumentItem = {
   id: string
   name: string
