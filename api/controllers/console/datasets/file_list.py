@@ -10,6 +10,7 @@ from libs.login import login_required
 
 logger = logging.getLogger(__name__)
 
+
 class FileListApi(Resource):
     @setup_required
     @login_required
@@ -19,7 +20,7 @@ class FileListApi(Resource):
         # 外部 POST 接口地址
         url = 'https://www.suitanglian.com:3019/api/ai_general_education/unifiedUtilFunction_PPT'
         # 请求体
-        payload = {"funcName":"GetFileList", "options":{"email": email}}
+        payload = {"funcName": "GetFileList", "options": {"email": email}}
         try:
             resp = requests.post(url, json=payload)
             resp.raise_for_status()
