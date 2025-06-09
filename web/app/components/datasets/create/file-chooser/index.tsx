@@ -152,7 +152,7 @@ const SelectDataSet: FC<ISelectDataSetProps> = ({
           </div>
         ))}
       </div>
-      <Modal isShow={isShow} onClose={onClose} className='w-[400px]' title={t('appDebug.feature.dataSet.selectTitle')}>
+      <Modal isShow={isShow} onClose={onClose} className='w-[400px]' title={t('datasetCreation.stepOne.uploader.browse')}>
         {candidateFileList && candidateFileList?.length > 0 && (
           <>
             <div ref={listRef} className='mt-7 space-y-1 max-h-[286px] overflow-y-auto'>

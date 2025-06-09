@@ -234,7 +234,7 @@ const StepOne = ({
                   notSupportBatchUpload={notSupportBatchUpload}
                 />}
                 <Button variant="primary" className="mb-4 w-full" onClick={showSelectDataSet}>
-                  {'选择文件'}
+                  {t('datasetCreation.stepOne.uploader.browse')}
                 </Button>
                 <FileChooser
                   fileList={files}
