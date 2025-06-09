@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useBoolean } from 'ahooks'
 import { useSelectedLayoutSegment } from 'next/navigation'
@@ -7,6 +7,10 @@ import { Bars3Icon } from '@heroicons/react/20/solid'
 import AccountDropdown from './account-dropdown'
 import AppNav from './app-nav'
 import DatasetNav from './dataset-nav'
+import EnvNav from './env-nav'
+import PluginsNav from './plugins-nav'
+import ExploreNav from './explore-nav'
+import ToolsNav from './tools-nav'
 import { WorkspaceProvider } from '@/context/workspace-context'
 import { useAppContext } from '@/context/app-context'
 import LogoSite from '@/app/components/base/logo/logo-site'
@@ -17,6 +21,7 @@ import { useModalContext } from '@/context/modal-context'
 import PlanBadge from './plan-badge'
 import LicenseNav from './license-env'
 import { Plan } from '../billing/type'
+import { fetchMembers } from '@/service/common'
 
 const navClassName = `
   flex items-center relative mr-0 sm:mr-3 px-3 h-8 rounded-xl
@@ -39,11 +44,25 @@ const Header = () => {
     else
       setShowAccountSettingModal({ payload: 'billing' })
   }, [isFreePlan, setShowAccountSettingModal, setShowPricingModal])
+  const { userProfile: { id } } = useAppContext()
+  const [isOwner, setIsOwner] = useState(false)
 
   useEffect(() => {
+    (async () => {
+      try {
+        const { accounts } = await fetchMembers({ url: '/workspaces/current/members', params: {} })
+        if (!accounts) return
+        const currentUser = accounts.find(account => account.id === id)
+        setIsOwner(currentUser?.role === 'owner')
+      }
+      catch (e) {
+        console.log(e)
+      }
+    })()
     hideNavMenu()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSegment])
+  }, [selectedSegment, id])
+
   return (
     <div className='flex flex-1 items-center justify-between px-4 bg-background-body'>
       <div className='flex items-center'>
@@ -54,7 +73,7 @@ const Header = () => {
           <Bars3Icon className="h-4 w-4 text-gray-500" />
         </div>}
         {
-          false && !isMobile
+          isOwner && !isMobile
           && <div className='flex w-64 p-2 pl-3 gap-1.5 items-center shrink-0 self-stretch'>
             <Link href="/apps" className='flex w-8 h-8 items-center justify-center gap-2 shrink-0'>
               <LogoSite className='object-contain' />
@@ -81,27 +100,27 @@ const Header = () => {
       {
         !isMobile && (
           <div className='flex items-center'>
-            {/* {!isCurrentWorkspaceDatasetOperator && <ExploreNav className={navClassName} />} */}
+            {isOwner && !isCurrentWorkspaceDatasetOperator && <ExploreNav className={navClassName} />}
             {!isCurrentWorkspaceDatasetOperator && <AppNav />}
             {(isCurrentWorkspaceEditor || isCurrentWorkspaceDatasetOperator) && <DatasetNav />}
-            {/* {!isCurrentWorkspaceDatasetOperator && <ToolsNav className={navClassName} />} */}
+            {isOwner && !isCurrentWorkspaceDatasetOperator && <ToolsNav className={navClassName} />}
           </div>
         )
       }
       <div className='flex items-center shrink-0'>
-        {/* <EnvNav /> */}
-        {/* <div className='mr-3'> */}
-        {/*   <PluginsNav /> */}
-        {/* </div> */}
-        <AccountDropdown isMobile={isMobile} />
+        {isOwner && <EnvNav/>}
+        {isOwner && <div className='mr-3'>
+          <PluginsNav/>
+        </div>}
+        <AccountDropdown isOwner={isOwner} isMobile={isMobile} />
       </div>
       {
         (isMobile && isShowNavMenu) && (
           <div className='w-full flex flex-col p-2 gap-y-1'>
-            {/* {!isCurrentWorkspaceDatasetOperator && <ExploreNav className={navClassName} />} */}
+            {isOwner && !isCurrentWorkspaceDatasetOperator && <ExploreNav className={navClassName} />}
             {!isCurrentWorkspaceDatasetOperator && <AppNav />}
             {(isCurrentWorkspaceEditor || isCurrentWorkspaceDatasetOperator) && <DatasetNav />}
-            {/* {!isCurrentWorkspaceDatasetOperator && <ToolsNav className={navClassName} />} */}
+            {isOwner && !isCurrentWorkspaceDatasetOperator && <ToolsNav className={navClassName} />}
           </div>
         )
       }

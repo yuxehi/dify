@@ -5,11 +5,8 @@ import click
 from celery import shared_task  # type: ignore
 
 from core.rag.index_processor.index_processor_factory import IndexProcessorFactory
-from core.tools.utils.web_reader_tool import get_image_upload_file_ids
 from extensions.ext_database import db
-from extensions.ext_storage import storage
 from models.dataset import Dataset, DocumentSegment
-from models.model import UploadFile
 
 
 @shared_task(queue="dataset")
@@ -40,30 +37,33 @@ def batch_clean_document_task(document_ids: list[str], dataset_id: str, doc_form
             index_processor.clean(dataset, index_node_ids, with_keywords=True, delete_child_chunks=True)
 
             for segment in segments:
-                image_upload_file_ids = get_image_upload_file_ids(segment.content)
-                for upload_file_id in image_upload_file_ids:
-                    image_file = db.session.query(UploadFile).filter(UploadFile.id == upload_file_id).first()
-                    try:
-                        if image_file and image_file.key:
-                            storage.delete(image_file.key)
-                    except Exception:
-                        logging.exception(
-                            "Delete image_files failed when storage deleted, \
-                                          image_upload_file_is: {}".format(upload_file_id)
-                        )
-                    db.session.delete(image_file)
+                # xuut 不再删除文件
+                #                 image_upload_file_ids = get_image_upload_file_ids(segment.content)
+                #                 for upload_file_id in image_upload_file_ids:
+                #                     image_file = db.session.query(UploadFile)
+                #                                   .filter(UploadFile.id == upload_file_id).first()
+                #                     try:
+                #                         if image_file and image_file.key:
+                #                             storage.delete(image_file.key)
+                #                     except Exception:
+                #                         logging.exception(
+                #                             "Delete image_files failed when storage deleted, \
+                #                                           image_upload_file_is: {}".format(upload_file_id)
+                #                         )
+                #                     db.session.delete(image_file)
                 db.session.delete(segment)
 
             db.session.commit()
-        if file_ids:
-            files = db.session.query(UploadFile).filter(UploadFile.id.in_(file_ids)).all()
-            for file in files:
-                try:
-                    storage.delete(file.key)
-                except Exception:
-                    logging.exception("Delete file failed when document deleted, file_id: {}".format(file.id))
-                db.session.delete(file)
-            db.session.commit()
+        # xuut 不再删除文件
+        #         if file_ids:
+        #             files = db.session.query(UploadFile).filter(UploadFile.id.in_(file_ids)).all()
+        #             for file in files:
+        #                 try:
+        #                     storage.delete(file.key)
+        #                 except Exception:
+        #                     logging.exception("Delete file failed when document deleted, file_id: {}".format(file.id))
+        #                 db.session.delete(file)
+        #             db.session.commit()
 
         end_at = time.perf_counter()
         logging.info(

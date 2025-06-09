@@ -30,7 +30,6 @@ from core.rag.splitter.fixed_text_splitter import (
     FixedRecursiveCharacterTextSplitter,
 )
 from core.rag.splitter.text_splitter import TextSplitter
-from core.tools.utils.rag_web_reader import get_image_upload_file_ids
 from extensions.ext_database import db
 from extensions.ext_redis import redis_client
 from extensions.ext_storage import storage
@@ -310,18 +309,19 @@ class IndexingRunner:
                         preview_texts.append(preview_detail)
 
                 # delete image files and related db records
-                image_upload_file_ids = get_image_upload_file_ids(document.page_content)
-                for upload_file_id in image_upload_file_ids:
-                    image_file = db.session.query(UploadFile).filter(UploadFile.id == upload_file_id).first()
-                    try:
-                        if image_file:
-                            storage.delete(image_file.key)
-                    except Exception:
-                        logging.exception(
-                            "Delete image_files failed while indexing_estimate, \
-                                          image_upload_file_is: {}".format(upload_file_id)
-                        )
-                    db.session.delete(image_file)
+                # xuut 不再删除文件
+        #                 image_upload_file_ids = get_image_upload_file_ids(document.page_content)
+        #                 for upload_file_id in image_upload_file_ids:
+        #                     image_file = db.session.query(UploadFile).filter(UploadFile.id == upload_file_id).first()
+        #                     try:
+        #                         if image_file:
+        #                             storage.delete(image_file.key)
+        #                     except Exception:
+        #                         logging.exception(
+        #                             "Delete image_files failed while indexing_estimate, \
+        #                                           image_upload_file_is: {}".format(upload_file_id)
+        #                         )
+        #                     db.session.delete(image_file)
 
         if doc_form and doc_form == "qa_model":
             return IndexingEstimate(total_segments=total_segments * 20, qa_preview=preview_texts, preview=[])

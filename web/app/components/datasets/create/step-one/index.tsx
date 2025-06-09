@@ -1,8 +1,9 @@
 'use client'
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RiArrowRightLine, RiFolder6Line } from '@remixicon/react'
 import FilePreview from '../file-preview'
+import FileUploader from '../file-uploader'
 import FileChooser from '../file-chooser'
 import NotionPagePreview from '../notion-page-preview'
 import EmptyDatasetCreationModal from '../empty-dataset-creation-modal'
@@ -20,6 +21,8 @@ import { useProviderContext } from '@/context/provider-context'
 import VectorSpaceFull from '@/app/components/billing/vector-space-full'
 import classNames from '@/utils/classnames'
 import { useBoolean } from 'ahooks'
+import { fetchMembers } from '@/service/common'
+import { useAppContext } from '@/context/app-context'
 
 type IStepOneProps = {
   datasetId?: string
@@ -85,6 +88,8 @@ const StepOne = ({
   const [currentWebsite, setCurrentWebsite] = useState<CrawlResultItem | undefined>()
   const [isShowSelectDataSet, { setTrue: showSelectDataSet, setFalse: hideSelectDataSet }] = useBoolean(false)
   const { t } = useTranslation()
+  const { userProfile: { id } } = useAppContext()
+  const [isOwner, setIsOwner] = useState(false)
 
   const modalShowHandle = () => setShowModal(true)
   const modalCloseHandle = () => setShowModal(false)
@@ -108,6 +113,19 @@ const StepOne = ({
     setCurrentWebsite(undefined)
   }
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const { accounts } = await fetchMembers({ url: '/workspaces/current/members', params: {} })
+        if (!accounts) return
+        const currentUser = accounts.find(account => account.id === id)
+        setIsOwner(currentUser?.role === 'owner')
+      }
+      catch (e) {
+        console.log(e)
+      }
+    })()
+  }, [id])
   const shouldShowDataSourceTypeList = !datasetId || (datasetId && !dataset?.data_source_type)
   const isInCreatePage = shouldShowDataSourceTypeList
   const dataSourceType = isInCreatePage ? inCreatePageDataSourceType : dataset?.data_source_type
@@ -139,7 +157,7 @@ const StepOne = ({
               )
             }
             {
-              false && shouldShowDataSourceTypeList && (
+              isOwner && shouldShowDataSourceTypeList && (
                 <div className='grid grid-cols-3 mb-8 gap-4'>
                   <div
                     className={cn(
@@ -206,15 +224,15 @@ const StepOne = ({
             }
             {dataSourceType === DataSourceType.FILE && (
               <>
-                {/* <FileUploader */}
-                {/*  fileList={files} */}
-                {/*  titleClassName={!shouldShowDataSourceTypeList ? 'mt-[30px] !mb-[44px] !text-lg !font-semibold !text-gray-900' : undefined} */}
-                {/*  prepareFileList={updateFileList} */}
-                {/*  onFileListUpdate={updateFileList} */}
-                {/*  onFileUpdate={updateFile} */}
-                {/*  onPreview={updateCurrentFile} */}
-                {/*  notSupportBatchUpload={notSupportBatchUpload} */}
-                {/* /> */}
+                {isOwner && <FileUploader
+                  fileList={files}
+                  titleClassName={!shouldShowDataSourceTypeList ? 'mt-[30px] !mb-[44px] !text-lg !font-semibold !text-gray-900' : undefined}
+                  prepareFileList={updateFileList}
+                  onFileListUpdate={updateFileList}
+                  onFileUpdate={updateFile}
+                  onPreview={updateCurrentFile}
+                  notSupportBatchUpload={notSupportBatchUpload}
+                />}
                 <Button variant="primary" className="mb-4 w-full" onClick={showSelectDataSet}>
                   {'选择文件'}
                 </Button>
@@ -302,7 +320,7 @@ const StepOne = ({
                 </div>
               </>
             )}
-            {false && !datasetId && (
+            {isOwner && !datasetId && (
               <>
                 <div className={s.dividerLine}/>
                 <span className="inline-flex items-center cursor-pointer text-[13px] leading-4 text-text-accent"

@@ -1,8 +1,8 @@
 'use client'
 import type { FC } from 'react'
+import { useEffect } from 'react'
 import { useMemo } from 'react'
-import React, { useRef, useState } from 'react'
-import { useInfiniteScroll } from 'ahooks'
+import React, { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import TypeIcon from '../type-icon'
 import Modal from '@/app/components/base/modal'
@@ -38,35 +38,29 @@ const SelectDataSet: FC<ISelectDataSetProps> = ({
   const canSelectMulti = true
 
   const listRef = useRef<HTMLDivElement>(null)
-  const [isNoMore, setIsNoMore] = useState(false)
   const { userProfile: { email } } = useAppContext()
 
-  useInfiniteScroll(
-    async () => {
-      if (!isNoMore) {
-        setIsNoMore(true)
-        try {
-          const { data = [] }: ResFileList = await fetchFileList(email)
-          const fileList = data.map((item) => {
-            const { name = '', mime_type, created_at } = item
-            const blob = new Blob([], { type: mime_type })
-            return {
-              ...item,
-              ...new File([blob], name, { type: mime_type, lastModified: created_at }),
-            } as CustomFile
-          })
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data = [] }: ResFileList = await fetchFileList(email)
+        const fileList = data.map((item) => {
+          const { name = '', mime_type, created_at } = item
+          const blob = new Blob([], { type: mime_type })
+          return {
+            ...item,
+            ...new File([blob], name, { type: mime_type, lastModified: created_at }),
+          } as CustomFile
+        })
 
-          setCandidateFileList(fileList)
-        }
-        catch (e) {
-          console.log(e)
-          setCandidateFileList([])
-        }
+        setCandidateFileList(fileList)
       }
-      return { list: [] }
-    },
-    { target: listRef, isNoMore: () => isNoMore, reloadDeps: [isNoMore] },
-  )
+      catch (e) {
+        console.log(e)
+        setCandidateFileList([])
+      }
+    })()
+  }, [email])
 
   const toggleSelect = (dataSet: CustomFile) => {
     const isSelected = selected.some(item => item.id === dataSet.id)

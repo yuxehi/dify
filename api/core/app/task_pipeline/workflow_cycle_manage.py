@@ -180,7 +180,7 @@ class WorkflowCycleManage:
         account = db.session.query(Account).filter(Account.id == app.created_by).first()
         requests.post(
             "https://www.suitanglian.com:3019/api/setAgentTokens",
-            json={"email": account.email, "total_tokens": total_tokens}
+            json={"email": account.email, "total_tokens": total_tokens},
         )
 
         if trace_manager:
@@ -280,7 +280,7 @@ class WorkflowCycleManage:
         account = db.session.query(Account).filter(Account.id == app.created_by).first()
         requests.post(
             "https://www.suitanglian.com:3019/api/setAgentTokens",
-            json={"email": account.email, "total_tokens": total_tokens}
+            json={"email": account.email, "total_tokens": total_tokens},
         )
 
         # Use self._get_workflow_node_execution here to make sure the cache is updated

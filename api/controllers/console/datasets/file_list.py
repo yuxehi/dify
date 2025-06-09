@@ -18,7 +18,7 @@ class FileListApi(Resource):
     def get(self):
         email = request.args.get("email", type=str, default="")
         # 外部 POST 接口地址
-        url = 'https://www.suitanglian.com:3019/api/ai_general_education/unifiedUtilFunction_PPT'
+        url = "https://www.suitanglian.com:3019/api/ai_general_education/unifiedUtilFunction_PPT"
         # 请求体
         payload = {"funcName": "GetFileList", "options": {"email": email}}
         try:
