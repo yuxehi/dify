@@ -109,6 +109,7 @@ const translation = {
       textBlocks: '文本块',
       selectTitle: '选择引用知识库',
       selected: '个知识库被选中',
+      selected1: '个文件被选中',
       noDataSet: '未找到知识库',
       toCreate: '去创建',
       notSupportSelectMulti: '目前只支持引用一个知识库',

@@ -180,7 +180,7 @@ const SelectDataSet: FC<ISelectDataSetProps> = ({
         )}
         <div className='flex justify-between items-center mt-8'>
           <div className='text-sm  font-medium text-text-secondary'>
-            {selected.length > 0 && `${selected.length} ${t('appDebug.feature.dataSet.selected')}`}
+            {selected.length > 0 && `${selected.length} ${t('appDebug.feature.dataSet.selected1')}`}
           </div>
           <div className='flex space-x-2'>
             <Button onClick={onClose}>{t('common.operation.cancel')}</Button>
