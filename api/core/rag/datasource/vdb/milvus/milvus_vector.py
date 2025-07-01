@@ -109,7 +109,7 @@ class MilvusVector(BaseVector):
         """
         Create a collection and add texts with embeddings.
         """
-        index_params = {"metric_type": "IP", "index_type": "HNSW", "params": {"M": 8, "efConstruction": 64}}
+        index_params = {"metric_type": "IP", "index_type": "IVF_PQ", "params": {"nlist": 64, "m": 16}}
         metadatas = [d.metadata if d.metadata is not None else {} for d in texts]
         self.create_collection(embeddings, metadatas, index_params)
         self.add_texts(texts, embeddings)
