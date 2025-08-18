@@ -88,8 +88,6 @@ const StepOne = ({
   const [currentWebsite, setCurrentWebsite] = useState<CrawlResultItem | undefined>()
   const [isShowSelectDataSet, { setTrue: showSelectDataSet, setFalse: hideSelectDataSet }] = useBoolean(false)
   const { t } = useTranslation()
-  const { userProfile: { id } } = useAppContext()
-  const [isOwner, setIsOwner] = useState(false)
 
   const modalShowHandle = () => setShowModal(true)
   const modalCloseHandle = () => setShowModal(false)
@@ -112,20 +110,6 @@ const StepOne = ({
   const hideWebsitePreview = () => {
     setCurrentWebsite(undefined)
   }
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const { accounts } = await fetchMembers({ url: '/workspaces/current/members', params: {} })
-        if (!accounts) return
-        const currentUser = accounts.find(account => account.id === id)
-        setIsOwner(currentUser?.role === 'owner')
-      }
-      catch (e) {
-        console.log(e)
-      }
-    })()
-  }, [id])
   const shouldShowDataSourceTypeList = !datasetId || (datasetId && !dataset?.data_source_type)
   const isInCreatePage = shouldShowDataSourceTypeList
   const dataSourceType = isInCreatePage ? inCreatePageDataSourceType : dataset?.data_source_type
@@ -157,7 +141,7 @@ const StepOne = ({
               )
             }
             {
-              isOwner && shouldShowDataSourceTypeList && (
+              isCurrentWorkspaceOwner && shouldShowDataSourceTypeList && (
                 <div className='grid grid-cols-3 mb-8 gap-4'>
                   <div
                     className={cn(
@@ -224,7 +208,7 @@ const StepOne = ({
             }
             {dataSourceType === DataSourceType.FILE && (
               <>
-                {isOwner && <FileUploader
+                {isCurrentWorkspaceOwner && <FileUploader
                   fileList={files}
                   titleClassName={!shouldShowDataSourceTypeList ? 'mt-[30px] !mb-[44px] !text-lg !font-semibold !text-gray-900' : undefined}
                   prepareFileList={updateFileList}
@@ -320,7 +304,7 @@ const StepOne = ({
                 </div>
               </>
             )}
-            {isOwner && !datasetId && (
+            {isCurrentWorkspaceOwner && !datasetId && (
               <>
                 <div className={s.dividerLine}/>
                 <span className="inline-flex items-center cursor-pointer text-[13px] leading-4 text-text-accent"

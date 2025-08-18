@@ -31,7 +31,7 @@ class MilvusConfig(BaseModel):
     password: str  # Password for authentication
     batch_size: int = 100  # Batch size for operations
     database: str = "default"  # Database name
-    enable_hybrid_search: bool = False  # Flag to enable hybrid search
+    enable_hybrid_search: bool = True  # Flag to enable hybrid search
 
     @model_validator(mode="before")
     @classmethod
@@ -110,6 +110,12 @@ class MilvusVector(BaseVector):
         Create a collection and add texts with embeddings.
         """
         index_params = {"metric_type": "IP", "index_type": "IVF_PQ", "params": {"nlist": 64, "m": 16}}
+        # index_params = {"metric_type": "IP", "index_type": "DISKANN", "params": {
+        #     "max_degree": 56,
+        #     "search_list_size": 100,
+        #     "search_cache_budget_gb_ratio": 0.10,
+        #     "pq_code_budget_gb_ratio": 0.125
+        # }}
         metadatas = [d.metadata if d.metadata is not None else {} for d in texts]
         self.create_collection(embeddings, metadatas, index_params)
         self.add_texts(texts, embeddings)
@@ -270,6 +276,7 @@ class MilvusVector(BaseVector):
         """
         Create a new collection in Milvus with the specified schema and index parameters.
         """
+
         lock_name = "vector_indexing_lock_{}".format(self._collection_name)
         with redis_client.lock(lock_name, timeout=20):
             collection_exist_cache_key = "vector_indexing_{}".format(self._collection_name)
@@ -334,6 +341,7 @@ class MilvusVector(BaseVector):
                     schema=schema,
                     index_params=index_params_obj,
                     consistency_level=self._consistency_level,
+                    properties={"mmap.enabled":"true"},
                 )
             redis_client.set(collection_exist_cache_key, 1, ex=3600)
 
@@ -370,6 +378,7 @@ class MilvusVectorFactory(AbstractVectorFactory):
                 user=dify_config.MILVUS_USER or "",
                 password=dify_config.MILVUS_PASSWORD or "",
                 database=dify_config.MILVUS_DATABASE or "",
-                enable_hybrid_search=dify_config.MILVUS_ENABLE_HYBRID_SEARCH or False,
+                # enable_hybrid_search=dify_config.MILVUS_ENABLE_HYBRID_SEARCH or False,
+                enable_hybrid_search=True,
             ),
         )

@@ -23,10 +23,9 @@ import { IS_CLOUD_EDITION } from '@/config'
 
 export type IAppSelector = {
   isMobile: boolean
-  isOwner: boolean
 }
 
-export default function AppSelector({ isMobile, isOwner }: IAppSelector) {
+export default function AppSelector({ isMobile }: IAppSelector) {
   const itemClassName = `
     flex items-center w-full h-9 pl-3 pr-2 text-text-secondary system-md-regular
     rounded-lg hover:bg-state-base-hover cursor-pointer gap-1
@@ -74,7 +73,7 @@ export default function AppSelector({ isMobile, isOwner }: IAppSelector) {
                   <RiArrowDownSLine className="w-3 h-3 ml-1 text-text-tertiary" />
                 </>}
               </Menu.Button>
-              {isOwner && <Transition
+              {isCurrentWorkspaceOwner && <Transition
                 as={Fragment}
                 enter="transition ease-out duration-100"
                 enterFrom="transform opacity-0 scale-95"
@@ -213,7 +212,7 @@ export default function AppSelector({ isMobile, isOwner }: IAppSelector) {
         }
       </Menu>
       {
-        isOwner && aboutVisible && <AccountAbout onCancel={() => setAboutVisible(false)} langeniusVersionInfo={langeniusVersionInfo} />
+        isCurrentWorkspaceOwner && aboutVisible && <AccountAbout onCancel={() => setAboutVisible(false)} langeniusVersionInfo={langeniusVersionInfo} />
       }
     </div >
   )
