@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RiArrowRightLine, RiFolder6Line } from '@remixicon/react'
 import FilePreview from '../file-preview'
@@ -21,7 +21,6 @@ import { useProviderContext } from '@/context/provider-context'
 import VectorSpaceFull from '@/app/components/billing/vector-space-full'
 import classNames from '@/utils/classnames'
 import { useBoolean } from 'ahooks'
-import { fetchMembers } from '@/service/common'
 import { useAppContext } from '@/context/app-context'
 
 type IStepOneProps = {
@@ -88,6 +87,7 @@ const StepOne = ({
   const [currentWebsite, setCurrentWebsite] = useState<CrawlResultItem | undefined>()
   const [isShowSelectDataSet, { setTrue: showSelectDataSet, setFalse: hideSelectDataSet }] = useBoolean(false)
   const { t } = useTranslation()
+  const { isCurrentWorkspaceOwner } = useAppContext()
 
   const modalShowHandle = () => setShowModal(true)
   const modalCloseHandle = () => setShowModal(false)
