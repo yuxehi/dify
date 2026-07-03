@@ -15,6 +15,7 @@ import { useLanguage } from '../hooks'
 import PopupItem from './popup-item'
 import { XCircle } from '@/app/components/base/icons/src/vender/solid/general'
 import { useModalContext } from '@/context/modal-context'
+import { useAppContext } from '@/context/app-context'
 
 type PopupProps = {
   defaultModel?: DefaultModel
@@ -34,6 +35,7 @@ const Popup: FC<PopupProps> = ({
   const language = useLanguage()
   const [searchText, setSearchText] = useState('')
   const { setShowAccountSettingModal } = useModalContext()
+  const { isCurrentWorkspaceOwner } = useAppContext()
 
   const filteredModelList = useMemo(() => {
     return modelList.map((model) => {
@@ -106,13 +108,15 @@ const Popup: FC<PopupProps> = ({
           )
         }
       </div>
-      <div className='sticky bottom-0 px-4 py-2 flex items-center border-t border-divider-subtle cursor-pointer text-text-accent-light-mode-only bg-components-panel-bg rounded-b-lg' onClick={() => {
-        onHide()
-        setShowAccountSettingModal({ payload: 'provider' })
-      }}>
+      {isCurrentWorkspaceOwner && <div
+        className='sticky bottom-0 px-4 py-2 flex items-center border-t border-divider-subtle cursor-pointer text-text-accent-light-mode-only bg-components-panel-bg rounded-b-lg'
+        onClick={() => {
+          onHide()
+          setShowAccountSettingModal({ payload: 'provider' })
+        }}>
         <span className='system-xs-medium'>{t('common.model.settingsLink')}</span>
-        <RiArrowRightUpLine className='ml-0.5 w-3 h-3' />
-      </div>
+        <RiArrowRightUpLine className='ml-0.5 w-3 h-3'/>
+      </div>}
     </div>
   )
 }

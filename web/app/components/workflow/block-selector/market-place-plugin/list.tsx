@@ -8,6 +8,7 @@ import cn from '@/utils/classnames'
 import Link from 'next/link'
 import { marketplaceUrlPrefix } from '@/config'
 import { RiArrowRightUpLine, RiSearchLine } from '@remixicon/react'
+import { useAppContext } from '@/context/app-context'
 // import { RiArrowRightUpLine } from '@remixicon/react'
 
 type Props = {
@@ -32,6 +33,7 @@ const List = forwardRef<{ handleScroll: () => void }, Props>(({
   const hasRes = list.length > 0
   const urlWithSearchText = `${marketplaceUrlPrefix}/?q=${searchText}&tags=${tags.join(',')}`
   const nextToStickyELemRef = useRef<HTMLDivElement>(null)
+  const { isCurrentWorkspaceOwner } = useAppContext()
 
   const { handleScroll, scrollPosition } = useStickyScroll({
     wrapElemRef,
@@ -65,7 +67,7 @@ const List = forwardRef<{ handleScroll: () => void }, Props>(({
     window.open(urlWithSearchText, '_blank')
   }
 
-  if (hasFilter) {
+  if (hasFilter && isCurrentWorkspaceOwner) {
     return (
       <Link
         className='sticky bottom-0 z-10 flex h-8 px-4 py-1 system-sm-medium items-center border-t border-[0.5px] border-components-panel-border bg-components-panel-bg-blur rounded-b-lg shadow-lg text-text-accent-light-mode-only cursor-pointer'
