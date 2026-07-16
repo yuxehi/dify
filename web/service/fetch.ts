@@ -4,6 +4,7 @@ import { toast } from '@langgenius/dify-ui/toast'
 import Cookies from 'js-cookie'
 import ky, { HTTPError } from 'ky'
 import { API_PREFIX, APP_VERSION, CSRF_COOKIE_NAME, CSRF_HEADER_NAME, IS_MARKETPLACE, MARKETPLACE_API_PREFIX, PASSPORT_HEADER_NAME, PUBLIC_API_PREFIX, WEB_APP_SHARE_CODE_HEADER_NAME } from '@/config'
+import { applyTeachingAuthorization } from './teaching-auth'
 import { getWebAppAccessToken, getWebAppPassport } from './webapp-auth'
 
 const TIME_OUT = 100000
@@ -180,8 +181,13 @@ async function base<T>(url: string, options: FetchOptionType = {}, otherOptions:
   }
 
   const fetchPathname = base + (url.startsWith('/') ? url : `/${url}`)
-  if (!isMarketplaceAPI)
-    headers.set(CSRF_HEADER_NAME, Cookies.get(CSRF_COOKIE_NAME()) || '')
+  const usesTeachingAuth = !isMarketplaceAPI && !isPublicAPI && applyTeachingAuthorization(headers)
+  if (!isMarketplaceAPI) {
+    if (usesTeachingAuth)
+      headers.delete(CSRF_HEADER_NAME)
+    else
+      headers.set(CSRF_HEADER_NAME, Cookies.get(CSRF_COOKIE_NAME()) || '')
+  }
 
   if (deleteContentType)
     headers.delete('Content-Type')
@@ -211,7 +217,7 @@ async function base<T>(url: string, options: FetchOptionType = {}, otherOptions:
       headers,
       credentials: isMarketplaceAPI
         ? 'omit'
-        : (options.credentials || 'include'),
+        : usesTeachingAuth ? 'omit' : (options.credentials || 'include'),
       retry: {
         methods: [],
       },
@@ -255,20 +261,19 @@ async function base<T>(url: string, options: FetchOptionType = {}, otherOptions:
  * standard `base()` fetch wrapper.
  */
 export function postWithKeepalive(url: string, body: Record<string, unknown>): void {
-  const headers: Record<string, string> = {
+  const headers = new Headers({
     'Content-Type': ContentType.json,
     [CSRF_HEADER_NAME]: Cookies.get(CSRF_COOKIE_NAME()) || '',
-  }
+  })
 
-  // Add Authorization header if an access token is available
-  const accessToken = getWebAppAccessToken()
-  if (accessToken)
-    headers.Authorization = `Bearer ${accessToken}`
+  const usesTeachingAuth = applyTeachingAuthorization(headers)
+  if (usesTeachingAuth)
+    headers.delete(CSRF_HEADER_NAME)
 
   globalThis.fetch(url, {
     method: 'POST',
     keepalive: true,
-    credentials: 'include',
+    credentials: usesTeachingAuth ? 'omit' : 'include',
     headers,
     body: JSON.stringify(body),
   }).catch(() => {})

@@ -12,11 +12,14 @@ import NotionConnector from '@/app/components/base/notion-connector'
 import { NotionPageSelector } from '@/app/components/base/notion-page-selector'
 import { Plan } from '@/app/components/billing/type'
 import VectorSpaceFull from '@/app/components/billing/vector-space-full'
+import { useAppContext } from '@/context/app-context'
 import { useDatasetDetailContextWithSelector } from '@/context/dataset-detail'
 import { useProviderContext } from '@/context/provider-context'
 import { DataSourceType } from '@/models/datasets'
 import EmptyDatasetCreationModal from '../empty-dataset-creation-modal'
 import FileUploader from '../file-uploader'
+import StudentFileSource from '../student-file-source'
+import TeachingFileChooser from '../teaching-file-chooser'
 import Website from '../website'
 import { DataSourceTypeSelector, NextStepButton, PreviewPanel } from './components'
 import { usePreviewState } from './hooks'
@@ -89,6 +92,7 @@ const StepOne = ({
   const { t } = useTranslation()
   const dataset = useDatasetDetailContextWithSelector(state => state.dataset)
   const { plan, enableBilling } = useProviderContext()
+  const { isCurrentWorkspaceManager } = useAppContext()
 
   // Preview state management
   const {
@@ -105,6 +109,7 @@ const StepOne = ({
 
   // Empty dataset modal state
   const [showModal, { setTrue: openModal, setFalse: closeModal }] = useBoolean(false)
+  const [showTeachingFileChooser, { setTrue: openTeachingFileChooser, setFalse: closeTeachingFileChooser }] = useBoolean(false)
 
   // Plan upgrade modal state
   const [isShowPlanUpgradeModal, { setTrue: showPlanUpgradeModal, setFalse: hidePlanUpgradeModal }] = useBoolean(false)
@@ -112,10 +117,13 @@ const StepOne = ({
   // Computed values
   const shouldShowDataSourceTypeList = !datasetId || (datasetId && !dataset?.data_source_type)
   const isInCreatePage = shouldShowDataSourceTypeList
-  // Default to FILE type when no type is provided from either source
-  const dataSourceType = isInCreatePage
-    ? (inCreatePageDataSourceType ?? DataSourceType.FILE)
-    : (dataset?.data_source_type ?? DataSourceType.FILE)
+  // Teaching students use the course-platform file source exclusively. This
+  // also guards direct URLs carrying a Notion/Web source query parameter.
+  const dataSourceType = !isCurrentWorkspaceManager
+    ? DataSourceType.FILE
+    : isInCreatePage
+      ? (inCreatePageDataSourceType ?? DataSourceType.FILE)
+      : (dataset?.data_source_type ?? DataSourceType.FILE)
 
   const allFileLoaded = files.length > 0 && files.every(file => file.file.id)
   const hasNotion = notionPages.length > 0
@@ -156,6 +164,39 @@ const StepOne = ({
     doOnStepChange()
   }, [dataSourceType, doOnStepChange, files, supportBatchUpload, notionPages, showPlanUpgradeModal, websitePages])
 
+  if (!isCurrentWorkspaceManager) {
+    return (
+      <div className="h-full w-full overflow-y-auto bg-background-default-subtle">
+        <div className="mx-auto flex min-h-full w-full max-w-[760px] flex-col px-10 pt-12 pb-10">
+          <div className="mb-8 system-md-semibold text-text-secondary">
+            {t('steps.one', { ns: 'datasetCreation' })}
+          </div>
+          <StudentFileSource
+            files={files}
+            onBrowse={openTeachingFileChooser}
+            onFilesChange={updateFileList}
+          />
+          {isShowVectorSpaceFull && (
+            <div className="mt-5 w-full max-w-[680px]">
+              <VectorSpaceFull />
+            </div>
+          )}
+          <div className="mt-6 w-full max-w-[680px]">
+            <NextStepButton disabled={fileNextDisabled} onClick={onStepChange} />
+          </div>
+          {showTeachingFileChooser && (
+            <TeachingFileChooser
+              fileList={files}
+              isShow
+              onClose={closeTeachingFileChooser}
+              onFileListUpdate={updateFileList}
+            />
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="h-full w-full overflow-x-auto">
       <div className="flex h-full w-full min-w-[1440px]">
@@ -168,27 +209,31 @@ const StepOne = ({
                   <div className={cn(s.stepHeader, 'system-md-semibold text-text-secondary')}>
                     {t('steps.one', { ns: 'datasetCreation' })}
                   </div>
-                  <DataSourceTypeSelector
-                    currentType={dataSourceType}
-                    disabled={dataSourceTypeDisable}
-                    onChange={changeType}
-                    onClearPreviews={handleClearPreviews}
-                  />
+                  {isCurrentWorkspaceManager && (
+                    <DataSourceTypeSelector
+                      currentType={dataSourceType}
+                      disabled={dataSourceTypeDisable}
+                      onChange={changeType}
+                      onClearPreviews={handleClearPreviews}
+                    />
+                  )}
                 </>
               )}
 
               {/* File Data Source */}
               {dataSourceType === DataSourceType.FILE && (
                 <>
-                  <FileUploader
-                    fileList={files}
-                    titleClassName={!shouldShowDataSourceTypeList ? 'mt-[30px] mb-[44px]! text-lg!' : undefined}
-                    prepareFileList={updateFileList}
-                    onFileListUpdate={updateFileList}
-                    onFileUpdate={updateFile}
-                    onPreview={showFilePreview}
-                    supportBatchUpload={supportBatchUpload}
-                  />
+                  {isCurrentWorkspaceManager && (
+                    <FileUploader
+                      fileList={files}
+                      titleClassName={!shouldShowDataSourceTypeList ? 'mt-[30px] mb-[44px]! text-lg!' : undefined}
+                      prepareFileList={updateFileList}
+                      onFileListUpdate={updateFileList}
+                      onFileUpdate={updateFile}
+                      onPreview={showFilePreview}
+                      supportBatchUpload={supportBatchUpload}
+                    />
+                  )}
                   {isShowVectorSpaceFull && (
                     <div className="mb-4 max-w-[640px]">
                       <VectorSpaceFull />
@@ -262,7 +307,7 @@ const StepOne = ({
               )}
 
               {/* Empty Dataset Creation Link */}
-              {!datasetId && (
+              {isCurrentWorkspaceManager && !datasetId && (
                 <>
                   <div className="my-8 h-px max-w-[640px] bg-divider-regular" />
                   <span

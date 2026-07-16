@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { ACCOUNT_SETTING_TAB } from '@/app/components/header/account-setting/constants'
 import checkTaskStatus from '@/app/components/plugins/install-plugin/base/check-task-status'
 import useRefreshPluginList from '@/app/components/plugins/install-plugin/hooks/use-refresh-plugin-list'
+import { useAppContext } from '@/context/app-context'
 import { useModalContext } from '@/context/modal-context'
 import { useProviderContext } from '@/context/provider-context'
 import { systemFeaturesQueryOptions } from '@/service/system-features'
@@ -46,6 +47,7 @@ function Popup({
   onHide,
 }: PopupProps) {
   const { t } = useTranslation()
+  const { isCurrentWorkspaceManager } = useAppContext()
   const { theme } = useTheme()
   const language = useLanguage()
   const previewCardHandle = useMemo(() => createPreviewCardHandle<ModelSelectorPreviewPayload>(), [])
@@ -201,15 +203,17 @@ function Popup({
           {scopeFeatures.length > 0 && (
             <CompatibleModelsNotice />
           )}
-          <MarketplaceSection
-            marketplaceProviders={marketplaceProviders}
-            marketplaceCollapsed={marketplaceCollapsed}
-            installingProvider={installingProvider}
-            isMarketplacePluginsLoading={isMarketplacePluginsLoading}
-            theme={theme}
-            onMarketplaceCollapsedChange={setMarketplaceCollapsed}
-            onInstallPlugin={handleInstallPlugin}
-          />
+          {isCurrentWorkspaceManager && (
+            <MarketplaceSection
+              marketplaceProviders={marketplaceProviders}
+              marketplaceCollapsed={marketplaceCollapsed}
+              installingProvider={installingProvider}
+              isMarketplacePluginsLoading={isMarketplacePluginsLoading}
+              theme={theme}
+              onMarketplaceCollapsedChange={setMarketplaceCollapsed}
+              onInstallPlugin={handleInstallPlugin}
+            />
+          )}
         </div>
       </ModelSelectorScrollBody>
       <PreviewCard handle={previewCardHandle}>
@@ -221,7 +225,7 @@ function Popup({
           />
         )}
       </PreviewCard>
-      <ModelProviderSettingsFooter onOpenSettings={handleOpenSettings} />
+      {isCurrentWorkspaceManager && <ModelProviderSettingsFooter onOpenSettings={handleOpenSettings} />}
     </ModelSelectorPopupFrame>
   )
 }

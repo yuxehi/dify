@@ -2,6 +2,7 @@ import type { Socket } from 'socket.io-client'
 import type { DebugInfo, WebSocketConfig } from '../types/websocket'
 import { io } from 'socket.io-client'
 import { SOCKET_URL } from '@/config'
+import { getTeachingAccessToken } from '@/service/teaching-auth'
 
 type AckArgs = unknown[]
 
@@ -76,6 +77,7 @@ export class WebSocketClient {
     this.connecting.add(appId)
 
     const socketOptions: {
+      auth?: { token: string }
       path: string
       transports: WebSocketConfig['transports']
       withCredentials?: boolean
@@ -83,6 +85,12 @@ export class WebSocketClient {
       path: '/socket.io',
       transports: this.transports,
       withCredentials: this.withCredentials,
+    }
+
+    const teachingAccessToken = getTeachingAccessToken()
+    if (teachingAccessToken) {
+      socketOptions.auth = { token: teachingAccessToken }
+      socketOptions.withCredentials = false
     }
 
     const socket = io(this.url, socketOptions)

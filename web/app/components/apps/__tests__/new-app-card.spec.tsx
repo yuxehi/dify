@@ -18,6 +18,15 @@ vi.mock('@/context/provider-context', () => ({
   }),
 }))
 
+// Existing tests exercise the official Owner experience. Student-specific
+// visibility is covered separately so role defaults cannot hide regressions.
+const mockIsCurrentWorkspaceManager = vi.fn(() => true)
+vi.mock('@/context/app-context', () => ({
+  useAppContext: () => ({
+    isCurrentWorkspaceManager: mockIsCurrentWorkspaceManager(),
+  }),
+}))
+
 vi.mock('@/next/dynamic', () => ({
   default: (importFn: () => Promise<{ default: React.ComponentType }>) => {
     const fnString = importFn.toString()
@@ -82,6 +91,23 @@ describe('CreateAppCard', () => {
       buttons.forEach((button) => {
         expect(button).not.toBeDisabled()
       })
+    })
+
+    it('should expose only blank creation to teaching students', () => {
+      mockIsCurrentWorkspaceManager.mockReturnValueOnce(false)
+      render(<CreateAppCard ref={defaultRef} />)
+
+      expect(screen.getByText('app.newApp.startFromBlank')).toBeInTheDocument()
+      expect(screen.queryByText('app.newApp.startFromTemplate')).not.toBeInTheDocument()
+      expect(screen.queryByText('app.importDSL')).not.toBeInTheDocument()
+    })
+
+    it('should use the Dify 1.0.1 centered blank-creation action for teaching students', () => {
+      mockIsCurrentWorkspaceManager.mockReturnValueOnce(false)
+      render(<CreateAppCard ref={defaultRef} />)
+
+      expect(screen.getByRole('button', { name: 'app.newApp.startFromBlank' })).toHaveClass('grid', 'h-full', 'place-content-center', 'gap-4')
+      expect(screen.queryByText('app.createApp')).not.toBeInTheDocument()
     })
   })
 

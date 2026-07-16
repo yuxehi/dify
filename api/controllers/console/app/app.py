@@ -3,15 +3,17 @@ import re
 import uuid
 from datetime import datetime
 from typing import Any, Literal
+from urllib.parse import urlencode
 
-from flask import request
+from flask import redirect, request
 from flask_restx import Resource
 from pydantic import AliasChoices, BaseModel, Field, computed_field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from werkzeug.datastructures import MultiDict
-from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import BadRequest, Forbidden, NotFound
 
+from configs import dify_config
 from controllers.common.helpers import FileInfo
 from controllers.common.schema import register_enum_models, register_schema_models
 from controllers.console import console_ns
@@ -33,7 +35,7 @@ from core.trigger.constants import TRIGGER_NODE_TYPES
 from extensions.ext_database import db
 from fields.base import ResponseModel
 from graphon.enums import WorkflowExecutionStatus
-from libs.helper import build_icon_url, to_timestamp
+from libs.helper import EmailStr, build_icon_url, to_timestamp
 from libs.login import current_account_with_tenant, login_required
 from models import App, DatasetPermissionEnum, Workflow
 from models.model import IconType
@@ -54,6 +56,7 @@ from services.entities.knowledge_entities.knowledge_entities import (
     WeightVectorSetting,
 )
 from services.feature_service import FeatureService
+from services.teaching_platform_service import TeachingPlatformService
 
 ALLOW_CREATE_APP_MODES = ["chat", "agent-chat", "advanced-chat", "workflow", "completion"]
 
@@ -172,6 +175,13 @@ class AppTracePayload(BaseModel):
         if info.data.get("enabled") and not value:
             raise ValueError("tracing_provider is required when enabled is True")
         return value
+
+
+class TeachingUserQuery(BaseModel):
+    """Query contract retained for the teaching platform's existing iframe entry."""
+
+    name: str = Field(..., min_length=1, max_length=255)
+    email: EmailStr = Field(...)
 
 
 type JSONValue = Any
@@ -879,3 +889,42 @@ class AppTraceApi(Resource):
         )
 
         return {"result": "success"}
+
+
+@console_ns.route("/apps/user")
+class TeachingPlatformUserApi(Resource):
+    """Provision a student and preserve the Dify 1.0.1 redirect contract.
+
+    The teaching platform already embeds this GET endpoint and passes ``name``
+    and ``email``. Do not change its HTTP method, parameter names, redirect code,
+    or target query parameter without coordinating a platform release.
+    """
+
+    @setup_required
+    def get(self):
+        if not dify_config.TEACHING_MODE_ENABLED:
+            raise NotFound()
+
+        args = TeachingUserQuery.model_validate(dict(request.args))
+        try:
+            account = TeachingPlatformService.provision_student(name=args.name, email=str(args.email))
+        except PermissionError as exc:
+            # Only students may obtain an iframe ticket. Owner/Admin accounts
+            # retain the official direct-login flow and their existing role.
+            raise Forbidden(str(exc)) from exc
+        ticket = TeachingPlatformService.issue_student_login_ticket(account)
+
+        # Keep the legacy email query parameter for platform compatibility. The
+        # new opaque ticket is consumed once by the Dify iframe and avoids all
+        # reliance on third-party authentication cookies.
+        query = urlencode({"email": str(args.email), "teaching_ticket": ticket})
+        redirect_url = f"{dify_config.TEACHING_CONSOLE_URL.rstrip('/')}/signin?{query}"
+        # 301 is retained for byte-level compatibility with the existing platform.
+        response = redirect(redirect_url, code=301)
+        # A permanent redirect normally permits caching, which would replay an
+        # already-consumed one-time ticket. These headers preserve status-code
+        # compatibility while forcing each entry to obtain a fresh ticket.
+        response.headers["Cache-Control"] = "no-store, private"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        return response

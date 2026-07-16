@@ -31,7 +31,8 @@ COPY packages /app/packages
 RUN corepack install
 
 # Install workspace dependencies for the Docker build environment.
-RUN VITE_GIT_HOOKS=0 pnpm install --frozen-lockfile
+# The registry mirror accelerates China-based CI without changing the lockfile.
+RUN VITE_GIT_HOOKS=0 pnpm install --frozen-lockfile --registry https://registry.npmmirror.com/
 
 # build resources
 FROM base AS builder

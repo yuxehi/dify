@@ -43,7 +43,7 @@ const List: FC<Props> = ({
 }) => {
   const { t } = useTranslation()
   const { data: systemFeatures } = useSuspenseQuery(systemFeaturesQueryOptions())
-  const { isCurrentWorkspaceEditor, isCurrentWorkspaceDatasetOperator, isLoadingCurrentWorkspace } = useAppContext()
+  const { isCurrentWorkspaceEditor, isCurrentWorkspaceDatasetOperator, isCurrentWorkspaceManager, isLoadingCurrentWorkspace } = useAppContext()
 
   // eslint-disable-next-line react/use-state -- custom URL query hook, not React.useState
   const {
@@ -68,7 +68,9 @@ const List: FC<Props> = ({
   const { dragging } = useDSLDragDrop({
     onDSLFileDropped: handleDSLFileDropped,
     containerRef,
-    enabled: isCurrentWorkspaceEditor,
+    // Students create from the guided blank-app flow only. Managers retain DSL
+    // drag/drop, templates, broad filtering, and upstream community affordances.
+    enabled: isCurrentWorkspaceEditor && isCurrentWorkspaceManager,
   })
 
   const appListQuery = useMemo<AppListQuery>(() => ({
@@ -118,6 +120,8 @@ const List: FC<Props> = ({
     { value: AppModeEnum.ADVANCED_CHAT, text: t('types.advanced', { ns: 'app' }), icon: <span className="mr-1 i-ri-message-3-line h-[14px] w-[14px]" /> },
     { value: AppModeEnum.CHAT, text: t('types.chatbot', { ns: 'app' }), icon: <span className="mr-1 i-ri-message-3-line h-[14px] w-[14px]" /> },
     { value: AppModeEnum.AGENT_CHAT, text: t('types.agent', { ns: 'app' }), icon: <span className="mr-1 i-ri-robot-3-line h-[14px] w-[14px]" /> },
+    // Students can create and use completion apps, so their Studio filter must
+    // retain the complete official set of application modes as well.
     { value: AppModeEnum.COMPLETION, text: t('types.completion', { ns: 'app' }), icon: <span className="mr-1 i-ri-file-4-line h-[14px] w-[14px]" /> },
   ]
 
@@ -203,12 +207,14 @@ const List: FC<Props> = ({
             options={options}
           />
           <div className="flex items-center gap-2">
-            <label className="mr-2 flex h-7 items-center space-x-2">
-              <Checkbox checked={isCreatedByMe} onCheckedChange={handleCreatedByMeChange} />
-              <div className="text-sm font-normal text-text-secondary">
-                {t('showMyCreatedAppsOnly', { ns: 'app' })}
-              </div>
-            </label>
+            {isCurrentWorkspaceManager && (
+              <label className="mr-2 flex h-7 items-center space-x-2">
+                <Checkbox checked={isCreatedByMe} onCheckedChange={handleCreatedByMeChange} />
+                <div className="text-sm font-normal text-text-secondary">
+                  {t('showMyCreatedAppsOnly', { ns: 'app' })}
+                </div>
+              </label>
+            )}
             <TagFilter type="app" value={tagIDs} onChange={setTagIDs} onOpenTagManagement={() => setShowTagManagementModal(true)} />
             <Input
               showLeftIcon
@@ -252,7 +258,7 @@ const List: FC<Props> = ({
           )}
         </div>
 
-        {isCurrentWorkspaceEditor && (
+        {isCurrentWorkspaceEditor && isCurrentWorkspaceManager && (
           <div
             className={`flex items-center justify-center gap-2 py-4 ${dragging ? 'text-text-accent' : 'text-text-quaternary'}`}
             role="region"
@@ -262,7 +268,7 @@ const List: FC<Props> = ({
             <span className="system-xs-regular">{t('newApp.dropDSLToCreateApp', { ns: 'app' })}</span>
           </div>
         )}
-        {!systemFeatures.branding.enabled && (
+        {isCurrentWorkspaceManager && !systemFeatures.branding.enabled && (
           <Footer />
         )}
         <CheckModal />

@@ -19,12 +19,13 @@ vi.mock('@/next/navigation', () => ({
 }))
 
 // Mock app context
+let mockIsCurrentWorkspaceManager = true
 vi.mock('@/context/app-context', () => ({
   useAppContext: () => ({
     currentWorkspace: { role: 'admin' },
     isCurrentWorkspaceOwner: true,
   }),
-  useSelector: () => true,
+  useSelector: () => mockIsCurrentWorkspaceManager,
 }))
 
 // Mock external api panel context
@@ -136,6 +137,7 @@ describe('List', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockBrandingEnabled = false
+    mockIsCurrentWorkspaceManager = true
   })
 
   describe('Rendering', () => {
@@ -157,6 +159,24 @@ describe('List', () => {
     it('should render external API panel button', () => {
       render(<List />)
       expect(screen.getByText(/externalAPIPanelTitle/)).toBeInTheDocument()
+    })
+
+    it('should hide external API controls and keep filters right-aligned for students', () => {
+      mockIsCurrentWorkspaceManager = false
+
+      render(<List />)
+
+      expect(screen.queryByText(/externalAPIPanelTitle/)).not.toBeInTheDocument()
+      expect(screen.getByTestId('tag-filter').parentElement).toHaveClass('ml-auto')
+      expect(screen.getByRole('textbox')).toBeInTheDocument()
+    })
+
+    it('should hide the did-you-know footer for students', () => {
+      mockIsCurrentWorkspaceManager = false
+
+      render(<List />)
+
+      expect(screen.queryByTestId('dataset-footer')).not.toBeInTheDocument()
     })
 
     it('should render dataset footer when branding is disabled', () => {

@@ -46,6 +46,7 @@ describe('WebSocketClient', () => {
   beforeEach(() => {
     vi.resetModules()
     ioMock.mockReset()
+    sessionStorage.clear()
   })
 
   it('connects with default url and registers base listeners', async () => {
@@ -104,6 +105,23 @@ describe('WebSocketClient', () => {
       { workflow_id: 'app-auth' },
       expect.any(Function),
     )
+  })
+
+  it('uses bearer auth and omits cookies for a teaching session', async () => {
+    sessionStorage.setItem('dify_teaching_auth', JSON.stringify({
+      access_token: 'student-access-token',
+      refresh_token: 'student-refresh-token',
+    }))
+    const mockSocket = createMockSocket('socket-teaching-auth')
+    ioMock.mockImplementation((url: string, options: IoOptions) => {
+      expect(options.auth).toEqual({ token: 'student-access-token' })
+      expect(options.withCredentials).toBe(false)
+      return mockSocket
+    })
+
+    const { WebSocketClient } = await import('../websocket-manager')
+    const client = new WebSocketClient()
+    client.connect('app-teaching-auth')
   })
 
   it('disconnects a specific app and clears internal maps', async () => {

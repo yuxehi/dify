@@ -7,6 +7,7 @@ from celery import shared_task
 from sqlalchemy import delete, select
 from sqlalchemy.engine import CursorResult
 
+from configs import dify_config
 from core.db.session_factory import session_factory
 from core.rag.index_processor.index_processor_factory import IndexProcessorFactory
 from core.tools.utils.web_reader_tool import get_image_upload_file_ids
@@ -37,6 +38,11 @@ def batch_clean_document_task(document_ids: list[str], dataset_id: str, doc_form
         raise ValueError("doc_form is required")
 
     storage_keys_to_delete: list[str] = []
+    # Do not add durable course-platform sources to either the database or
+    # storage deletion batches. This preserves the 1.0.1 reuse contract.
+    preserve_source_files = (
+        dify_config.TEACHING_MODE_ENABLED and dify_config.TEACHING_PRESERVE_DATASET_SOURCE_FILES
+    )
     index_node_ids: list[str] = []
     segment_ids: list[str] = []
     total_image_upload_file_ids: list[str] = []
@@ -66,7 +72,7 @@ def batch_clean_document_task(document_ids: list[str], dataset_id: str, doc_form
                 storage_keys_to_delete.extend([f.key for f in image_files if f and f.key])
 
             # Query storage keys for document files
-            if file_ids:
+            if file_ids and not preserve_source_files:
                 files = session.scalars(select(UploadFile).where(UploadFile.id.in_(file_ids))).all()
                 storage_keys_to_delete.extend([f.key for f in files if f and f.key])
 
@@ -169,7 +175,7 @@ def batch_clean_document_task(document_ids: list[str], dataset_id: str, doc_form
                 )
 
         # ============ Step 6: Delete document-associated files (separate short transaction) ============
-        if file_ids:
+        if file_ids and not preserve_source_files:
             try:
                 with session_factory.create_session() as session:
                     stmt = delete(UploadFile).where(UploadFile.id.in_(file_ids))

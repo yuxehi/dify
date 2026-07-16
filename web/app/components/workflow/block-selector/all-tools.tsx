@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next'
 import Divider from '@/app/components/base/divider'
 import { SearchMenu } from '@/app/components/base/icons/src/vender/line/general'
 import PluginList from '@/app/components/workflow/block-selector/market-place-plugin/list'
+import { useAppContext } from '@/context/app-context'
 import { useGetLanguage } from '@/context/i18n'
 import Link from '@/next/link'
 import { systemFeaturesQueryOptions } from '@/service/system-features'
@@ -79,6 +80,7 @@ const AllTools = ({
   onFeaturedInstallSuccess,
 }: AllToolsProps) => {
   const { t } = useTranslation()
+  const { isCurrentWorkspaceManager } = useAppContext()
   const language = useGetLanguage()
   const tabs = useToolTabs()
   const [activeTab, setActiveTab] = useState(ToolTypeEnum.All)
@@ -193,12 +195,13 @@ const AllTools = ({
   const hasToolsListContent = tools.length > 0 || isShowRAGRecommendations
   const hasPluginContent = enable_marketplace && notInstalledPlugins.length > 0
   const shouldShowEmptyState = hasFilter && !hasToolsListContent && !hasPluginContent
-  const shouldShowFeatured = showFeatured
+  const shouldShowFeatured = isCurrentWorkspaceManager
+    && showFeatured
     && enable_marketplace
     && !isInRAGPipeline
     && activeTab === ToolTypeEnum.All
     && !hasFilter
-  const shouldShowMarketplaceFooter = enable_marketplace && !hasFilter
+  const shouldShowMarketplaceFooter = isCurrentWorkspaceManager && enable_marketplace && !hasFilter
 
   const handleRAGSelect = useCallback<OnSelectBlock>((type, pluginDefaultValue) => {
     if (!pluginDefaultValue)

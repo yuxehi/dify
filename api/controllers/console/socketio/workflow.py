@@ -26,7 +26,11 @@ def socket_connect(sid, environ, auth):
     """
     try:
         request_environ = FlaskRequest(environ)
-        token = extract_access_token(request_environ)
+        # Browser WebSocket handshakes cannot set an Authorization header. The
+        # student iframe therefore sends the same Bearer token through Socket.IO's
+        # authenticated handshake payload; administrators continue using cookies.
+        token_from_auth = auth.get("token") if isinstance(auth, dict) else None
+        token = token_from_auth if isinstance(token_from_auth, str) else extract_access_token(request_environ)
     except Exception:
         logging.exception("Failed to extract token")
         token = None

@@ -16,6 +16,11 @@ import {
 import Popup from '../popup'
 
 let mockLanguage = 'en_US'
+let mockIsCurrentWorkspaceManager = true
+
+vi.mock('@/context/app-context', () => ({
+  useAppContext: () => ({ isCurrentWorkspaceManager: mockIsCurrentWorkspaceManager }),
+}))
 
 const mockSetShowAccountSettingModal = vi.hoisted(() => vi.fn())
 vi.mock('@/context/modal-context', () => ({
@@ -203,6 +208,7 @@ const makeContextProvider = (overrides: Partial<MockContextProvider> = {}): Mock
 describe('Popup', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockIsCurrentWorkspaceManager = true
     mockLanguage = 'en_US'
     mockSupportFunctionCall.mockReturnValue(true)
     mockMarketplacePlugins.current = []
@@ -808,6 +814,21 @@ describe('Popup', () => {
     expect(screen.getByText('TestAnthropic'))!.toBeInTheDocument()
     expect(screen.getByText(/modelProvider\.selector\.fromMarketplace/))!.toBeInTheDocument()
     expect(screen.getByText(/modelProvider\.selector\.discoverMoreInMarketplace/))!.toBeInTheDocument()
+  })
+
+  it('should hide Marketplace discovery and provider settings for a student', () => {
+    mockIsCurrentWorkspaceManager = false
+
+    renderPopup(
+      <PopupHarness
+        modelList={[makeModel()]}
+        onHide={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText(/modelProvider\.selector\.fromMarketplace/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/modelProvider\.selector\.discoverMoreInMarketplace/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/modelProvider\.selector\.modelProviderSettings/)).not.toBeInTheDocument()
   })
 
   it('should show installed marketplace providers without models when AI credits are available', () => {

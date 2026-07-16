@@ -34,6 +34,7 @@ import { asyncRunSafe } from '@/utils'
 import { basePath } from '@/utils/var'
 import { base, ContentType, getBaseOptions } from './fetch'
 import { refreshAccessTokenOrReLogin } from './refresh-token'
+import { applyTeachingAuthorization, getTeachingAccessToken } from './teaching-auth'
 import { getWebAppPassport } from './webapp-auth'
 
 const TIME_OUT = 100000
@@ -427,13 +428,18 @@ export const upload = async (options: UploadOptions, isPublicAPI?: boolean, url?
     url: options.url || defaultOptions.url,
     headers: { ...defaultOptions.headers, ...options.headers } as Record<string, string>,
   }
+  const teachingAccessToken = isPublicAPI ? '' : getTeachingAccessToken()
+  if (teachingAccessToken) {
+    mergedOptions.headers.Authorization = `Bearer ${teachingAccessToken}`
+    delete mergedOptions.headers[CSRF_HEADER_NAME]
+  }
   return new Promise((resolve, reject) => {
     const xhr = mergedOptions.xhr
     xhr.open(mergedOptions.method, mergedOptions.url)
     for (const key in mergedOptions.headers)
       xhr.setRequestHeader(key, mergedOptions.headers[key]!)
 
-    xhr.withCredentials = true
+    xhr.withCredentials = !teachingAccessToken
     xhr.responseType = 'json'
     xhr.onreadystatechange = function () {
       if (xhr.readyState === 4) {
@@ -492,8 +498,6 @@ export const ssePost = async (
   } = otherOptions
   const abortController = new AbortController()
 
-  // No need to get token from localStorage, cookies will be sent automatically
-
   const baseOptions = getBaseOptions()
   const shareCode = globalThis.location.pathname.split('/').slice(-1)[0]!
   const options = Object.assign({}, baseOptions, {
@@ -505,6 +509,12 @@ export const ssePost = async (
       [PASSPORT_HEADER_NAME]: getWebAppPassport(shareCode!),
     }),
   } as RequestInit, fetchOptions)
+
+  const usesTeachingAuth = !isPublicAPI && applyTeachingAuthorization(options.headers as Headers)
+  if (usesTeachingAuth) {
+    (options.headers as Headers).delete(CSRF_HEADER_NAME)
+    options.credentials = 'omit'
+  }
 
   const contentType = (options.headers as Headers).get('Content-Type')
   if (!contentType)
@@ -656,6 +666,12 @@ export const sseGet = async (
       [PASSPORT_HEADER_NAME]: getWebAppPassport(shareCode!),
     }),
   } as RequestInit, fetchOptions)
+
+  const usesTeachingAuth = !isPublicAPI && applyTeachingAuthorization(options.headers as Headers)
+  if (usesTeachingAuth) {
+    (options.headers as Headers).delete(CSRF_HEADER_NAME)
+    options.credentials = 'omit'
+  }
 
   const contentType = (options.headers as Headers).get('Content-Type')
   if (!contentType)

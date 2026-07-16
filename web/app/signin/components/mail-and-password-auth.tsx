@@ -2,7 +2,7 @@ import type { ResponseError } from '@/service/fetch'
 import { Button } from '@langgenius/dify-ui/button'
 import { toast } from '@langgenius/dify-ui/toast'
 import { noop } from 'es-toolkit/function'
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { trackEvent } from '@/app/components/base/amplitude'
 import Input from '@/app/components/base/input'
@@ -10,8 +10,8 @@ import { emailRegex } from '@/config'
 import { useLocale } from '@/context/i18n'
 import Link from '@/next/link'
 import { useRouter, useSearchParams } from '@/next/navigation'
-import { login } from '@/service/common'
-import { setWebAppAccessToken } from '@/service/webapp-auth'
+import { login, teachingLogin } from '@/service/common'
+import { clearTeachingTokens, setTeachingTokens } from '@/service/teaching-auth'
 import { encryptPassword } from '@/utils/encryption'
 import { resolvePostLoginRedirect } from '../utils/post-login-redirect'
 
@@ -28,12 +28,16 @@ export default function MailAndPasswordAuth({ isInvite, isEmailSetup, allowRegis
   const searchParams = useSearchParams()
   const [showPassword, setShowPassword] = useState(false)
   const emailFromLink = decodeURIComponent(searchParams.get('email') || '')
+  const teachingTicket = decodeURIComponent(searchParams.get('teaching_ticket') || '')
   const [email, setEmail] = useState(emailFromLink)
-  const [password, setPassword] = useState('')
+  // Compatibility contract: the teaching platform enters with ?email=... and
+  // all provisioned student accounts use the same password as the 1.0.1 build.
+  const [password, setPassword] = useState(emailFromLink ? 'Ydt@12345' : '')
+  const hasTriggeredTeachingLoginRef = useRef(false)
 
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleEmailPasswordLogin = async () => {
+  const handleEmailPasswordLogin = useCallback(async () => {
     if (!email) {
       toast.error(t('error.emailEmpty', { ns: 'login' }))
       return
@@ -49,6 +53,9 @@ export default function MailAndPasswordAuth({ isInvite, isEmailSetup, allowRegis
 
     try {
       setIsLoading(true)
+      // A direct administrator login in the same tab must not inherit a prior
+      // student Bearer session, otherwise subsequent requests would omit cookies.
+      clearTeachingTokens()
       const loginData: Record<string, any> = {
         email,
         password: encryptPassword(password),
@@ -62,10 +69,6 @@ export default function MailAndPasswordAuth({ isInvite, isEmailSetup, allowRegis
         body: loginData,
       })
       if (res.result === 'success') {
-        if (res?.data?.access_token) {
-          // Track login success event
-          setWebAppAccessToken(res.data.access_token)
-        }
         trackEvent('user_login_success', {
           method: 'email_password',
           is_invite: isInvite,
@@ -91,7 +94,50 @@ export default function MailAndPasswordAuth({ isInvite, isEmailSetup, allowRegis
     finally {
       setIsLoading(false)
     }
-  }
+  }, [email, isInvite, locale, password, router, searchParams, t])
+
+  const handleTeachingTicketLogin = useCallback(async () => {
+    if (!teachingTicket)
+      return
+    try {
+      setIsLoading(true)
+      const res = await teachingLogin(teachingTicket)
+      if (res.result !== 'success' || !res.data?.access_token || !res.data.refresh_token)
+        throw new Error('Invalid teaching login response')
+
+      // Student iframe auth deliberately uses session-scoped Bearer tokens.
+      // Administrator direct login remains on Dify's official HttpOnly cookies.
+      setTeachingTokens({
+        access_token: res.data.access_token,
+        refresh_token: res.data.refresh_token,
+        csrf_token: res.data.csrf_token,
+      })
+      trackEvent('user_login_success', {
+        method: 'teaching_ticket',
+        is_invite: false,
+      })
+      const redirectUrl = resolvePostLoginRedirect(searchParams)
+      router.replace(redirectUrl || '/apps')
+    }
+    catch {
+      toast.error(t('error.invalidEmailOrPassword', { ns: 'login' }))
+    }
+    finally {
+      setIsLoading(false)
+    }
+  }, [router, searchParams, t, teachingTicket])
+
+  useEffect(() => {
+    // React Strict Mode may run effects twice in development. Guarding the call
+    // avoids duplicate login attempts and accidental rate-limit increments.
+    if ((!teachingTicket && !emailFromLink) || hasTriggeredTeachingLoginRef.current)
+      return
+    hasTriggeredTeachingLoginRef.current = true
+    if (teachingTicket)
+      handleTeachingTicketLogin()
+    else
+      handleEmailPasswordLogin()
+  }, [emailFromLink, handleEmailPasswordLogin, handleTeachingTicketLogin, teachingTicket])
 
   return (
     <form onSubmit={noop}>

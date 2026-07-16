@@ -145,6 +145,26 @@ export type CustomFile = File & {
   mime_type?: string
   created_by?: string
   created_at?: number
+  platform_size?: number
+}
+
+// Shape returned by the teaching platform's legacy GetFileList operation.
+// These fields intentionally remain permissive because the external service is
+// deployed independently from Dify, while id/name are validated by the chooser.
+export type TeachingPlatformFile = {
+  id?: string
+  extension?: string
+  mime_type?: string
+  created_by?: string
+  created_at?: number
+  name?: string
+  size?: number
+}
+
+export type TeachingPlatformFileListResponse = {
+  code?: string
+  message?: string
+  data?: TeachingPlatformFile[]
 }
 
 export type DocumentItem = {

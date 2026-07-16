@@ -17,6 +17,7 @@ from graphon.entities import WorkflowExecution
 from graphon.workflow_type_encoder import WorkflowRuntimeTypeConverter
 from models import CreatorUserRole, WorkflowRun
 from models.enums import WorkflowRunTriggeredFrom
+from tasks.report_teaching_token_usage_task import report_teaching_token_usage_task
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,17 @@ def save_workflow_execution_task(
                 logger.debug("Created new workflow run: %s", execution.id_)
 
             session.commit()
+
+            # A workflow execution may be persisted more than once. The reporting
+            # task deduplicates by execution ID and only emits the legacy platform
+            # payload after the execution reaches a terminal state.
+            if execution.finished_at is not None and int(execution.total_tokens or 0) > 0:
+                report_teaching_token_usage_task.delay(
+                    app_id=app_id,
+                    total_tokens=int(execution.total_tokens or 0),
+                    event_type="workflow",
+                    event_id=str(execution.id_),
+                )
             return True
 
     except Exception as e:

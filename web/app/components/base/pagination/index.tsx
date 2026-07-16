@@ -54,7 +54,7 @@ const CustomizedPagination: FC<Props> = ({
     const value = e.target.value
     if (!value)
       return setInputValue('')
-    if (isNaN(Number.parseInt(value)))
+    if (Number.isNaN(Number.parseInt(value)))
       return setInputValue('')
     setInputValue(Number.parseInt(value))
   }
@@ -104,6 +104,7 @@ const CustomizedPagination: FC<Props> = ({
           disabled={current === 0}
         >
           <Button
+            aria-label={t('table.pagination.previous', { ns: 'app-log' })}
             variant="secondary"
             className="h-7 w-7 px-1.5"
             disabled={current === 0}
@@ -141,6 +142,7 @@ const CustomizedPagination: FC<Props> = ({
           disabled={current === totalPages - 1}
         >
           <Button
+            aria-label={t('table.pagination.next', { ns: 'app-log' })}
             variant="secondary"
             className="h-7 w-7 px-1.5"
             disabled={current === totalPages - 1}

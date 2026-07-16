@@ -46,7 +46,7 @@ const AppDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
   const pathname = usePathname()
   const media = useBreakpoints()
   const isMobile = media === MediaType.mobile
-  const { isCurrentWorkspaceEditor, isLoadingCurrentWorkspace, currentWorkspace } = useAppContext()
+  const { isCurrentWorkspaceEditor, isCurrentWorkspaceManager, isLoadingCurrentWorkspace, currentWorkspace } = useAppContext()
   const appInfoActions = useAppInfoActions({ resetKey: appId })
   const { appDetail, setAppDetail, setAppSidebarExpand } = useStore(useShallow(state => ({
     appDetail: state.appDetail,
@@ -62,7 +62,7 @@ const AppDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
     selectedIcon: NavIcon
   }>>([])
 
-  const getNavigationConfig = useCallback((appId: string, isCurrentWorkspaceEditor: boolean, mode: AppModeEnum) => {
+  const getNavigationConfig = useCallback((appId: string, isCurrentWorkspaceEditor: boolean, isCurrentWorkspaceManager: boolean, mode: AppModeEnum) => {
     const navConfig = [
       ...(isCurrentWorkspaceEditor
         ? [{
@@ -73,13 +73,15 @@ const AppDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
           }]
         : []
       ),
-      {
-        name: t('appMenus.apiAccess', { ns: 'common' }),
-        href: `/app/${appId}/develop`,
-        icon: RiTerminalBoxLine,
-        selectedIcon: RiTerminalBoxFill,
-      },
-      ...(isCurrentWorkspaceEditor
+      ...(isCurrentWorkspaceManager
+        ? [{
+            name: t('appMenus.apiAccess', { ns: 'common' }),
+            href: `/app/${appId}/develop`,
+            icon: RiTerminalBoxLine,
+            selectedIcon: RiTerminalBoxFill,
+          }]
+        : []),
+      ...(isCurrentWorkspaceEditor && isCurrentWorkspaceManager
         ? [{
             name: mode !== AppModeEnum.WORKFLOW
               ? t('appMenus.logAndAnn', { ns: 'common' })
@@ -90,12 +92,14 @@ const AppDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
           }]
         : []
       ),
-      {
-        name: t('appMenus.overview', { ns: 'common' }),
-        href: `/app/${appId}/overview`,
-        icon: RiDashboard2Line,
-        selectedIcon: RiDashboard2Fill,
-      },
+      ...(isCurrentWorkspaceManager
+        ? [{
+            name: t('appMenus.overview', { ns: 'common' }),
+            href: `/app/${appId}/overview`,
+            icon: RiDashboard2Line,
+            selectedIcon: RiDashboard2Fill,
+          }]
+        : []),
     ]
     return navConfig
   }, [t])
@@ -132,6 +136,13 @@ const AppDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
     const res = appDetailRes
     // redirection
     const canIEditApp = isCurrentWorkspaceEditor
+    if (!isCurrentWorkspaceManager && (pathname.endsWith('develop') || pathname.endsWith('logs') || pathname.endsWith('overview'))) {
+      const editingPath = res.mode === AppModeEnum.WORKFLOW || res.mode === AppModeEnum.ADVANCED_CHAT
+        ? 'workflow'
+        : 'configuration'
+      router.replace(`/app/${appId}/${editingPath}`)
+      return
+    }
     if (!canIEditApp && (pathname.endsWith('configuration') || pathname.endsWith('workflow') || pathname.endsWith('logs'))) {
       router.replace(`/app/${appId}/overview`)
       return
@@ -144,9 +155,11 @@ const AppDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
     }
     else {
       setAppDetail({ ...res, enable_sso: false })
-      setNavigation(getNavigationConfig(appId, isCurrentWorkspaceEditor, res.mode))
+      // Teaching editors only need the configuration/workflow entry. API,
+      // logs, and overview remain visible to workspace managers for operations.
+      setNavigation(getNavigationConfig(appId, isCurrentWorkspaceEditor, isCurrentWorkspaceManager, res.mode))
     }
-  }, [appDetailRes, isCurrentWorkspaceEditor, isLoadingAppDetail, isLoadingCurrentWorkspace])
+  }, [appDetailRes, isCurrentWorkspaceEditor, isCurrentWorkspaceManager, isLoadingAppDetail, isLoadingCurrentWorkspace])
 
   useUnmount(() => {
     setAppDetail()

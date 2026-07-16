@@ -4,9 +4,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import CreateAppCard from '../index'
 import Option from '../option'
 
+let isCurrentWorkspaceManager = true
+
+vi.mock('@/context/app-context', () => ({
+  useAppContext: () => ({ isCurrentWorkspaceManager }),
+}))
+
 describe('New Dataset Card Integration', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    isCurrentWorkspaceManager = true
   })
 
   // Integration tests for Option component
@@ -97,6 +104,26 @@ describe('New Dataset Card Integration', () => {
       it('should render the connect dataset option', () => {
         render(<CreateAppCard />)
         expect(screen.getByText(/connectDataset/)).toBeInTheDocument()
+      })
+
+      it('should only offer standard Knowledge creation to a student', () => {
+        isCurrentWorkspaceManager = false
+
+        render(<CreateAppCard />)
+
+        expect(screen.getAllByRole('link')).toHaveLength(1)
+        expect(screen.getByText('dataset.createDataset')).toBeInTheDocument()
+        expect(screen.queryByText(/createFromPipeline/)).not.toBeInTheDocument()
+        expect(screen.queryByText(/connectDataset/)).not.toBeInTheDocument()
+      })
+
+      it('should use the Dify 1.0.1 knowledge card treatment for a student', () => {
+        isCurrentWorkspaceManager = false
+
+        render(<CreateAppCard />)
+
+        expect(screen.getByRole('link', { name: /createDataset/ })).toHaveClass('group', 'grow', 'items-start', 'p-4')
+        expect(screen.getByText(/createDatasetIntro/)).toBeInTheDocument()
       })
     })
 

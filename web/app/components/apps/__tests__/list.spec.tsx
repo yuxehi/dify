@@ -41,10 +41,12 @@ vi.mock('@/service/client', () => ({
 
 const mockIsCurrentWorkspaceEditor = vi.fn(() => true)
 const mockIsCurrentWorkspaceDatasetOperator = vi.fn(() => false)
+const mockIsCurrentWorkspaceManager = vi.fn(() => true)
 vi.mock('@/context/app-context', () => ({
   useAppContext: () => ({
     isCurrentWorkspaceEditor: mockIsCurrentWorkspaceEditor(),
     isCurrentWorkspaceDatasetOperator: mockIsCurrentWorkspaceDatasetOperator(),
+    isCurrentWorkspaceManager: mockIsCurrentWorkspaceManager(),
   }),
 }))
 
@@ -246,6 +248,7 @@ describe('List', () => {
     vi.clearAllMocks()
     mockIsCurrentWorkspaceEditor.mockReturnValue(true)
     mockIsCurrentWorkspaceDatasetOperator.mockReturnValue(false)
+    mockIsCurrentWorkspaceManager.mockReturnValue(true)
     mockDragging = false
     mockOnDSLFileDropped = null
     mockServiceState.error = null
@@ -276,6 +279,19 @@ describe('List', () => {
       expect(screen.getByText('app.types.chatbot'))!.toBeInTheDocument()
       expect(screen.getByText('app.types.agent'))!.toBeInTheDocument()
       expect(screen.getByText('app.types.completion'))!.toBeInTheDocument()
+    })
+
+    it('should retain all official app type filters for teaching students', () => {
+      mockIsCurrentWorkspaceManager.mockReturnValue(false)
+
+      renderList()
+
+      expect(screen.getByText('app.types.all')).toBeInTheDocument()
+      expect(screen.getByText('app.types.workflow')).toBeInTheDocument()
+      expect(screen.getByText('app.types.advanced')).toBeInTheDocument()
+      expect(screen.getByText('app.types.chatbot')).toBeInTheDocument()
+      expect(screen.getByText('app.types.agent')).toBeInTheDocument()
+      expect(screen.getByText('app.types.completion')).toBeInTheDocument()
     })
 
     it('should render search input', () => {

@@ -53,7 +53,7 @@ function CreateApp({ onClose, onSuccess, onCreateFromTemplate, defaultAppMode }:
 
   const { plan, enableBilling } = useProviderContext()
   const isAppsFull = (enableBilling && plan.usage.buildApps >= plan.total.buildApps)
-  const { isCurrentWorkspaceEditor } = useAppContext()
+  const { isCurrentWorkspaceEditor, isCurrentWorkspaceManager } = useAppContext()
 
   const isCreatingRef = useRef(false)
 
@@ -249,16 +249,18 @@ function CreateApp({ onClose, onSuccess, onCreateFromTemplate, defaultAppMode }:
             </div>
             {isAppsFull && <AppsFull className="mt-4" loc="app-create" />}
             <div className="flex items-center justify-between pt-5 pb-10">
-              <button
-                type="button"
-                className="flex cursor-pointer items-center gap-1 border-none bg-transparent p-0 text-left system-xs-regular text-text-tertiary focus-visible:ring-1 focus-visible:ring-components-input-border-active focus-visible:outline-hidden"
-                onClick={onCreateFromTemplate}
-              >
-                <span>{t('newApp.noIdeaTip', { ns: 'app' })}</span>
-                <div className="p-px">
-                  <RiArrowRightLine className="h-3.5 w-3.5" aria-hidden="true" />
-                </div>
-              </button>
+              {isCurrentWorkspaceManager && (
+                <button
+                  type="button"
+                  className="flex cursor-pointer items-center gap-1 border-none bg-transparent p-0 text-left system-xs-regular text-text-tertiary focus-visible:ring-1 focus-visible:ring-components-input-border-active focus-visible:outline-hidden"
+                  onClick={onCreateFromTemplate}
+                >
+                  <span>{t('newApp.noIdeaTip', { ns: 'app' })}</span>
+                  <div className="p-px">
+                    <RiArrowRightLine className="h-3.5 w-3.5" aria-hidden="true" />
+                  </div>
+                </button>
+              )}
               <div className="flex gap-2">
                 <Button onClick={onClose}>{t('newApp.Cancel', { ns: 'app' })}</Button>
                 <Button disabled={isAppsFull || !name} className="gap-1" variant="primary" onClick={handleCreateApp}>

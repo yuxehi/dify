@@ -16,6 +16,10 @@ vi.mock('@/app/components/header/account-dropdown', () => ({
   default: createMockComponent('account-dropdown'),
 }))
 
+vi.mock('@/app/components/header/student-identity', () => ({
+  default: createMockComponent('student-identity'),
+}))
+
 vi.mock('@/app/components/header/app-nav', () => ({
   default: createMockComponent('app-nav'),
 }))
@@ -60,6 +64,7 @@ vi.mock('@/next/link', () => ({
 
 let mockIsWorkspaceEditor = false
 let mockIsDatasetOperator = false
+let mockIsWorkspaceManager = true
 let mockMedia = 'desktop'
 let mockEnableBilling = false
 let mockPlanType = 'sandbox'
@@ -73,6 +78,7 @@ vi.mock('@/context/app-context', () => ({
   useAppContext: () => ({
     isCurrentWorkspaceEditor: mockIsWorkspaceEditor,
     isCurrentWorkspaceDatasetOperator: mockIsDatasetOperator,
+    isCurrentWorkspaceManager: mockIsWorkspaceManager,
   }),
 }))
 
@@ -111,6 +117,7 @@ describe('Header', () => {
     vi.clearAllMocks()
     mockIsWorkspaceEditor = false
     mockIsDatasetOperator = false
+    mockIsWorkspaceManager = true
     mockMedia = 'desktop'
     mockEnableBilling = false
     mockPlanType = 'sandbox'
@@ -126,6 +133,16 @@ describe('Header', () => {
     expect(screen.getByTestId('workplace-selector')).toBeInTheDocument()
     expect(screen.getByTestId('app-nav')).toBeInTheDocument()
     expect(screen.getByTestId('account-dropdown')).toBeInTheDocument()
+  })
+
+  it('should show a read-only identity instead of account settings for students', () => {
+    mockIsWorkspaceEditor = true
+    mockIsWorkspaceManager = false
+
+    renderHeader()
+
+    expect(screen.getByTestId('student-identity')).toBeInTheDocument()
+    expect(screen.queryByTestId('account-dropdown')).not.toBeInTheDocument()
   })
 
   it('should show license nav when billing disabled, plan badge when enabled', () => {

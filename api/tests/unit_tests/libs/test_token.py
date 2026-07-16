@@ -63,3 +63,38 @@ def test_set_csrf_cookie_includes_domain_when_configured(monkeypatch: pytest.Mon
     assert any("csrf_token=abc123" in c for c in cookies)
     assert any("Domain=example.com" in c for c in cookies)
     assert all("__Host-" not in c for c in cookies)
+
+
+def test_console_cookie_keeps_lax_in_teaching_mode(monkeypatch: pytest.MonkeyPatch):
+    """Administrator cookies stay first-party; students use Bearer tokens."""
+    monkeypatch.setattr(token.dify_config, "TEACHING_MODE_ENABLED", True, raising=False)
+    monkeypatch.setattr(token.dify_config, "CONSOLE_WEB_URL", "https://console.example.com", raising=False)
+    monkeypatch.setattr(token.dify_config, "CONSOLE_API_URL", "https://api.example.com", raising=False)
+
+    assert token._console_cookie_samesite(None) == "Lax"
+    # Explicit call-site choices must continue to take precedence.
+    assert token._console_cookie_samesite("Strict") == "Strict"
+
+
+def test_console_cookie_keeps_upstream_lax_outside_teaching_mode(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(token.dify_config, "TEACHING_MODE_ENABLED", False, raising=False)
+
+    assert token._console_cookie_samesite(None) == "Lax"
+
+
+def test_console_bearer_request_requires_header_without_console_cookie():
+    bearer_request = cast(Request, MockRequest({"Authorization": "Bearer abc"}, {}, {}))
+    mixed_request = cast(
+        Request,
+        MockRequest({"Authorization": "Bearer abc"}, {COOKIE_NAME_ACCESS_TOKEN: "cookie-token"}, {}),
+    )
+
+    assert token.is_console_bearer_request(bearer_request) is True
+    assert token.is_console_bearer_request(mixed_request) is False
+
+
+def test_bearer_request_bypasses_cookie_csrf(monkeypatch: pytest.MonkeyPatch):
+    request = cast(Request, MockRequest({"Authorization": "Bearer abc"}, {}, {}))
+    monkeypatch.setattr(token.dify_config, "ADMIN_API_KEY_ENABLE", False, raising=False)
+
+    token.check_csrf_token(request, "student-id")

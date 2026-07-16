@@ -124,7 +124,8 @@ export default function AppSelector() {
     await logout()
     resetUser()
     localStorage.removeItem('setup_status')
-    // Tokens are now stored in cookies and cleared by backend
+    // Administrator cookies are cleared by the backend; student iframe tokens
+    // are cleared by useLogout from the current sessionStorage partition.
 
     // To avoid use other account's education notice info
     localStorage.removeItem('education-reverify-prev-expire-at')

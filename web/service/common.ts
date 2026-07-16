@@ -42,7 +42,7 @@ import { del, get, patch, post, put } from './base'
 
 type LoginSuccess = {
   result: 'success'
-  data?: { access_token?: string }
+  data?: { access_token?: string, refresh_token?: string, csrf_token?: string }
 }
 type LoginFail = {
   result: 'fail'
@@ -53,6 +53,9 @@ type LoginFail = {
 type LoginResponse = LoginSuccess | LoginFail
 export const login = ({ url, body }: { url: string, body: Record<string, any> }): Promise<LoginResponse> => {
   return post<LoginResponse>(url, { body })
+}
+export const teachingLogin = (ticket: string): Promise<LoginResponse> => {
+  return post<LoginResponse>('/teaching/login', { body: { ticket } })
 }
 export const webAppLogin = ({ url, body }: { url: string, body: Record<string, any> }): Promise<LoginResponse> => {
   return post<LoginResponse>(url, { body }, { isPublicAPI: true })

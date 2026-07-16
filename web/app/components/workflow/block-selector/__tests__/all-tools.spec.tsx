@@ -9,6 +9,12 @@ import { Theme } from '@/types/app'
 import AllTools from '../all-tools'
 import { createToolProvider } from './factories'
 
+let mockIsCurrentWorkspaceManager = true
+
+vi.mock('@/context/app-context', () => ({
+  useAppContext: () => ({ isCurrentWorkspaceManager: mockIsCurrentWorkspaceManager }),
+}))
+
 vi.mock('@/context/i18n', () => ({
   useGetLanguage: vi.fn(),
 }))
@@ -59,6 +65,7 @@ describe('AllTools', () => {
     mockUseGetLanguage.mockReturnValue('en_US')
     mockUseTheme.mockReturnValue({ theme: Theme.light } as ReturnType<typeof useTheme>)
     mockUseMarketplacePlugins.mockReturnValue(createMarketplacePluginsMock())
+    mockIsCurrentWorkspaceManager = true
   })
 
   it('filters tools by the active tab', async () => {
@@ -134,5 +141,27 @@ describe('AllTools', () => {
     await waitFor(() => {
       expect(screen.getByText('workflow.tabs.noPluginsFound')).toBeInTheDocument()
     })
+  })
+
+  it('hides featured recommendations and the Marketplace footer for a student', () => {
+    mockIsCurrentWorkspaceManager = false
+
+    render(
+      <AllTools
+        searchText=""
+        tags={[]}
+        onSelect={vi.fn()}
+        buildInTools={[createToolProvider()]}
+        customTools={[]}
+        workflowTools={[]}
+        mcpTools={[]}
+        featuredPlugins={[]}
+        showFeatured
+      />,
+      true,
+    )
+
+    expect(screen.queryByText('workflow.tabs.featuredTools')).not.toBeInTheDocument()
+    expect(screen.queryByText('plugin.findMoreInMarketplace')).not.toBeInTheDocument()
   })
 })

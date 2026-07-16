@@ -1,5 +1,6 @@
 import { API_PREFIX } from '@/config'
 import { fetchWithRetry } from '@/utils'
+import { clearTeachingTokens, getTeachingRefreshToken, setTeachingTokens } from './teaching-auth'
 
 const LOCAL_STORAGE_KEY = 'is_other_tab_refreshing'
 
@@ -45,20 +46,40 @@ async function getNewAccessToken(timeout: number): Promise<void> {
       // it can lead to an infinite loop if the refresh attempt also returns 401.
       // To avoid this, handle token refresh separately in a dedicated function
       // that does not call baseFetch and uses a single retry mechanism.
-      const [error, ret] = await fetchWithRetry(globalThis.fetch(`${API_PREFIX}/refresh-token`, {
+      const teachingRefreshToken = getTeachingRefreshToken()
+      const refreshPath = teachingRefreshToken ? '/teaching/refresh-token' : '/refresh-token'
+      const [error, ret] = await fetchWithRetry(globalThis.fetch(`${API_PREFIX}${refreshPath}`, {
         method: 'POST',
-        credentials: 'include', // Important: include cookies in the request
+        credentials: teachingRefreshToken ? 'omit' : 'include',
         headers: {
           'Content-Type': 'application/json;utf-8',
         },
-        // No body needed - refresh token is in cookie
+        body: teachingRefreshToken ? JSON.stringify({ refresh_token: teachingRefreshToken }) : undefined,
       }))
       if (error) {
         return Promise.reject(error)
       }
       else {
-        if (ret.status === 401)
+        if (ret.status === 401) {
+          if (teachingRefreshToken)
+            clearTeachingTokens()
           return Promise.reject(ret)
+        }
+        if (teachingRefreshToken) {
+          const result = await ret.json() as {
+            result: string
+            data?: { access_token?: string, refresh_token?: string, csrf_token?: string }
+          }
+          if (result.result !== 'success' || !result.data?.access_token || !result.data.refresh_token) {
+            clearTeachingTokens()
+            return Promise.reject(new Error('Invalid teaching refresh response'))
+          }
+          setTeachingTokens({
+            access_token: result.data.access_token,
+            refresh_token: result.data.refresh_token,
+            csrf_token: result.data.csrf_token,
+          })
+        }
       }
     }
   }

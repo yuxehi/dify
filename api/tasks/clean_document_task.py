@@ -5,6 +5,7 @@ import click
 from celery import shared_task
 from sqlalchemy import delete, select
 
+from configs import dify_config
 from core.db.session_factory import session_factory
 from core.rag.index_processor.index_processor_factory import IndexProcessorFactory
 from core.tools.utils.web_reader_tool import get_image_upload_file_ids
@@ -111,7 +112,11 @@ def clean_document_task(document_id: str, dataset_id: str, doc_form: str, file_i
             )
 
     with session_factory.create_session() as session, session.begin():
-        if file_id:
+        # Platform uploads are reusable course assets. Derived images and
+        # attachments are still deleted; only the original document source stays.
+        if file_id and not (
+            dify_config.TEACHING_MODE_ENABLED and dify_config.TEACHING_PRESERVE_DATASET_SOURCE_FILES
+        ):
             file = session.scalar(select(UploadFile).where(UploadFile.id == file_id).limit(1))
             if file:
                 try:

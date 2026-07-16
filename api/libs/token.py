@@ -60,6 +60,11 @@ def _try_extract_from_header(request: Request) -> str | None:
     return auth_token
 
 
+def extract_console_cookie_token(request: Request) -> str | None:
+    """Return only the Console access-token cookie, without Bearer fallback."""
+    return request.cookies.get(_real_cookie_name(COOKIE_NAME_ACCESS_TOKEN))
+
+
 def extract_refresh_token(request: Request) -> str | None:
     return request.cookies.get(_real_cookie_name(COOKIE_NAME_REFRESH_TOKEN))
 
@@ -73,10 +78,17 @@ def extract_csrf_token_from_cookie(request: Request) -> str | None:
 
 
 def extract_access_token(request: Request) -> str | None:
-    def _try_extract_from_cookie(request: Request) -> str | None:
-        return request.cookies.get(_real_cookie_name(COOKIE_NAME_ACCESS_TOKEN))
+    return extract_console_cookie_token(request) or _try_extract_from_header(request)
 
-    return _try_extract_from_cookie(request) or _try_extract_from_header(request)
+
+def is_console_bearer_request(request: Request) -> bool:
+    """Whether Console authentication comes exclusively from a Bearer header.
+
+    Browsers do not attach Authorization headers automatically, so a bearer-only
+    request is not vulnerable to cookie-based CSRF. If a Console cookie is also
+    present, cookie authentication wins and the normal CSRF check remains active.
+    """
+    return extract_console_cookie_token(request) is None and _try_extract_from_header(request) is not None
 
 
 def extract_webapp_access_token(request: Request) -> str | None:
@@ -89,40 +101,51 @@ def extract_webapp_passport(app_code: str, request: Request) -> str | None:
     )
 
 
-def set_access_token_to_cookie(request: Request, response: Response, token: str, samesite: str = "Lax"):
+def _console_cookie_samesite(samesite: str | None) -> str:
+    """Keep official direct-login cookies first-party and SameSite=Lax.
+
+    Student iframe sessions use explicit Bearer tokens and no longer need to
+    weaken the administrator's cookie policy to SameSite=None.
+    """
+    if samesite is not None:
+        return samesite
+    return "Lax"
+
+
+def set_access_token_to_cookie(request: Request, response: Response, token: str, samesite: str | None = None):
     response.set_cookie(
         _real_cookie_name(COOKIE_NAME_ACCESS_TOKEN),
         value=token,
         httponly=True,
         domain=_cookie_domain(),
         secure=is_secure(),
-        samesite=samesite,
+        samesite=_console_cookie_samesite(samesite),
         max_age=int(dify_config.ACCESS_TOKEN_EXPIRE_MINUTES * 60),
         path="/",
     )
 
 
-def set_refresh_token_to_cookie(request: Request, response: Response, token: str):
+def set_refresh_token_to_cookie(request: Request, response: Response, token: str, samesite: str | None = None):
     response.set_cookie(
         _real_cookie_name(COOKIE_NAME_REFRESH_TOKEN),
         value=token,
         httponly=True,
         domain=_cookie_domain(),
         secure=is_secure(),
-        samesite="Lax",
+        samesite=_console_cookie_samesite(samesite),
         max_age=int(60 * 60 * 24 * dify_config.REFRESH_TOKEN_EXPIRE_DAYS),
         path="/",
     )
 
 
-def set_csrf_token_to_cookie(request: Request, response: Response, token: str):
+def set_csrf_token_to_cookie(request: Request, response: Response, token: str, samesite: str | None = None):
     response.set_cookie(
         _real_cookie_name(COOKIE_NAME_CSRF_TOKEN),
         value=token,
         httponly=False,
         domain=_cookie_domain(),
         secure=is_secure(),
-        samesite="Lax",
+        samesite=_console_cookie_samesite(samesite),
         max_age=int(60 * dify_config.ACCESS_TOKEN_EXPIRE_MINUTES),
         path="/",
     )
@@ -131,7 +154,7 @@ def set_csrf_token_to_cookie(request: Request, response: Response, token: str):
 def _clear_cookie(
     response: Response,
     cookie_name: str,
-    samesite: str = "Lax",
+    samesite: str | None = None,
     http_only: bool = True,
 ):
     response.set_cookie(
@@ -142,11 +165,11 @@ def _clear_cookie(
         domain=_cookie_domain(),
         secure=is_secure(),
         httponly=http_only,
-        samesite=samesite,
+        samesite=_console_cookie_samesite(samesite),
     )
 
 
-def clear_access_token_from_cookie(response: Response, samesite: str = "Lax"):
+def clear_access_token_from_cookie(response: Response, samesite: str | None = None):
     _clear_cookie(response, COOKIE_NAME_ACCESS_TOKEN, samesite)
 
 
@@ -154,12 +177,12 @@ def clear_webapp_access_token_from_cookie(response: Response, samesite: str = "L
     _clear_cookie(response, COOKIE_NAME_WEBAPP_ACCESS_TOKEN, samesite)
 
 
-def clear_refresh_token_from_cookie(response: Response):
-    _clear_cookie(response, COOKIE_NAME_REFRESH_TOKEN)
+def clear_refresh_token_from_cookie(response: Response, samesite: str | None = None):
+    _clear_cookie(response, COOKIE_NAME_REFRESH_TOKEN, samesite)
 
 
-def clear_csrf_token_from_cookie(response: Response):
-    _clear_cookie(response, COOKIE_NAME_CSRF_TOKEN, http_only=False)
+def clear_csrf_token_from_cookie(response: Response, samesite: str | None = None):
+    _clear_cookie(response, COOKIE_NAME_CSRF_TOKEN, samesite, http_only=False)
 
 
 def build_force_logout_cookie_headers() -> list[str]:
@@ -182,6 +205,12 @@ def check_csrf_token(request: Request, user_id: str):
         auth_token = extract_access_token(request)
         if auth_token and auth_token == dify_config.ADMIN_API_KEY:
             return
+
+    # Teaching iframe requests (and other explicit Bearer clients) are not
+    # authenticated by ambient browser cookies, so cookie-based CSRF protection
+    # does not apply. The signed Access Token is still verified by ext_login.
+    if is_console_bearer_request(request):
+        return
 
     def _unauthorized():
         raise Unauthorized("CSRF token is missing or invalid.")

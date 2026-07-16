@@ -32,5 +32,9 @@ web/.idea
 web/*.iml
 web/*.iws
 web/*.ipr
+# `!packages/**/` above keeps workspace directories traversable, so explicitly
+# exclude their locally installed pnpm trees (including Windows junctions).
+packages/**/node_modules
+packages/**/node_modules/**
 e2e/node_modules
 sdks/nodejs-client/node_modules

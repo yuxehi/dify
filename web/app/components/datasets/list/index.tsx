@@ -57,7 +57,7 @@ const List = () => {
   return (
     <div className="relative flex grow flex-col overflow-y-auto bg-background-body">
       <div className="sticky top-0 z-10 flex items-center justify-end gap-x-1 bg-background-body px-12 pt-4 pb-2">
-        <div className="flex items-center justify-center gap-2">
+        <div className="ml-auto flex items-center justify-center gap-2">
           {isCurrentWorkspaceOwner && (
             <CheckboxWithLabel
               isChecked={includeAll}
@@ -82,25 +82,33 @@ const List = () => {
               <ServiceApi apiBaseUrl={apiBaseInfo?.api_base_url ?? ''} />
             )
           }
-          <div className="h-4 w-px bg-divider-regular" />
-          <Button
-            className="gap-0.5 shadow-xs"
-            onClick={() => setShowExternalApiPanel(true)}
-          >
-            <span className="i-custom-vender-solid-development-api-connection-mod h-4 w-4 text-components-button-secondary-text" />
-            <span className="flex items-center justify-center gap-1 px-0.5 system-sm-medium text-components-button-secondary-text">{t('externalAPIPanelTitle', { ns: 'dataset' })}</span>
-          </Button>
+          {/* External knowledge API configuration is an administration entry.
+              Students keep only the tag filter and search field, right-aligned. */}
+          {isCurrentWorkspaceManager && (
+            <>
+              <div className="h-4 w-px bg-divider-regular" />
+              <Button
+                className="gap-0.5 shadow-xs"
+                onClick={() => setShowExternalApiPanel(true)}
+              >
+                <span className="i-custom-vender-solid-development-api-connection-mod h-4 w-4 text-components-button-secondary-text" />
+                <span className="flex items-center justify-center gap-1 px-0.5 system-sm-medium text-components-button-secondary-text">{t('externalAPIPanelTitle', { ns: 'dataset' })}</span>
+              </Button>
+            </>
+          )}
         </div>
       </div>
       <Datasets tags={tagIDs} keywords={searchKeywords} includeAll={includeAll} onOpenTagManagement={() => setShowTagManagementModal(true)} />
-      {!systemFeatures.branding.enabled && <DatasetFooter />}
+      {/* The official promotional footer is useful in the administration
+          console, but is intentionally omitted from the focused student UI. */}
+      {isCurrentWorkspaceManager && !systemFeatures.branding.enabled && <DatasetFooter />}
       <TagManagementModal
         type="knowledge"
         show={showTagManagementModal}
         onClose={() => setShowTagManagementModal(false)}
         onTagsChange={invalidDatasetList}
       />
-      {showExternalApiPanel && <ExternalAPIPanel onClose={() => setShowExternalApiPanel(false)} />}
+      {isCurrentWorkspaceManager && showExternalApiPanel && <ExternalAPIPanel onClose={() => setShowExternalApiPanel(false)} />}
     </div>
   )
 }

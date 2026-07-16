@@ -45,12 +45,13 @@ from libs.token import (
     set_csrf_token_to_cookie,
     set_refresh_token_to_cookie,
 )
-from services.account_service import AccountService, InvitationDetailDict, RegisterService, TenantService
+from services.account_service import AccountService, InvitationDetailDict, RegisterService, TenantService, TokenPair
 from services.billing_service import BillingService
 from services.entities.auth_entities import LoginFailureReason, LoginPayloadBase
 from services.errors.account import AccountRegisterError
 from services.errors.workspace import WorkSpaceNotAllowedCreateError, WorkspacesLimitExceededError
 from services.feature_service import FeatureService
+from services.teaching_platform_service import TeachingPlatformService
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,67 @@ class EmailCodeLoginPayload(BaseModel):
         return validate_timezone_string(value)
 
 
-register_schema_models(console_ns, LoginPayload, EmailPayload, EmailCodeLoginPayload)
+class TeachingTicketLoginPayload(BaseModel):
+    ticket: str = Field(..., min_length=32, max_length=256)
+
+
+class TeachingRefreshTokenPayload(BaseModel):
+    refresh_token: str = Field(..., min_length=32, max_length=512)
+
+
+register_schema_models(
+    console_ns,
+    LoginPayload,
+    EmailPayload,
+    EmailCodeLoginPayload,
+    TeachingTicketLoginPayload,
+    TeachingRefreshTokenPayload,
+)
+
+
+def _teaching_token_response(token_pair: TokenPair):
+    """Return tokens in the body only for the explicit student iframe flow."""
+    response = make_response({"result": "success", "data": token_pair.model_dump()})
+    response.headers["Cache-Control"] = "no-store, private"
+    response.headers["Pragma"] = "no-cache"
+    return response
+
+
+@console_ns.route("/teaching/login")
+class TeachingTicketLoginApi(Resource):
+    """Exchange a short-lived provisioning ticket for a student token pair."""
+
+    @setup_required
+    @console_ns.expect(console_ns.models[TeachingTicketLoginPayload.__name__])
+    def post(self):
+        if not dify_config.TEACHING_MODE_ENABLED:
+            return {"result": "fail", "message": "Teaching login is disabled."}, 404
+
+        args = TeachingTicketLoginPayload.model_validate(console_ns.payload)
+        account = TeachingPlatformService.consume_student_login_ticket(args.ticket)
+        if account is None:
+            return {"result": "fail", "message": "Teaching login ticket is invalid or expired."}, 401
+
+        token_pair = AccountService.login(account=account, ip_address=extract_remote_ip(request))
+        return _teaching_token_response(token_pair)
+
+
+@console_ns.route("/teaching/refresh-token")
+class TeachingRefreshTokenApi(Resource):
+    """Rotate a student refresh token without relying on third-party cookies."""
+
+    @console_ns.expect(console_ns.models[TeachingRefreshTokenPayload.__name__])
+    def post(self):
+        if not dify_config.TEACHING_MODE_ENABLED:
+            return {"result": "fail", "message": "Teaching login is disabled."}, 404
+
+        args = TeachingRefreshTokenPayload.model_validate(console_ns.payload)
+        try:
+            token_pair = AccountService.refresh_token(args.refresh_token)
+        except Exception:
+            logger.warning("Teaching refresh token rejected", exc_info=True)
+            return {"result": "fail", "message": "Teaching refresh token is invalid or expired."}, 401
+        return _teaching_token_response(token_pair)
 
 
 @console_ns.route("/login")

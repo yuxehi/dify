@@ -5,6 +5,7 @@ import click
 from celery import shared_task
 from sqlalchemy import delete, select
 
+from configs import dify_config
 from core.db.session_factory import session_factory
 from core.rag.index_processor.index_processor_factory import IndexProcessorFactory
 from core.tools.utils.web_reader_tool import get_image_upload_file_ids
@@ -168,8 +169,13 @@ def clean_dataset_task(
                         Workflow.type == WorkflowType.RAG_PIPELINE,
                     )
                 )
-            # delete files
-            if documents:
+            # Teaching-platform source uploads belong to the course system and
+            # can be reused by later assignments. Derived files were cleaned in
+            # the preceding blocks and are deliberately unaffected by this flag.
+            preserve_source_files = (
+                dify_config.TEACHING_MODE_ENABLED and dify_config.TEACHING_PRESERVE_DATASET_SOURCE_FILES
+            )
+            if documents and not preserve_source_files:
                 file_ids = []
                 for document in documents:
                     if document.data_source_type == "upload_file":

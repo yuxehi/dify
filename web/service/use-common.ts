@@ -24,6 +24,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import { IS_DEV } from '@/config'
 import { get, post } from './base'
 import { consoleClient } from './client'
+import { clearTeachingTokens } from './teaching-auth'
 
 /**
  * True iff `err` is a 401 Response thrown by `service/base.ts`.
@@ -240,6 +241,7 @@ export const useLogout = () => {
     mutationKey: [NAME_SPACE, 'logout'],
     mutationFn: () => post('/logout'),
     onSuccess: () => {
+      clearTeachingTokens()
       // Drop all cached queries so the post-logout /signin probe doesn't read
       // the previous user's profile (the userProfile queryKey is shared with
       // the (commonLayout) tree, which keeps observing it during React's

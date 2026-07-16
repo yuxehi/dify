@@ -226,7 +226,8 @@ services:
   # API service
   api:
     <<: *shared-api-worker-config
-    image: langgenius/dify-api:1.14.2
+    # Teaching fork image; override DIFY_API_IMAGE to pin a release digest in production.
+    image: ${DIFY_API_IMAGE:-xuut/dify-api:latest}
     environment:
       MODE: api
       SENTRY_DSN: ${API_SENTRY_DSN:-}
@@ -270,7 +271,7 @@ services:
   # WebSocket service for workflow collaboration.
   api_websocket:
     <<: *shared-api-worker-config
-    image: langgenius/dify-api:1.14.2
+    image: ${DIFY_API_IMAGE:-xuut/dify-api:latest}
     profiles:
       - collaboration
     environment:
@@ -296,7 +297,7 @@ services:
   # The Celery worker for processing all queues (dataset, workflow, mail, etc.)
   worker:
     <<: *shared-worker-config
-    image: langgenius/dify-api:1.14.2
+    image: ${DIFY_API_IMAGE:-xuut/dify-api:latest}
     environment:
       MODE: worker
       SENTRY_DSN: ${API_SENTRY_DSN:-}
@@ -339,7 +340,7 @@ services:
   # Celery beat for scheduling periodic tasks.
   worker_beat:
     <<: *shared-worker-beat-config
-    image: langgenius/dify-api:1.14.2
+    image: ${DIFY_API_IMAGE:-xuut/dify-api:latest}
     environment:
       MODE: beat
     depends_on:
@@ -372,7 +373,7 @@ services:
 
   # Frontend web application.
   web:
-    image: langgenius/dify-web:1.14.2
+    image: ${DIFY_WEB_IMAGE:-xuut/dify-web:latest}
     restart: always
     env_file:
       - path: ./envs/core-services/web.env
@@ -391,7 +392,8 @@ services:
       EXPERIMENTAL_ENABLE_VINEXT: ${EXPERIMENTAL_ENABLE_VINEXT:-false}
       TEXT_GENERATION_TIMEOUT_MS: ${TEXT_GENERATION_TIMEOUT_MS:-60000}
       CSP_WHITELIST: ${CSP_WHITELIST:-}
-      ALLOW_EMBED: ${ALLOW_EMBED:-false}
+      # The teaching platform embeds the Console itself, not only published apps.
+      ALLOW_EMBED: ${ALLOW_EMBED:-true}
       ALLOW_INLINE_STYLES: ${ALLOW_INLINE_STYLES:-false}
       ALLOW_UNSAFE_DATA_SCHEME: ${ALLOW_UNSAFE_DATA_SCHEME:-false}
       MARKETPLACE_API_URL: ${MARKETPLACE_API_URL:-https://marketplace.dify.ai}
@@ -428,6 +430,10 @@ services:
                -c 'idle_in_transaction_session_timeout=${POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT:-0}'
     volumes:
       - ./volumes/db/data:/var/lib/postgresql/data
+    # Retained from the teaching deployment for database operations tooling.
+    # Bind EXPOSE_DB_HOST to 127.0.0.1 unless remote access is explicitly needed.
+    ports:
+      - "${EXPOSE_DB_HOST:-127.0.0.1}:${EXPOSE_DB_PORT:-5432}:5432"
     healthcheck:
       test:
         [
@@ -678,7 +684,9 @@ services:
       ]
     environment:
       NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-_}
-      NGINX_HTTPS_ENABLED: ${NGINX_HTTPS_ENABLED:-false}
+      # The existing teaching iframe is served over HTTPS; keep its default
+      # origin/cookie behavior while still allowing an explicit env override.
+      NGINX_HTTPS_ENABLED: ${NGINX_HTTPS_ENABLED:-true}
       NGINX_SSL_PORT: ${NGINX_SSL_PORT:-443}
       NGINX_PORT: ${NGINX_PORT:-80}
       # You're required to add your own SSL certificates/keys to the `./nginx/ssl` directory
@@ -1024,6 +1032,7 @@ services:
       - 9091:9091
     networks:
       - milvus
+      - default
 
   # Opensearch vector database
   opensearch:

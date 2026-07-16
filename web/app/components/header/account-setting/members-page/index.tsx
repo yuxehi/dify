@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@langgenius/dify-ui/too
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import Pagination from '@/app/components/base/pagination'
 import { NUM_INFINITE } from '@/app/components/billing/config'
 import { Plan } from '@/app/components/billing/type'
 import UpgradeBtn from '@/app/components/billing/upgrade-btn'
@@ -22,6 +23,11 @@ import InvitedModal from './invited-modal'
 import Operation from './operation'
 import TransferOwnership from './operation/transfer-ownership'
 import TransferOwnershipModal from './transfer-ownership-modal'
+
+// Keep the existing members API contract intact. Pagination is intentionally
+// local to this administration page so other member selectors still receive
+// the complete workspace member list.
+const MEMBERS_PER_PAGE = 20
 
 const MembersPage = () => {
   const { t } = useTranslation()
@@ -42,6 +48,15 @@ const MembersPage = () => {
   const [invitationResults, setInvitationResults] = useState<InvitationResult[]>([])
   const [invitedModalVisible, setInvitedModalVisible] = useState(false)
   const accounts = data?.accounts || []
+  const [currentPage, setCurrentPage] = useState(0)
+  const totalPages = Math.max(1, Math.ceil(accounts.length / MEMBERS_PER_PAGE))
+  // A deletion on the last page can reduce the page count after refetching.
+  // Clamp for rendering without adding a state-setting effect.
+  const visiblePage = Math.min(currentPage, totalPages - 1)
+  const visibleAccounts = accounts.slice(
+    visiblePage * MEMBERS_PER_PAGE,
+    (visiblePage + 1) * MEMBERS_PER_PAGE,
+  )
   const { plan, enableBilling, isAllowTransferWorkspace } = useProviderContext()
   const isNotUnlimitedMemberPlan = enableBilling && plan.type !== Plan.team && plan.type !== Plan.enterprise
   const isMemberFull = enableBilling && isNotUnlimitedMemberPlan && accounts.length >= plan.total.teamMembers
@@ -131,7 +146,7 @@ const MembersPage = () => {
           </div>
           <div className="relative min-w-[480px]">
             {
-              accounts.map(account => (
+              visibleAccounts.map(account => (
                 <div key={account.id} className="flex border-b border-divider-subtle">
                   <div className="flex grow items-center px-3 py-2">
                     <Avatar avatar={account.avatar_url} size="sm" className="mr-2" name={account.name} />
@@ -163,6 +178,15 @@ const MembersPage = () => {
               ))
             }
           </div>
+          {accounts.length > MEMBERS_PER_PAGE && (
+            <Pagination
+              className="px-0 pt-4 pb-0"
+              current={visiblePage}
+              limit={MEMBERS_PER_PAGE}
+              total={accounts.length}
+              onChange={setCurrentPage}
+            />
+          )}
         </div>
       </div>
       {

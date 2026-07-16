@@ -36,6 +36,14 @@ vi.mock('@/context/provider-context', () => ({
   }),
 }))
 
+let mockIsCurrentWorkspaceManager = true
+vi.mock('@/context/app-context', () => ({
+  useAppContext: () => ({
+    isCurrentWorkspaceManager: mockIsCurrentWorkspaceManager,
+    userProfile: { email: 'student@example.com' },
+  }),
+}))
+
 vi.mock('../../file-uploader', () => ({
   default: ({ onPreview, fileList }: { onPreview: (file: File) => void, fileList: FileItem[] }) => (
     <div data-testid="file-uploader">
@@ -206,6 +214,7 @@ describe('StepOne', () => {
       total: { vectorSpace: 100, buildApps: 0, documentsUploadQuota: 0, vectorStorageQuota: 0 },
     }
     mockEnableBilling = false
+    mockIsCurrentWorkspaceManager = true
   })
 
   describe('Rendering', () => {
@@ -259,6 +268,17 @@ describe('StepOne', () => {
       render(<StepOne {...defaultProps} datasetId="dataset-123" />)
 
       expect(screen.queryByText('datasetCreation.stepOne.emptyDatasetCreation')).not.toBeInTheDocument()
+    })
+
+    it('should render the focused teaching-platform file flow for a student', () => {
+      mockIsCurrentWorkspaceManager = false
+
+      render(<StepOne {...defaultProps} dataSourceType={DataSourceType.NOTION} />)
+
+      expect(screen.getByText('datasetCreation.stepOne.teachingSource.title')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'datasetCreation.stepOne.teachingSource.selectButton' })).toBeInTheDocument()
+      expect(screen.queryByTestId('file-uploader')).not.toBeInTheDocument()
+      expect(screen.queryByText('datasetCreation.stepOne.notionSyncTitle')).not.toBeInTheDocument()
     })
   })
 

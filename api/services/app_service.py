@@ -64,6 +64,12 @@ class AppService:
         """
         filters = [App.tenant_id == tenant_id, App.is_universal == False]
 
+        if dify_config.TEACHING_MODE_ENABLED and not current_user.is_admin_or_owner:
+            # Teaching students share one tenant, so tenant scoping alone would expose
+            # every student's agents. Owners/admins intentionally keep the complete
+            # workspace view for teaching operations and support.
+            filters.append(App.created_by == user_id)
+
         if params.mode == "workflow":
             filters.append(App.mode == AppMode.WORKFLOW)
         elif params.mode == "completion":

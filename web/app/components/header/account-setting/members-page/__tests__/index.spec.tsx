@@ -139,6 +139,32 @@ describe('MembersPage', () => {
     expect(screen.getByText('Admin User'))!.toBeInTheDocument()
   })
 
+  it('should paginate members with at most 20 members per page', async () => {
+    const user = userEvent.setup()
+    const manyAccounts = Array.from({ length: 21 }, (_, index): Member => ({
+      ...mockAccounts[1]!,
+      id: `member-${index + 1}`,
+      name: `Member ${index + 1}`,
+      email: `member-${index + 1}@example.com`,
+      role: 'editor',
+    }))
+    vi.mocked(useMembers).mockReturnValue({
+      data: { accounts: manyAccounts },
+      refetch: mockRefetch,
+    } as unknown as ReturnType<typeof useMembers>)
+
+    renderMembersPage()
+
+    expect(screen.getByText('Member 1')).toBeInTheDocument()
+    expect(screen.getByText('Member 20')).toBeInTheDocument()
+    expect(screen.queryByText('Member 21')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /pagination\.next/i }))
+
+    expect(screen.queryByText('Member 1')).not.toBeInTheDocument()
+    expect(screen.getByText('Member 21')).toBeInTheDocument()
+  })
+
   it('should open and close invite modal', async () => {
     const user = userEvent.setup()
 

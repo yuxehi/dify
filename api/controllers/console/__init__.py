@@ -95,6 +95,7 @@ from .datasets import (
     external,
     hit_testing,
     metadata,
+    teaching_file_list,
     website,
 )
 from .datasets.rag_pipeline import (

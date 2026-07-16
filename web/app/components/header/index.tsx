@@ -20,6 +20,7 @@ import ExploreNav from './explore-nav'
 import LicenseNav from './license-env'
 import { PlanBadge } from './plan-badge'
 import PluginsNav from './plugins-nav'
+import StudentIdentity from './student-identity'
 import ToolsNav from './tools-nav'
 
 const navClassName = `
@@ -29,7 +30,7 @@ const navClassName = `
 `
 
 const Header = () => {
-  const { isCurrentWorkspaceEditor, isCurrentWorkspaceDatasetOperator } = useAppContext()
+  const { isCurrentWorkspaceEditor, isCurrentWorkspaceDatasetOperator, isCurrentWorkspaceManager } = useAppContext()
   const media = useBreakpoints()
   const isMobile = media === MediaType.mobile
   const { enableBilling, plan } = useProviderContext()
@@ -66,25 +67,30 @@ const Header = () => {
       <div className="">
         <div className="flex items-center justify-between px-2">
           <div className="flex items-center">
-            {renderLogo()}
-            <div className="mx-1.5 shrink-0 font-light text-divider-deep">/</div>
-            <WorkspaceProvider>
-              <WorkplaceSelector />
-            </WorkspaceProvider>
-            {enableBilling ? <PlanBadge allowHover sandboxAsUpgrade plan={plan.type} onClick={handlePlanClick} /> : <LicenseNav />}
+            {/* Teaching students are editors in one fixed workspace. Hiding the
+                branding/workspace switcher keeps them inside the course scope;
+                owners/admins retain the complete official administration header. */}
+            {isCurrentWorkspaceManager && renderLogo()}
+            {isCurrentWorkspaceManager && <div className="mx-1.5 shrink-0 font-light text-divider-deep">/</div>}
+            {isCurrentWorkspaceManager && (
+              <WorkspaceProvider>
+                <WorkplaceSelector />
+              </WorkspaceProvider>
+            )}
+            {isCurrentWorkspaceManager && (enableBilling ? <PlanBadge allowHover sandboxAsUpgrade plan={plan.type} onClick={handlePlanClick} /> : <LicenseNav />)}
           </div>
           <div className="flex items-center">
             <div className="mr-2">
-              <PluginsNav />
+              {isCurrentWorkspaceManager && <PluginsNav />}
             </div>
-            <AccountDropdown />
+            {isCurrentWorkspaceManager ? <AccountDropdown /> : <StudentIdentity isMobile />}
           </div>
         </div>
         <div className="my-1 flex items-center justify-center space-x-1">
-          {!isCurrentWorkspaceDatasetOperator && <ExploreNav className={navClassName} />}
+          {isCurrentWorkspaceManager && !isCurrentWorkspaceDatasetOperator && <ExploreNav className={navClassName} />}
           {!isCurrentWorkspaceDatasetOperator && <AppNav />}
           {(isCurrentWorkspaceEditor || isCurrentWorkspaceDatasetOperator) && <DatasetNav />}
-          {!isCurrentWorkspaceDatasetOperator && <ToolsNav className={navClassName} />}
+          {isCurrentWorkspaceManager && !isCurrentWorkspaceDatasetOperator && <ToolsNav className={navClassName} />}
         </div>
       </div>
     )
@@ -93,25 +99,27 @@ const Header = () => {
   return (
     <div className="flex h-[56px] items-center">
       <div className="flex min-w-0 flex-1 items-center pr-2 pl-3 min-[1280px]:pr-3">
-        {renderLogo()}
-        <div className="mx-1.5 shrink-0 font-light text-divider-deep">/</div>
-        <WorkspaceProvider>
-          <WorkplaceSelector />
-        </WorkspaceProvider>
-        {enableBilling ? <PlanBadge allowHover sandboxAsUpgrade plan={plan.type} onClick={handlePlanClick} /> : <LicenseNav />}
+        {isCurrentWorkspaceManager && renderLogo()}
+        {isCurrentWorkspaceManager && <div className="mx-1.5 shrink-0 font-light text-divider-deep">/</div>}
+        {isCurrentWorkspaceManager && (
+          <WorkspaceProvider>
+            <WorkplaceSelector />
+          </WorkspaceProvider>
+        )}
+        {isCurrentWorkspaceManager && (enableBilling ? <PlanBadge allowHover sandboxAsUpgrade plan={plan.type} onClick={handlePlanClick} /> : <LicenseNav />)}
       </div>
       <div className="flex items-center space-x-2">
-        {!isCurrentWorkspaceDatasetOperator && <ExploreNav className={navClassName} />}
+        {isCurrentWorkspaceManager && !isCurrentWorkspaceDatasetOperator && <ExploreNav className={navClassName} />}
         {!isCurrentWorkspaceDatasetOperator && <AppNav />}
         {(isCurrentWorkspaceEditor || isCurrentWorkspaceDatasetOperator) && <DatasetNav />}
-        {!isCurrentWorkspaceDatasetOperator && <ToolsNav className={navClassName} />}
+        {isCurrentWorkspaceManager && !isCurrentWorkspaceDatasetOperator && <ToolsNav className={navClassName} />}
       </div>
       <div className="flex min-w-0 flex-1 items-center justify-end pr-3 pl-2 min-[1280px]:pl-3">
-        <EnvNav />
+        {isCurrentWorkspaceManager && <EnvNav />}
         <div className="mr-2">
-          <PluginsNav />
+          {isCurrentWorkspaceManager && <PluginsNav />}
         </div>
-        <AccountDropdown />
+        {isCurrentWorkspaceManager ? <AccountDropdown /> : <StudentIdentity />}
       </div>
     </div>
   )

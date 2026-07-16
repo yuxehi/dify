@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { useContextSelector } from 'use-context-selector'
 import { CreateFromDSLModalTab } from '@/app/components/app/create-from-dsl-modal'
 import { FileArrow01, FilePlus01, FilePlus02 } from '@/app/components/base/icons/src/vender/line/files'
+import { useAppContext } from '@/context/app-context'
 import AppListContext from '@/context/app-list-context'
 import { useProviderContext } from '@/context/provider-context'
 import dynamic from '@/next/dynamic'
@@ -42,6 +43,7 @@ const CreateAppCard = ({
 }: CreateAppCardProps) => {
   const { t } = useTranslation()
   const { onPlanInfoChanged } = useProviderContext()
+  const { isCurrentWorkspaceManager } = useAppContext()
   const searchParams = useSearchParams()
   const { replace } = useRouter()
   const dslUrl = searchParams.get('remoteInstallUrl') || undefined
@@ -74,23 +76,36 @@ const CreateAppCard = ({
       )}
     >
       <div className="grow rounded-t-xl p-2">
-        <div className="px-6 pt-2 pb-1 text-xs leading-[18px] font-medium text-text-tertiary">{t('createApp', { ns: 'app' })}</div>
-        <button type="button" className="mb-1 flex w-full cursor-pointer items-center rounded-lg px-6 py-[7px] text-[13px] leading-[18px] font-medium text-text-tertiary hover:bg-state-base-hover hover:text-text-secondary" onClick={() => setShowNewAppModal(true)}>
-          <FilePlus01 className="mr-2 h-4 w-4 shrink-0" />
-          {t('newApp.startFromBlank', { ns: 'app' })}
-        </button>
-        <button type="button" className="flex w-full cursor-pointer items-center rounded-lg px-6 py-[7px] text-[13px] leading-[18px] font-medium text-text-tertiary hover:bg-state-base-hover hover:text-text-secondary" onClick={() => setShowNewAppTemplateDialog(true)}>
-          <FilePlus02 className="mr-2 h-4 w-4 shrink-0" />
-          {t('newApp.startFromTemplate', { ns: 'app' })}
-        </button>
+        {isCurrentWorkspaceManager && <div className="px-6 pt-2 pb-1 text-xs leading-[18px] font-medium text-text-tertiary">{t('createApp', { ns: 'app' })}</div>}
         <button
           type="button"
-          onClick={() => setShowCreateFromDSLModal(true)}
-          className="flex w-full cursor-pointer items-center rounded-lg px-6 py-[7px] text-[13px] leading-[18px] font-medium text-text-tertiary hover:bg-state-base-hover hover:text-text-secondary"
+          className={cn(
+            'mb-1 flex w-full cursor-pointer items-center rounded-lg px-6 py-[7px] text-[13px] leading-[18px] font-medium text-text-tertiary hover:bg-state-base-hover hover:text-text-secondary',
+            // Dify 1.0.1 used the whole card as a quiet, borderless action:
+            // a 32 px icon above the label, centered in the available space.
+            !isCurrentWorkspaceManager && 'grid h-full place-content-center gap-4',
+          )}
+          onClick={() => setShowNewAppModal(true)}
         >
-          <FileArrow01 className="mr-2 h-4 w-4 shrink-0" />
-          {t('importDSL', { ns: 'app' })}
+          <FilePlus01 className={cn('mr-2 h-4 w-4 shrink-0', !isCurrentWorkspaceManager && 'mr-0 h-8 w-full')} />
+          {t('newApp.startFromBlank', { ns: 'app' })}
         </button>
+        {isCurrentWorkspaceManager && (
+          <button type="button" className="flex w-full cursor-pointer items-center rounded-lg px-6 py-[7px] text-[13px] leading-[18px] font-medium text-text-tertiary hover:bg-state-base-hover hover:text-text-secondary" onClick={() => setShowNewAppTemplateDialog(true)}>
+            <FilePlus02 className="mr-2 h-4 w-4 shrink-0" />
+            {t('newApp.startFromTemplate', { ns: 'app' })}
+          </button>
+        )}
+        {isCurrentWorkspaceManager && (
+          <button
+            type="button"
+            onClick={() => setShowCreateFromDSLModal(true)}
+            className="flex w-full cursor-pointer items-center rounded-lg px-6 py-[7px] text-[13px] leading-[18px] font-medium text-text-tertiary hover:bg-state-base-hover hover:text-text-secondary"
+          >
+            <FileArrow01 className="mr-2 h-4 w-4 shrink-0" />
+            {t('importDSL', { ns: 'app' })}
+          </button>
+        )}
       </div>
 
       {showNewAppModal && (
@@ -109,7 +124,7 @@ const CreateAppCard = ({
           defaultAppMode={selectedAppType !== 'all' ? selectedAppType as any : undefined}
         />
       )}
-      {showNewAppTemplateDialog && (
+      {isCurrentWorkspaceManager && showNewAppTemplateDialog && (
         <CreateAppTemplateDialog
           show={showNewAppTemplateDialog}
           onClose={() => setShowNewAppTemplateDialog(false)}
@@ -124,7 +139,7 @@ const CreateAppCard = ({
           }}
         />
       )}
-      {showCreateFromDSLModal && (
+      {isCurrentWorkspaceManager && showCreateFromDSLModal && (
         <CreateFromDSLModal
           show={showCreateFromDSLModal}
           onClose={() => {

@@ -137,6 +137,7 @@ describe('CreateAppModal', () => {
     } as unknown as ReturnType<typeof useProviderContext>)
     mockUseAppContext.mockReturnValue({
       isCurrentWorkspaceEditor: true,
+      isCurrentWorkspaceManager: true,
     } as unknown as ReturnType<typeof useAppContext>)
     mockSetItem.mockClear()
     Object.defineProperty(window, 'localStorage', {
@@ -299,6 +300,18 @@ describe('CreateAppModal', () => {
         mode: AppModeEnum.COMPLETION,
       }))
     })
+  })
+
+  it('should offer the completion app type to a student editor', () => {
+    mockUseAppContext.mockReturnValue({
+      isCurrentWorkspaceEditor: true,
+      isCurrentWorkspaceManager: false,
+    } as unknown as ReturnType<typeof useAppContext>)
+
+    renderModal()
+    fireEvent.click(screen.getByText('app.newApp.forBeginners'))
+
+    expect(screen.getByText('app.newApp.completeApp')).toBeInTheDocument()
   })
 
   it('should ignore duplicate create clicks while a request is in flight', async () => {
