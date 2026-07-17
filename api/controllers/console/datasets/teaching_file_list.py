@@ -39,7 +39,7 @@ class TeachingFileListApi(Resource):
         payload = {"funcName": "GetFileList", "options": {"email": requested_email}}
         try:
             response = requests.post(
-                dify_config.TEACHING_FILE_API_URL,
+                dify_config.teaching_file_api_url,
                 json=payload,
                 timeout=dify_config.TEACHING_REQUEST_TIMEOUT_SECONDS,
             )

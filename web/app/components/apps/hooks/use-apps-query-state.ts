@@ -23,7 +23,10 @@ const appListQueryParsers = {
     limitUrlUpdates: debounce(APP_LIST_SEARCH_DEBOUNCE_MS),
   }),
   isCreatedByMe: parseAsBoolean
-    .withDefault(false)
+    // Teaching workspaces can contain many students' apps. Default to the
+    // current account's apps so administrators enter Studio with a focused,
+    // lightweight list; they can still uncheck the filter to inspect all apps.
+    .withDefault(true)
     .withOptions({ history: 'push' }),
 }
 

@@ -20,7 +20,7 @@ describe('useAppsQueryState', () => {
       category: 'all',
       tagIDs: [],
       keywords: '',
-      isCreatedByMe: false,
+      isCreatedByMe: true,
     })
     expect(typeof result.current.setCategory).toBe('function')
     expect(typeof result.current.setKeywords).toBe('function')
@@ -144,8 +144,8 @@ describe('useAppsQueryState', () => {
     expect(update.searchParams.has('tagIDs')).toBe(false)
   })
 
-  it('should update created-by-me URL state', async () => {
-    const { result, onUrlUpdate } = renderWithAdapter()
+  it('should restore the default created-by-me filter', async () => {
+    const { result, onUrlUpdate } = renderWithAdapter('?isCreatedByMe=false')
 
     act(() => {
       result.current.setIsCreatedByMe(true)
@@ -154,12 +154,12 @@ describe('useAppsQueryState', () => {
     await waitFor(() => expect(onUrlUpdate).toHaveBeenCalled())
     const update = onUrlUpdate.mock.calls.at(-1)![0]
     expect(result.current.query.isCreatedByMe).toBe(true)
-    expect(update.searchParams.get('isCreatedByMe')).toBe('true')
+    expect(update.searchParams.has('isCreatedByMe')).toBe(false)
     expect(update.options.history).toBe('push')
   })
 
-  it('should remove isCreatedByMe from URL when disabled', async () => {
-    const { result, onUrlUpdate } = renderWithAdapter('?isCreatedByMe=true')
+  it('should persist isCreatedByMe=false when the default filter is disabled', async () => {
+    const { result, onUrlUpdate } = renderWithAdapter()
 
     act(() => {
       result.current.setIsCreatedByMe(false)
@@ -168,6 +168,6 @@ describe('useAppsQueryState', () => {
     await waitFor(() => expect(onUrlUpdate).toHaveBeenCalled())
     const update = onUrlUpdate.mock.calls.at(-1)![0]
     expect(result.current.query.isCreatedByMe).toBe(false)
-    expect(update.searchParams.has('isCreatedByMe')).toBe(false)
+    expect(update.searchParams.get('isCreatedByMe')).toBe('false')
   })
 })

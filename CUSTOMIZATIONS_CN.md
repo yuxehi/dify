@@ -53,7 +53,7 @@ GET /console/api/apps/user?name=<姓名>&email=<邮箱>
 ### Token 回传
 
 ```text
-POST https://www.suitanglian.com:3019/api/setAgentTokens
+POST ${TEACHING_PLATFORM_BASE_URL}/api/setAgentTokens
 Content-Type: application/json
 
 {"email":"student@example.com","total_tokens":123}
@@ -80,10 +80,10 @@ GET /console/api/fileList?email=<当前登录学生邮箱>
 }
 ```
 
-外部地址为：
+外部地址从统一的教学平台基础地址派生：
 
 ```text
-https://www.suitanglian.com:3019/api/ai_general_education/unifiedUtilFunction_PPT
+${TEACHING_PLATFORM_BASE_URL}/api/ai_general_education/unifiedUtilFunction_PPT
 ```
 
 1.14.2 增加了当前登录账号邮箱校验，能阻止学生横向读取其他人的文件，但不会影响教学平台正常调用。
@@ -97,7 +97,17 @@ https://www.suitanglian.com:3019/api/ai_general_education/unifiedUtilFunction_PP
 - `docker/.env.example`
 - `docker/envs/core-services/shared.env.example`
 
-所有域名、Tenant、固定密码、超时和源文件保留策略都通过 `TEACHING_*` 环境变量集中管理。默认值保留 1.0.1 行为，以支持无缝迁移。
+所有部署地址、Tenant、固定密码、超时和源文件保留策略都通过环境变量集中管理。只需在同一份部署 `.env` 中维护：
+
+```env
+# Dify 对外地址，可使用域名或 IP，并可携带端口。
+DIFY_PUBLIC_BASE_URL=https://dify.example.com
+
+# 教学平台基础地址，可使用域名或 IP，并可携带端口。
+TEACHING_PLATFORM_BASE_URL=https://teaching.example.com:3019
+```
+
+学生登录跳转从 `DIFY_PUBLIC_BASE_URL` 派生；Token 回传和教学文件接口从 `TEACHING_PLATFORM_BASE_URL` 派生。修改服务器地址时不需要再修改代码或分别维护完整接口 URL。
 
 ### 2. 自动开户和自动登录
 
@@ -192,7 +202,7 @@ Editor 学生保留应用、知识库和应用配置/Workflow 编辑，并允许
 2. 从旧部署备份 PostgreSQL、Redis、对象存储/本地 storage 和插件数据。
 3. 在测试副本执行官方 1.0.1 到 1.14.2 数据库迁移。
 4. 确认固定 Tenant ID 在迁移后的数据库中存在。
-5. 设置生产 `TEACHING_TENANT_ID`、`TEACHING_CONSOLE_URL` 和票据 TTL；由网关限制学生入口的来源 IP。
+5. 设置生产 `TEACHING_TENANT_ID`、`DIFY_PUBLIC_BASE_URL`、`TEACHING_PLATFORM_BASE_URL` 和票据 TTL；由网关限制学生入口的来源 IP。
 6. 配置 HTTPS 证书和域名，并在真实教学平台 iframe 中验证；不要部署成“教学平台 HTTPS + Dify HTTP”。
 7. 使用固定学生测试首次开户、重复进入、自动登录、刷新页面和 Token 轮换。
 8. 验证学生只能看到自己的应用，Owner/Admin 能直接登录并看到全部应用。

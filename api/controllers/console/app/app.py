@@ -918,7 +918,7 @@ class TeachingPlatformUserApi(Resource):
         # new opaque ticket is consumed once by the Dify iframe and avoids all
         # reliance on third-party authentication cookies.
         query = urlencode({"email": str(args.email), "teaching_ticket": ticket})
-        redirect_url = f"{dify_config.TEACHING_CONSOLE_URL.rstrip('/')}/signin?{query}"
+        redirect_url = f"{dify_config.DIFY_PUBLIC_BASE_URL}/signin?{query}"
         # 301 is retained for byte-level compatibility with the existing platform.
         response = redirect(redirect_url, code=301)
         # A permanent redirect normally permits caching, which would replay an

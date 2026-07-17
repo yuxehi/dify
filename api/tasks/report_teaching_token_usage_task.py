@@ -52,7 +52,7 @@ def report_teaching_token_usage_task(
             return False
 
         response = requests.post(
-            dify_config.TEACHING_TOKEN_REPORT_URL,
+            dify_config.teaching_token_report_url,
             json={"email": row.email, "total_tokens": int(total_tokens)},
             timeout=dify_config.TEACHING_REQUEST_TIMEOUT_SECONDS,
         )
