@@ -5,6 +5,7 @@ import DatasetDetailLayout from '../layout-main'
 
 const mockReplace = vi.fn()
 const mockSetAppSidebarExpand = vi.fn()
+let mockIsCurrentWorkspaceManager = true
 
 vi.mock('@/next/navigation', () => ({
   usePathname: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock('@/app/components/app/store', () => ({
 vi.mock('@/context/app-context', () => ({
   useAppContext: () => ({
     isCurrentWorkspaceDatasetOperator: false,
+    isCurrentWorkspaceManager: mockIsCurrentWorkspaceManager,
   }),
 }))
 
@@ -46,11 +48,24 @@ vi.mock('@/hooks/use-document-title', () => ({
 }))
 
 vi.mock('@/app/components/app-sidebar', () => ({
-  default: () => <aside aria-label="dataset navigation" />,
+  default: ({
+    navigation,
+    extraInfo,
+  }: {
+    navigation: Array<{ href: string }>
+    extraInfo?: (mode: 'expand' | 'collapse') => React.ReactNode
+  }) => (
+    <aside aria-label="dataset navigation">
+      {navigation.map(item => <span key={item.href}>{item.href}</span>)}
+      {extraInfo?.('expand')}
+    </aside>
+  ),
 }))
 
 vi.mock('@/app/components/datasets/extra-info', () => ({
-  default: () => <div />,
+  default: ({ showApiAccess }: { showApiAccess?: boolean }) => (
+    <div>{showApiAccess ? 'api-access-visible' : 'api-access-hidden'}</div>
+  ),
 }))
 
 const mockUsePathname = vi.mocked(usePathname)
@@ -61,6 +76,7 @@ const mockUseDatasetRelatedApps = vi.mocked(useDatasetRelatedApps)
 describe('DatasetDetailLayout', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockIsCurrentWorkspaceManager = true
     mockUsePathname.mockReturnValue('/datasets/dataset-1/pipeline')
     mockUseRouter.mockReturnValue({
       back: vi.fn(),
@@ -146,6 +162,55 @@ describe('DatasetDetailLayout', () => {
       expect(screen.getByText('Pipeline content')).toBeInTheDocument()
       expect(mockUseDatasetRelatedApps).toHaveBeenCalledWith('dataset-1', { enabled: true })
       expect(mockReplace).not.toHaveBeenCalled()
+    })
+
+    it('should hide pipeline navigation and API access for teaching students', () => {
+      mockIsCurrentWorkspaceManager = false
+      mockUsePathname.mockReturnValue('/datasets/dataset-1/documents')
+      mockUseDatasetDetail.mockReturnValue({
+        data: {
+          id: 'dataset-1',
+          name: 'Dataset 1',
+          provider: 'vendor',
+          runtime_mode: 'general',
+          is_published: true,
+        },
+        error: null,
+        refetch: vi.fn(),
+      } as unknown as ReturnType<typeof useDatasetDetail>)
+
+      render(
+        <DatasetDetailLayout datasetId="dataset-1">
+          <div>Documents content</div>
+        </DatasetDetailLayout>,
+      )
+
+      expect(screen.getByText('/datasets/dataset-1/documents')).toBeInTheDocument()
+      expect(screen.queryByText('/datasets/dataset-1/pipeline')).not.toBeInTheDocument()
+      expect(screen.getByText('api-access-hidden')).toBeInTheDocument()
+    })
+
+    it('should retain pipeline navigation and API access for administrators', () => {
+      mockUseDatasetDetail.mockReturnValue({
+        data: {
+          id: 'dataset-1',
+          name: 'Dataset 1',
+          provider: 'vendor',
+          runtime_mode: 'rag_pipeline',
+          is_published: true,
+        },
+        error: null,
+        refetch: vi.fn(),
+      } as unknown as ReturnType<typeof useDatasetDetail>)
+
+      render(
+        <DatasetDetailLayout datasetId="dataset-1">
+          <div>Pipeline content</div>
+        </DatasetDetailLayout>,
+      )
+
+      expect(screen.getByText('/datasets/dataset-1/pipeline')).toBeInTheDocument()
+      expect(screen.getByText('api-access-visible')).toBeInTheDocument()
     })
   })
 })

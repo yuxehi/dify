@@ -736,6 +736,20 @@ describe('ExtraInfo', () => {
   })
 
   describe('Rendering', () => {
+    it('should hide API access while retaining statistics for teaching students', () => {
+      render(
+        <ExtraInfo
+          expand={true}
+          documentCount={10}
+          relatedApps={createMockRelatedAppsResponse()}
+          showApiAccess={false}
+        />,
+      )
+
+      expect(screen.getByText('10')).toBeInTheDocument()
+      expect(screen.queryByText(/appMenus\.apiAccess/i)).not.toBeInTheDocument()
+    })
+
     it('should render without crashing', () => {
       render(
         <ExtraInfo

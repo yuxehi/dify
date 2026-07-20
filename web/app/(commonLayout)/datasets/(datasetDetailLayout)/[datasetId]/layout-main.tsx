@@ -62,7 +62,7 @@ const DatasetDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
     if (v?.type === 'workflow-canvas-maximize')
       setHideHeader(v.payload)
   })
-  const { isCurrentWorkspaceDatasetOperator } = useAppContext()
+  const { isCurrentWorkspaceDatasetOperator, isCurrentWorkspaceManager } = useAppContext()
 
   const media = useBreakpoints()
   const isMobile = media === MediaType.mobile
@@ -101,13 +101,18 @@ const DatasetDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
     ]
 
     if (datasetRes?.provider !== 'external') {
-      baseNavigation.unshift({
-        name: t('datasetMenus.pipeline', { ns: 'common' }),
-        href: `/datasets/${datasetId}/pipeline`,
-        icon: PipelineLine as RemixiconComponentType,
-        selectedIcon: PipelineFill as RemixiconComponentType,
-        disabled: false,
-      })
+      // Teaching-platform students are workspace editors. Keep the knowledge
+      // pipeline entry available to owner/admin operators, while presenting
+      // students with the focused document-management navigation they need.
+      if (isCurrentWorkspaceManager) {
+        baseNavigation.unshift({
+          name: t('datasetMenus.pipeline', { ns: 'common' }),
+          href: `/datasets/${datasetId}/pipeline`,
+          icon: PipelineLine as RemixiconComponentType,
+          selectedIcon: PipelineFill as RemixiconComponentType,
+          disabled: false,
+        })
+      }
       baseNavigation.unshift({
         name: t('datasetMenus.documents', { ns: 'common' }),
         href: `/datasets/${datasetId}/documents`,
@@ -118,7 +123,7 @@ const DatasetDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
     }
 
     return baseNavigation
-  }, [t, datasetId, isButtonDisabledWithPipeline, datasetRes?.provider])
+  }, [t, datasetId, isButtonDisabledWithPipeline, datasetRes?.provider, isCurrentWorkspaceManager])
 
   useDocumentTitle(datasetRes?.name || t('menus.datasets', { ns: 'common' }))
 
@@ -159,7 +164,14 @@ const DatasetDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
             navigation={navigation}
             extraInfo={
               !isCurrentWorkspaceDatasetOperator
-                ? mode => <ExtraInfo relatedApps={relatedApps} expand={mode === 'expand'} documentCount={datasetRes?.document_count} />
+                ? mode => (
+                  <ExtraInfo
+                    relatedApps={relatedApps}
+                    expand={mode === 'expand'}
+                    documentCount={datasetRes?.document_count}
+                    showApiAccess={isCurrentWorkspaceManager}
+                  />
+                )
                 : undefined
             }
             iconType="dataset"
