@@ -18,6 +18,7 @@ import { collaborationManager } from '@/app/components/workflow/collaboration/co
 import { webSocketClient } from '@/app/components/workflow/collaboration/core/websocket-manager'
 import { isTriggerNode } from '@/app/components/workflow/types'
 import { NEED_REFRESH_APP_LIST_KEY } from '@/config'
+import { useAppContext } from '@/context/app-context'
 import {
   fetchAppDetail,
   updateAppSiteAccessToken,
@@ -36,11 +37,15 @@ type ICardViewProps = {
 
 const CardView: FC<ICardViewProps> = ({ appId, isInPanel, className }) => {
   const { t } = useTranslation()
+  const { isCurrentWorkspaceManager } = useAppContext()
   const appDetail = useAppStore(state => state.appDetail)
   const setAppDetail = useAppStore(state => state.setAppDetail)
 
   const isWorkflowApp = appDetail?.mode === AppModeEnum.WORKFLOW
-  const showMCPCard = isInPanel
+  // MCP service publication is an administration capability. Keep the app's
+  // ordinary Web/API cards visible to students while removing this side-panel
+  // entry and all of its configuration controls.
+  const showMCPCard = isInPanel && isCurrentWorkspaceManager
   const showTriggerCard = isInPanel && isWorkflowApp
   const { data: currentWorkflow } = useAppWorkflow(isWorkflowApp ? appDetail.id : '')
   const hasTriggerNode = useMemo<boolean | null>(() => {

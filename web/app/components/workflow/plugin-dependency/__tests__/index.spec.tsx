@@ -4,6 +4,14 @@ import userEvent from '@testing-library/user-event'
 import PluginDependency from '../index'
 import { useStore } from '../store'
 
+let mockIsCurrentWorkspaceManager = true
+
+vi.mock('@/context/app-context', () => ({
+  useAppContext: () => ({
+    isCurrentWorkspaceManager: mockIsCurrentWorkspaceManager,
+  }),
+}))
+
 vi.mock('@/app/components/plugins/install-plugin/install-bundle', () => ({
   __esModule: true,
   default: ({
@@ -33,6 +41,7 @@ const createDependency = (): Dependency => ({
 describe('plugin-dependency', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockIsCurrentWorkspaceManager = true
     useStore.setState({
       dependencies: [],
     })
@@ -56,6 +65,17 @@ describe('plugin-dependency', () => {
     await user.click(screen.getByRole('button', { name: 'close-bundle' }))
 
     expect(useStore.getState().dependencies).toEqual([])
+  })
+
+  it('should not show the plugin installation modal while a student loads an app', () => {
+    mockIsCurrentWorkspaceManager = false
+    useStore.setState({
+      dependencies: [createDependency()],
+    })
+
+    render(<PluginDependency />)
+
+    expect(screen.queryByText(/bundle-size/i)).not.toBeInTheDocument()
   })
 
   it('should update dependencies through the store setter', () => {
