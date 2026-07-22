@@ -139,6 +139,7 @@ describe('PopupItem', () => {
     })
     mockUseAppContext.mockReturnValue({
       currentWorkspace: { trial_credits: 200, trial_credits_used: 0 },
+      isCurrentWorkspaceManager: true,
     })
     mockCredentialPanelState.mockReturnValue({
       variant: 'api-active',
@@ -297,6 +298,18 @@ describe('PopupItem', () => {
     expect(screen.getByText('my-api-key'))!.toBeInTheDocument()
   })
 
+  it('should hide the provider API configuration control for a student', () => {
+    mockUseAppContext.mockReturnValue({
+      currentWorkspace: { trial_credits: 200, trial_credits_used: 0 },
+      isCurrentWorkspaceManager: false,
+    })
+
+    renderWithCombobox(<PopupItem {...previewCardProps()} model={makeModel()} onHide={vi.fn()} />)
+
+    expect(screen.queryByText('my-api-key')).not.toBeInTheDocument()
+    expect(screen.getByText('GPT-4')).toBeInTheDocument()
+  })
+
   it('should render the inactive credential badge when the api key is not active', () => {
     mockCredentialPanelState.mockReturnValue({
       variant: 'api-inactive',
@@ -370,6 +383,7 @@ describe('PopupItem', () => {
     })
     mockUseAppContext.mockReturnValue({
       currentWorkspace: { trial_credits: 100, trial_credits_used: 100 },
+      isCurrentWorkspaceManager: true,
     })
     mockCredentialPanelState.mockReturnValue({
       variant: 'credits-exhausted',

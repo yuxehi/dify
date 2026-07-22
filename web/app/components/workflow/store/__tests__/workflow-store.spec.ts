@@ -186,9 +186,9 @@ describe('createWorkflowStore', () => {
       expect(store.getState().controlMode).toBe('pointer')
     })
 
-    it('should default controlMode to pointer when localStorage has no value', () => {
+    it('should default controlMode to hand when localStorage has no value', () => {
       const store = createStore()
-      expect(store.getState().controlMode).toBe('pointer')
+      expect(store.getState().controlMode).toBe('hand')
     })
 
     it('should read panelWidth from localStorage', () => {

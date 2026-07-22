@@ -19,7 +19,7 @@ describe('StudentFileSource', () => {
   it('should open the teaching-platform file chooser', () => {
     const onBrowse = vi.fn()
 
-    render(<StudentFileSource files={[]} onBrowse={onBrowse} onFilesChange={vi.fn()} />)
+    render(<StudentFileSource files={[]} onBrowse={onBrowse} onFilesChange={vi.fn()} onPreview={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: 'datasetCreation.stepOne.teachingSource.selectButton' }))
 
     expect(onBrowse).toHaveBeenCalledOnce()
@@ -30,11 +30,22 @@ describe('StudentFileSource', () => {
     const files = [createFileItem('lesson-one.txt', '1'), createFileItem('lesson-two.txt', '2')]
     const onFilesChange = vi.fn()
 
-    render(<StudentFileSource files={files} onBrowse={vi.fn()} onFilesChange={onFilesChange} />)
+    render(<StudentFileSource files={files} onBrowse={vi.fn()} onFilesChange={onFilesChange} onPreview={vi.fn()} />)
     fireEvent.click(screen.getAllByRole('button', { name: /datasetCreation\.stepOne\.teachingSource\.removeFile/ })[0]!)
 
     expect(screen.getByText('lesson-one.txt')).toBeInTheDocument()
     expect(screen.getByText('lesson-two.txt')).toBeInTheDocument()
     expect(onFilesChange).toHaveBeenCalledWith([files[1]])
+  })
+
+  it('should preview a selected teaching-platform file when its row is clicked', () => {
+    const file = createFileItem('lesson-preview.txt', 'preview-1')
+    const onPreview = vi.fn()
+
+    render(<StudentFileSource files={[file]} onBrowse={vi.fn()} onFilesChange={vi.fn()} onPreview={onPreview} />)
+    fireEvent.click(screen.getByRole('button', { name: /datasetCreation\.stepOne\.filePreview.*lesson-preview\.txt/i }))
+
+    expect(onPreview).toHaveBeenCalledOnce()
+    expect(onPreview).toHaveBeenCalledWith(file.file)
   })
 })

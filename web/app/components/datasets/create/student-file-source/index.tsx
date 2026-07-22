@@ -1,6 +1,6 @@
 'use client'
 
-import type { FileItem } from '@/models/datasets'
+import type { CustomFile, FileItem } from '@/models/datasets'
 import { Button } from '@langgenius/dify-ui/button'
 import { RiDeleteBinLine, RiFolderOpenLine } from '@remixicon/react'
 import { useTranslation } from 'react-i18next'
@@ -10,13 +10,14 @@ type Props = {
   files: FileItem[]
   onBrowse: () => void
   onFilesChange: (files: FileItem[]) => void
+  onPreview: (file: CustomFile) => void
 }
 
-const StudentFileSource = ({ files, onBrowse, onFilesChange }: Props) => {
+const StudentFileSource = ({ files, onBrowse, onFilesChange, onPreview }: Props) => {
   const { t } = useTranslation()
 
   return (
-    <section className="w-full max-w-[680px]" aria-labelledby="teaching-file-source-title">
+    <section className="mb-5 w-[640px]" aria-labelledby="teaching-file-source-title">
       <div className="mb-6">
         <div className="mb-2 system-2xs-medium-uppercase tracking-[0.08em] text-text-accent">
           {t('stepOne.teachingSource.eyebrow', { ns: 'datasetCreation' })}
@@ -68,23 +69,32 @@ const StudentFileSource = ({ files, onBrowse, onFilesChange }: Props) => {
                   {files.map(fileItem => (
                     <div
                       key={fileItem.fileID}
-                      className="group flex h-14 items-center rounded-xl border border-components-panel-border-subtle bg-components-panel-on-panel-item-bg px-3 shadow-xs transition-colors hover:border-components-panel-border hover:bg-components-panel-on-panel-item-bg-hover"
+                      className="group flex h-14 items-center rounded-xl border border-components-panel-border-subtle bg-components-panel-on-panel-item-bg shadow-xs transition-colors hover:border-components-panel-border hover:bg-components-panel-on-panel-item-bg-hover"
                     >
-                      <DocumentFileIcon
-                        className="mr-3 size-7 shrink-0"
-                        extension={fileItem.file.extension}
-                        name={fileItem.file.name}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate system-sm-medium text-text-secondary">{fileItem.file.name}</div>
-                        <div className="mt-0.5 system-2xs-regular text-text-quaternary uppercase">
-                          {fileItem.file.extension || fileItem.file.name.split('.').pop() || 'file'}
+                      {/* Keep the selected-file row itself clickable so the
+                          official preview panel can show the stored file. */}
+                      <button
+                        type="button"
+                        aria-label={`${t('stepOne.filePreview', { ns: 'datasetCreation' })}: ${fileItem.file.name}`}
+                        className="flex h-full min-w-0 flex-1 cursor-pointer items-center rounded-l-xl px-3 text-left focus-visible:ring-1 focus-visible:ring-components-input-border-active focus-visible:outline-hidden"
+                        onClick={() => onPreview(fileItem.file)}
+                      >
+                        <DocumentFileIcon
+                          className="mr-3 size-7 shrink-0"
+                          extension={fileItem.file.extension}
+                          name={fileItem.file.name}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate system-sm-medium text-text-secondary">{fileItem.file.name}</div>
+                          <div className="mt-0.5 system-2xs-regular text-text-quaternary uppercase">
+                            {fileItem.file.extension || fileItem.file.name.split('.').pop() || 'file'}
+                          </div>
                         </div>
-                      </div>
+                      </button>
                       <button
                         type="button"
                         aria-label={t('stepOne.teachingSource.removeFile', { ns: 'datasetCreation', name: fileItem.file.name })}
-                        className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-quaternary transition-colors hover:bg-state-destructive-hover hover:text-text-destructive"
+                        className="mr-2 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-text-quaternary transition-colors hover:bg-state-destructive-hover hover:text-text-destructive"
                         onClick={() => onFilesChange(files.filter(item => item.fileID !== fileItem.fileID))}
                       >
                         <RiDeleteBinLine className="size-4" aria-hidden="true" />

@@ -97,7 +97,9 @@ export const createWorkflowSlice: StateCreator<WorkflowSliceShape> = set => ({
     if (storedControlMode === 'pointer' || storedControlMode === 'hand' || storedControlMode === 'comment')
       return storedControlMode
 
-    return 'pointer'
+    // Use the hand tool for first-time workflow entry in both teaching and
+    // administration views. An explicit user selection is still persisted.
+    return 'hand'
   })(),
   setControlMode: (controlMode) => {
     set(() => ({ controlMode }))

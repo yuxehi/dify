@@ -7,6 +7,7 @@ import { PreviewCardTrigger } from '@langgenius/dify-ui/preview-card'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CreditsCoin } from '@/app/components/base/icons/src/vender/line/financeAndECommerce'
+import { useAppContext } from '@/context/app-context'
 import { useModalContext } from '@/context/modal-context'
 import { useProviderContext } from '@/context/provider-context'
 import { ConfigurationMethodEnum, ModelStatusEnum } from '../declarations'
@@ -41,6 +42,7 @@ function PopupItem({
   const [collapsed, setCollapsed] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const { t } = useTranslation()
+  const { isCurrentWorkspaceManager } = useAppContext()
   const language = useLanguage()
   const { setShowModelModal } = useModalContext()
   const { modelProviders } = useProviderContext()
@@ -99,53 +101,57 @@ function PopupItem({
           <span className="truncate">{model.label[language] || model.label.en_US}</span>
           <span className={cn('i-custom-vender-solid-general-arrow-down-round-fill h-4 w-4 shrink-0 text-text-quaternary', collapsed && '-rotate-90')} />
         </button>
-        <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
-          <PopoverTrigger
-            render={(
-              <button type="button" className="flex max-w-[50%] min-w-0 shrink-0 cursor-pointer items-center rounded-md px-1.5 py-1 system-xs-medium text-text-tertiary hover:bg-components-button-ghost-bg-hover">
-                {isUsingCredits
-                  ? (
-                      hasCredits
-                        ? (
-                            <>
-                              <CreditsCoin className="h-3 w-3" />
-                              <span className="ml-1 truncate">{t('modelProvider.selector.aiCredits', { ns: 'common' })}</span>
-                            </>
-                          )
-                        : (
-                            <>
-                              <span className="i-ri-alert-fill h-3 w-3 shrink-0 text-text-warning-secondary" />
-                              <span className="ml-1 truncate text-text-warning">{t('modelProvider.selector.creditsExhausted', { ns: 'common' })}</span>
-                            </>
-                          )
-                    )
-                  : credentialName
+        {/* API credentials are managed centrally by teachers. Students may
+            select available models but must not see or open this control. */}
+        {isCurrentWorkspaceManager && (
+          <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
+            <PopoverTrigger
+              render={(
+                <button type="button" className="flex max-w-[50%] min-w-0 shrink-0 cursor-pointer items-center rounded-md px-1.5 py-1 system-xs-medium text-text-tertiary hover:bg-components-button-ghost-bg-hover">
+                  {isUsingCredits
                     ? (
-                        <>
-                          <span className={cn('h-1.5 w-1.5 shrink-0 rounded-xs border', isApiKeyActive ? 'border-components-badge-status-light-success-border-inner bg-components-badge-status-light-success-bg' : 'border-components-badge-status-light-error-border-inner bg-components-badge-status-light-error-bg')} />
-                          <span className="ml-1 truncate text-text-tertiary">{credentialName}</span>
-                        </>
+                        hasCredits
+                          ? (
+                              <>
+                                <CreditsCoin className="h-3 w-3" />
+                                <span className="ml-1 truncate">{t('modelProvider.selector.aiCredits', { ns: 'common' })}</span>
+                              </>
+                            )
+                          : (
+                              <>
+                                <span className="i-ri-alert-fill h-3 w-3 shrink-0 text-text-warning-secondary" />
+                                <span className="ml-1 truncate text-text-warning">{t('modelProvider.selector.creditsExhausted', { ns: 'common' })}</span>
+                              </>
+                            )
                       )
-                    : (
-                        <>
-                          <span className="h-1.5 w-1.5 shrink-0 rounded-xs border border-components-badge-status-light-disabled-border-inner bg-components-badge-status-light-disabled-bg" />
-                          <span className="ml-1 truncate text-text-tertiary">{t('modelProvider.selector.configureRequired', { ns: 'common' })}</span>
-                        </>
-                      )}
-                <span className="i-ri-arrow-down-s-line h-3.5! w-3.5! shrink-0 translate-y-px text-text-tertiary" />
-              </button>
-            )}
-          />
-          <PopoverContent placement="bottom-end">
-            <DropdownContent
-              provider={currentProvider}
-              state={state}
-              isChangingPriority={isChangingPriority}
-              onChangePriority={handleChangePriority}
-              onClose={handleCloseDropdown}
+                    : credentialName
+                      ? (
+                          <>
+                            <span className={cn('h-1.5 w-1.5 shrink-0 rounded-xs border', isApiKeyActive ? 'border-components-badge-status-light-success-border-inner bg-components-badge-status-light-success-bg' : 'border-components-badge-status-light-error-border-inner bg-components-badge-status-light-error-bg')} />
+                            <span className="ml-1 truncate text-text-tertiary">{credentialName}</span>
+                          </>
+                        )
+                      : (
+                          <>
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-xs border border-components-badge-status-light-disabled-border-inner bg-components-badge-status-light-disabled-bg" />
+                            <span className="ml-1 truncate text-text-tertiary">{t('modelProvider.selector.configureRequired', { ns: 'common' })}</span>
+                          </>
+                        )}
+                  <span className="i-ri-arrow-down-s-line h-3.5! w-3.5! shrink-0 translate-y-px text-text-tertiary" />
+                </button>
+              )}
             />
-          </PopoverContent>
-        </Popover>
+            <PopoverContent placement="bottom-end">
+              <DropdownContent
+                provider={currentProvider}
+                state={state}
+                isChangingPriority={isChangingPriority}
+                onChangePriority={handleChangePriority}
+                onClose={handleCloseDropdown}
+              />
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
       {!collapsed && model.models.map((modelItem) => {
         const rowClassName = cn(

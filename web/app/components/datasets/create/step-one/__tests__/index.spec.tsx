@@ -280,6 +280,17 @@ describe('StepOne', () => {
       expect(screen.queryByTestId('file-uploader')).not.toBeInTheDocument()
       expect(screen.queryByText('datasetCreation.stepOne.notionSyncTitle')).not.toBeInTheDocument()
     })
+
+    it('should keep the official split layout and preview selected files for a student', () => {
+      mockIsCurrentWorkspaceManager = false
+      const file = createMockFileItem({ file: createMockCustomFile({ id: 'student-file', name: 'student-lesson.txt' }) })
+
+      render(<StepOne {...defaultProps} files={[file]} />)
+      fireEvent.click(screen.getByRole('button', { name: /datasetCreation\.stepOne\.filePreview.*student-lesson\.txt/i }))
+
+      expect(screen.getByTestId('file-preview')).toBeInTheDocument()
+      expect(screen.getByTestId('file-preview')).toHaveTextContent('student-lesson.txt')
+    })
   })
 
   // Props Tests

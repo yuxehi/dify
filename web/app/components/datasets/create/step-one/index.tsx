@@ -164,39 +164,6 @@ const StepOne = ({
     doOnStepChange()
   }, [dataSourceType, doOnStepChange, files, supportBatchUpload, notionPages, showPlanUpgradeModal, websitePages])
 
-  if (!isCurrentWorkspaceManager) {
-    return (
-      <div className="h-full w-full overflow-y-auto bg-background-default-subtle">
-        <div className="mx-auto flex min-h-full w-full max-w-[760px] flex-col px-10 pt-12 pb-10">
-          <div className="mb-8 system-md-semibold text-text-secondary">
-            {t('steps.one', { ns: 'datasetCreation' })}
-          </div>
-          <StudentFileSource
-            files={files}
-            onBrowse={openTeachingFileChooser}
-            onFilesChange={updateFileList}
-          />
-          {isShowVectorSpaceFull && (
-            <div className="mt-5 w-full max-w-[680px]">
-              <VectorSpaceFull />
-            </div>
-          )}
-          <div className="mt-6 w-full max-w-[680px]">
-            <NextStepButton disabled={fileNextDisabled} onClick={onStepChange} />
-          </div>
-          {showTeachingFileChooser && (
-            <TeachingFileChooser
-              fileList={files}
-              isShow
-              onClose={closeTeachingFileChooser}
-              onFileListUpdate={updateFileList}
-            />
-          )}
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="h-full w-full overflow-x-auto">
       <div className="flex h-full w-full min-w-[1440px]">
@@ -234,17 +201,33 @@ const StepOne = ({
                       supportBatchUpload={supportBatchUpload}
                     />
                   )}
+                  {!isCurrentWorkspaceManager && (
+                    <StudentFileSource
+                      files={files}
+                      onBrowse={openTeachingFileChooser}
+                      onFilesChange={updateFileList}
+                      onPreview={showFilePreview}
+                    />
+                  )}
                   {isShowVectorSpaceFull && (
                     <div className="mb-4 max-w-[640px]">
                       <VectorSpaceFull />
                     </div>
                   )}
                   <NextStepButton disabled={fileNextDisabled} onClick={onStepChange} />
-                  {enableBilling && plan.type === Plan.sandbox && files.length > 0 && (
+                  {isCurrentWorkspaceManager && enableBilling && plan.type === Plan.sandbox && files.length > 0 && (
                     <div className="mt-5">
                       <div className="mb-4 h-px bg-divider-subtle" />
                       <UpgradeCard />
                     </div>
+                  )}
+                  {!isCurrentWorkspaceManager && showTeachingFileChooser && (
+                    <TeachingFileChooser
+                      fileList={files}
+                      isShow
+                      onClose={closeTeachingFileChooser}
+                      onFileListUpdate={updateFileList}
+                    />
                   )}
                 </>
               )}
