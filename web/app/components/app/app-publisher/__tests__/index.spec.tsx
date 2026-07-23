@@ -22,6 +22,9 @@ const mockFetchAppDetailDirect = vi.fn()
 const mockToastError = vi.fn()
 const mockWindowOpen = vi.fn()
 const mockInvalidateAppWorkflow = vi.fn()
+const mockAppContext = vi.hoisted(() => ({
+  isCurrentWorkspaceManager: true,
+}))
 
 const sectionProps = vi.hoisted(() => ({
   summary: null as null | Record<string, any>,
@@ -104,7 +107,7 @@ vi.mock('@/service/use-tools', () => ({
 
 vi.mock('@/context/app-context', () => ({
   useAppContext: () => ({
-    isCurrentWorkspaceManager: true,
+    isCurrentWorkspaceManager: mockAppContext.isCurrentWorkspaceManager,
   }),
 }))
 
@@ -184,6 +187,7 @@ vi.mock('../sections', () => ({
 describe('AppPublisher', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockAppContext.isCurrentWorkspaceManager = true
     ahooksMocks.keyPressHandlers.length = 0
     sectionProps.summary = null
     sectionProps.access = null
@@ -611,6 +615,23 @@ describe('AppPublisher', () => {
     )
 
     fireEvent.click(screen.getByText('common.publish'))
+    expect(screen.queryByText('common.publishToMarketplace')).not.toBeInTheDocument()
+  })
+
+  it('should hide privileged publish actions from students', () => {
+    mockAppContext.isCurrentWorkspaceManager = false
+
+    renderWithSystemFeatures(
+      <AppPublisher
+        publishedAt={Date.now()}
+        onPublish={mockOnPublish}
+      />,
+      { systemFeatures: { webapp_auth: { enabled: true }, enable_creators_platform: true } },
+    )
+
+    fireEvent.click(screen.getByText('common.publish'))
+
+    expect(sectionProps.actions?.showPrivilegedActions).toBe(false)
     expect(screen.queryByText('common.publishToMarketplace')).not.toBeInTheDocument()
   })
 

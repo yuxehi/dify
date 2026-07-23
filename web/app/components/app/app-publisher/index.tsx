@@ -35,6 +35,7 @@ import { collaborationManager } from '@/app/components/workflow/collaboration/co
 import { webSocketClient } from '@/app/components/workflow/collaboration/core/websocket-manager'
 import { WorkflowContext } from '@/app/components/workflow/context'
 import { appDefaultIconBackground } from '@/config'
+import { useAppContext } from '@/context/app-context'
 import { useAsyncWindowOpen } from '@/hooks/use-async-window-open'
 import { useFormatTimeFromNow } from '@/hooks/use-format-time-from-now'
 import { AccessMode } from '@/models/access-control'
@@ -114,6 +115,7 @@ const AppPublisher = ({
   hasHumanInputNode = false,
 }: AppPublisherProps) => {
   const { t } = useTranslation()
+  const { isCurrentWorkspaceManager } = useAppContext()
 
   const [published, setPublished] = useState(false)
   const [open, setOpen] = useState(false)
@@ -438,6 +440,7 @@ const AppPublisher = ({
               missingStartNode={missingStartNode}
               published={published}
               publishedAt={publishedAt}
+              showPrivilegedActions={isCurrentWorkspaceManager}
               showBatchRunConfig={hiddenLaunchVariables.length > 0 && (appDetail?.mode === AppModeEnum.WORKFLOW || appDetail?.mode === AppModeEnum.COMPLETION)}
               showRunConfig={hiddenLaunchVariables.length > 0}
               toolPublished={toolPublished}
@@ -448,7 +451,9 @@ const AppPublisher = ({
               workflowToolMessage={workflowToolMessage}
               onConfigureWorkflowTool={openWorkflowToolDrawer}
             />
-            {systemFeatures.enable_creators_platform && (
+            {/* ZNT teaching platform: publishing to Marketplace is a
+                teacher/administrator action and is not shown to students. */}
+            {isCurrentWorkspaceManager && systemFeatures.enable_creators_platform && (
               <div className="border-t border-divider-subtle p-4">
                 <SuggestedAction
                   icon={<span className="i-ri-store-line h-4 w-4" />}

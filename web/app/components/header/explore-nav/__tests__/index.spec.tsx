@@ -21,7 +21,9 @@ describe('ExploreNav', () => {
     expect(link).toHaveAttribute('href', '/explore/apps')
     expect(link).toHaveClass('text-components-main-nav-nav-button-text')
     expect(link).not.toHaveClass('bg-components-main-nav-nav-button-bg-active')
-    expect(screen.getByText('common.menus.explore')).toBeInTheDocument()
+    const label = screen.getByText('common.menus.explore')
+    expect(label).toHaveClass('shrink-0', 'whitespace-nowrap')
+    expect(label).not.toHaveClass('max-[1024px]:hidden')
   })
 
   it('should render correctly when active', () => {

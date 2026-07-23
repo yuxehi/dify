@@ -66,7 +66,10 @@ const Nav = ({
                   : icon
             }
           </div>
-          <div className="ml-2 max-[1024px]:hidden">
+          {/* Keep primary navigation names visible at every viewport width.
+              The header moves the whole navigation row below 1024px instead
+              of collapsing these labels into ambiguous icon-only buttons. */}
+          <div className="ml-2 shrink-0 whitespace-nowrap">
             {text}
           </div>
         </div>

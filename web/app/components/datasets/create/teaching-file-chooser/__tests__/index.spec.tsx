@@ -36,6 +36,7 @@ describe('TeachingFileChooser', () => {
     fireEvent.click(screen.getByRole('button', { name: 'common.operation.add' }))
 
     await waitFor(() => {
+      expect(mockFetchTeachingFileList).toHaveBeenCalledWith('student@example.com', 'self')
       expect(onFileListUpdate).toHaveBeenCalledWith([
         expect.objectContaining({
           fileID: 'teaching-upload-1',
@@ -43,6 +44,24 @@ describe('TeachingFileChooser', () => {
           file: expect.objectContaining({ id: 'upload-1' }),
         }),
       ])
+    })
+  })
+
+  it('should request files from every teaching task for an administrator', async () => {
+    mockFetchTeachingFileList.mockResolvedValue({ data: [] })
+
+    render(
+      <TeachingFileChooser
+        fileList={[]}
+        isShow
+        loadAllFiles
+        onClose={vi.fn()}
+        onFileListUpdate={vi.fn()}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(mockFetchTeachingFileList).toHaveBeenCalledWith('student@example.com', 'all')
     })
   })
 

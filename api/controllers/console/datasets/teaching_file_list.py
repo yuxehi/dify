@@ -8,6 +8,7 @@ from configs import dify_config
 from controllers.console import console_ns
 from controllers.console.wraps import account_initialization_required, setup_required
 from libs.login import current_account_with_tenant, login_required
+from libs.teaching_file_access import resolve_teaching_file_email_filter
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +31,20 @@ class TeachingFileListApi(Resource):
 
         account, _ = current_account_with_tenant()
         requested_email = request.args.get("email", type=str, default="").strip().lower()
+        scope = request.args.get("scope", type=str, default="self").strip().lower()
 
-        # A student may only request their own platform files. The query parameter
-        # is retained solely for compatibility with the 1.0.1 web client contract.
-        if not requested_email or requested_email != account.email.lower():
-            return {"message": "The email does not match the signed-in account."}, 403
+        # A student may only request their own platform files. The explicit
+        # all-files scope is reserved for the administrator creation screen.
+        try:
+            email_filter = resolve_teaching_file_email_filter(
+                account=account,
+                requested_email=requested_email,
+                scope=scope,
+            )
+        except PermissionError as exc:
+            return {"message": str(exc)}, 403
 
-        payload = {"funcName": "GetFileList", "options": {"email": requested_email}}
+        payload = {"funcName": "GetFileList", "options": {"email": email_filter}}
         try:
             response = requests.post(
                 dify_config.teaching_file_api_url,

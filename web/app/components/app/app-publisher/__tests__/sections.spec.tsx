@@ -293,6 +293,32 @@ describe('app-publisher sections', () => {
 
     rerender(
       <PublisherActionsSection
+        appDetail={{ id: 'student-app', mode: AppModeEnum.CHAT }}
+        appURL="https://example.com/app"
+        disabledFunctionButton={false}
+        handleEmbed={handleEmbed}
+        handleOpenInExplore={handleOpenInExplore}
+        handlePublish={vi.fn()}
+        hasHumanInputNode={false}
+        hasTriggerNode={false}
+        missingStartNode={false}
+        published={false}
+        publishedAt={Date.now()}
+        showPrivilegedActions={false}
+        toolPublished={false}
+        workflowToolAvailable
+        workflowToolIsLoading={false}
+        workflowToolOutdated={false}
+        workflowToolIsCurrentWorkspaceManager={false}
+        onConfigureWorkflowTool={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText('common.openInExplore')).not.toBeInTheDocument()
+    expect(screen.queryByText('common.accessAPIReference')).not.toBeInTheDocument()
+
+    rerender(
+      <PublisherActionsSection
         appDetail={{ id: 'trigger-app', mode: AppModeEnum.WORKFLOW }}
         appURL="https://example.com/app"
         disabledFunctionButton={false}

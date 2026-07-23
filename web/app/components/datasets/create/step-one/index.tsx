@@ -201,14 +201,16 @@ const StepOne = ({
                       supportBatchUpload={supportBatchUpload}
                     />
                   )}
-                  {!isCurrentWorkspaceManager && (
-                    <StudentFileSource
-                      files={files}
-                      onBrowse={openTeachingFileChooser}
-                      onFilesChange={updateFileList}
-                      onPreview={showFilePreview}
-                    />
-                  )}
+                  {/* The teaching-platform source is available beside Dify's
+                      original uploader for administrators, while it remains
+                      the only source shown in the focused student interface. */}
+                  <StudentFileSource
+                    files={files}
+                    showSelectedFiles={!isCurrentWorkspaceManager}
+                    onBrowse={openTeachingFileChooser}
+                    onFilesChange={updateFileList}
+                    onPreview={showFilePreview}
+                  />
                   {isShowVectorSpaceFull && (
                     <div className="mb-4 max-w-[640px]">
                       <VectorSpaceFull />
@@ -221,10 +223,11 @@ const StepOne = ({
                       <UpgradeCard />
                     </div>
                   )}
-                  {!isCurrentWorkspaceManager && showTeachingFileChooser && (
+                  {showTeachingFileChooser && (
                     <TeachingFileChooser
                       fileList={files}
                       isShow
+                      loadAllFiles={isCurrentWorkspaceManager}
                       onClose={closeTeachingFileChooser}
                       onFileListUpdate={updateFileList}
                     />

@@ -8,12 +8,13 @@ import DocumentFileIcon from '@/app/components/datasets/common/document-file-ico
 
 type Props = {
   files: FileItem[]
+  showSelectedFiles?: boolean
   onBrowse: () => void
   onFilesChange: (files: FileItem[]) => void
   onPreview: (file: CustomFile) => void
 }
 
-const StudentFileSource = ({ files, onBrowse, onFilesChange, onPreview }: Props) => {
+const StudentFileSource = ({ files, showSelectedFiles = true, onBrowse, onFilesChange, onPreview }: Props) => {
   const { t } = useTranslation()
 
   return (
@@ -48,7 +49,7 @@ const StudentFileSource = ({ files, onBrowse, onFilesChange, onPreview }: Props)
           </Button>
         </div>
 
-        <div className="px-1 pt-4 pb-1" aria-live="polite">
+        {showSelectedFiles && <div className="px-1 pt-4 pb-1" aria-live="polite">
           <div className="mb-2 flex h-5 items-center justify-between px-1">
             <span className="system-xs-medium text-text-secondary">
               {t('stepOne.teachingSource.selectedFiles', { ns: 'datasetCreation' })}
@@ -103,7 +104,7 @@ const StudentFileSource = ({ files, onBrowse, onFilesChange, onPreview }: Props)
                   ))}
                 </div>
               )}
-        </div>
+        </div>}
       </div>
     </section>
   )

@@ -64,6 +64,7 @@ describe('MaxLengthInput', () => {
     render(<MaxLengthInput onChange={vi.fn()} />)
     const input = screen.getByRole('textbox')
     expect(input)!.toBeInTheDocument()
+    expect(input.closest('.min-w-\\[180px\\]')).toBeInTheDocument()
   })
 
   it('should accept value prop', () => {
@@ -108,6 +109,7 @@ describe('OverlapInput', () => {
     render(<OverlapInput onChange={vi.fn()} />)
     const input = screen.getByRole('textbox')
     expect(input)!.toBeInTheDocument()
+    expect(input.closest('.min-w-\\[180px\\]')).toBeInTheDocument()
   })
 
   it('should accept value prop', () => {

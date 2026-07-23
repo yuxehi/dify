@@ -123,7 +123,7 @@ export const ParentChildOptions: FC<ParentChildOptionsProps> = ({
             isChosen={parentChildConfig.chunkForContext === 'paragraph'}
             onChosen={() => onChunkForContextChange('paragraph')}
             chosenConfig={(
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <DelimiterInput
                   value={parentChildConfig.parent.delimiter}
                   tooltip={t('stepTwo.parentChildDelimiterTip', { ns: 'datasetCreation' })!}
@@ -155,7 +155,7 @@ export const ParentChildOptions: FC<ParentChildOptionsProps> = ({
             </div>
             <Divider className="grow" bgStyle="gradient" />
           </div>
-          <div className="mt-1 flex gap-3">
+          <div className="mt-1 flex flex-wrap gap-3">
             <DelimiterInput
               value={parentChildConfig.child.delimiter}
               tooltip={t('stepTwo.parentChildChunkDelimiterTip', { ns: 'datasetCreation' })!}

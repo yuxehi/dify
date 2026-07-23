@@ -135,6 +135,14 @@ describe('Header', () => {
     expect(screen.getByTestId('account-dropdown')).toBeInTheDocument()
   })
 
+  it('should move the complete navigation into its own row on narrow widths', () => {
+    renderHeader()
+
+    const navigationRow = screen.getByTestId('app-nav').parentElement
+    expect(navigationRow).toHaveClass('max-[1024px]:w-full', 'max-[1024px]:justify-center')
+    expect(navigationRow).toHaveClass('max-[1024px]:order-3')
+  })
+
   it('should show a read-only identity instead of account settings for students', () => {
     mockIsWorkspaceEditor = true
     mockIsWorkspaceManager = false

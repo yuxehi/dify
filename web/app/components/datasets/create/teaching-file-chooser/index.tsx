@@ -14,25 +14,28 @@ import { fetchTeachingFileList } from '@/service/teaching-file-list'
 type Props = {
   fileList: FileItem[]
   isShow: boolean
+  loadAllFiles?: boolean
   onClose: () => void
   onFileListUpdate: (files: FileItem[]) => void
 }
 
-const TeachingFileChooser = ({ fileList, isShow, onClose, onFileListUpdate }: Props) => {
+const TeachingFileChooser = ({ fileList, isShow, loadAllFiles = false, onClose, onFileListUpdate }: Props) => {
   const { t } = useTranslation()
   const { userProfile } = useAppContext()
   const [candidates, setCandidates] = useState<CustomFile[]>([])
   const [selected, setSelected] = useState<CustomFile[]>(() => fileList.map(item => item.file))
-  const [isLoading, setIsLoading] = useState(() => isShow && Boolean(userProfile.email))
+  const [isLoading, setIsLoading] = useState(() => isShow && (loadAllFiles || Boolean(userProfile.email)))
 
   useEffect(() => {
-    if (!isShow || !userProfile.email)
+    if (!isShow || (!loadAllFiles && !userProfile.email))
       return
 
     // Platform files already exist in Dify storage/database. Converting their
     // metadata to File objects lets the official ingestion flow consume their
     // existing upload-file ids without uploading a duplicate copy.
-    fetchTeachingFileList(userProfile.email)
+    // Administrators receive the unfiltered file collection across teaching
+    // tasks; students continue to receive only files bound to their account.
+    fetchTeachingFileList(userProfile.email, loadAllFiles ? 'all' : 'self')
       .then(({ data = [] }) => {
         setCandidates(data.flatMap((item) => {
           if (!item.id || !item.name)
@@ -54,7 +57,7 @@ const TeachingFileChooser = ({ fileList, isShow, onClose, onFileListUpdate }: Pr
       })
       .catch(() => setCandidates([]))
       .finally(() => setIsLoading(false))
-  }, [isShow, userProfile.email])
+  }, [isShow, loadAllFiles, userProfile.email])
 
   const toggle = (file: CustomFile) => {
     setSelected(current => current.some(item => item.id === file.id)

@@ -108,7 +108,10 @@ describe('Nav Component', () => {
   describe('Rendering', () => {
     it('should render correctly when activated', () => {
       render(<Nav {...defaultProps} />)
-      expect(screen.getByText('Nav Text')).toBeInTheDocument()
+      const label = screen.getByText('Nav Text')
+      expect(label).toBeInTheDocument()
+      expect(label).toHaveClass('shrink-0', 'whitespace-nowrap')
+      expect(label).not.toHaveClass('max-[1024px]:hidden')
       expect(screen.getByTestId('active-icon')).toBeInTheDocument()
     })
 

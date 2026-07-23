@@ -48,4 +48,21 @@ describe('StudentFileSource', () => {
     expect(onPreview).toHaveBeenCalledOnce()
     expect(onPreview).toHaveBeenCalledWith(file.file)
   })
+
+  it('should let administrators use the source without duplicating the uploader file list', () => {
+    const file = createFileItem('admin-visible-in-uploader.txt', 'admin-1')
+
+    render(
+      <StudentFileSource
+        files={[file]}
+        showSelectedFiles={false}
+        onBrowse={vi.fn()}
+        onFilesChange={vi.fn()}
+        onPreview={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'datasetCreation.stepOne.teachingSource.selectButton' })).toBeInTheDocument()
+    expect(screen.queryByText('admin-visible-in-uploader.txt')).not.toBeInTheDocument()
+  })
 })

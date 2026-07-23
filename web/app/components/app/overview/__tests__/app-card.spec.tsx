@@ -17,6 +17,10 @@ const mockPush = vi.fn()
 const mockSetAppDetail = vi.fn()
 const mockOnChangeStatus = vi.fn()
 const mockOnGenerateCode = vi.fn()
+const mockAppContext = vi.hoisted(() => ({
+  isCurrentWorkspaceManager: true,
+  isCurrentWorkspaceEditor: true,
+}))
 
 let mockWorkflow: { graph?: { nodes?: Array<{ data?: { type?: string, variables?: Array<Record<string, unknown>> } }> } } | null = null
 let mockAccessSubjects: { groups?: unknown[], members?: unknown[] } = { groups: [], members: [] }
@@ -31,8 +35,8 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('@/context/app-context', () => ({
   useAppContext: () => ({
-    isCurrentWorkspaceManager: true,
-    isCurrentWorkspaceEditor: true,
+    isCurrentWorkspaceManager: mockAppContext.isCurrentWorkspaceManager,
+    isCurrentWorkspaceEditor: mockAppContext.isCurrentWorkspaceEditor,
     langGeniusVersionInfo: {
       current_env: 'TESTING',
     },
@@ -121,6 +125,8 @@ describe('AppCard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockAppContext.isCurrentWorkspaceManager = true
+    mockAppContext.isCurrentWorkspaceEditor = true
     mockAppDetail = {
       id: 'app-1',
       access_mode: AccessMode.SPECIFIC_GROUPS_MEMBERS,
@@ -379,6 +385,24 @@ describe('AppCard', () => {
     fireEvent.click(screen.getByText('overview.apiInfo.doc'))
 
     expect(mockPush).toHaveBeenCalledWith('/app/app-1/develop')
+  })
+
+  it('should hide the API documentation action from students', () => {
+    mockAppContext.isCurrentWorkspaceManager = false
+    mockAppContext.isCurrentWorkspaceEditor = false
+
+    render(
+      <AppCard
+        appInfo={{
+          ...appInfo,
+          mode: AppModeEnum.COMPLETION,
+        }}
+        cardType="api"
+        onChangeStatus={mockOnChangeStatus}
+      />,
+    )
+
+    expect(screen.queryByText('overview.apiInfo.doc')).not.toBeInTheDocument()
   })
 
   it('should open settings embedded and customize dialogs from webapp operations', () => {

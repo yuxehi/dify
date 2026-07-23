@@ -29,7 +29,9 @@ describe('ToolsNav', () => {
 
       const link = screen.getByRole('link')
       expect(link).toHaveAttribute('href', '/tools')
-      expect(screen.getByText('common.menus.tools')).toBeInTheDocument()
+      const label = screen.getByText('common.menus.tools')
+      expect(label).toHaveClass('shrink-0', 'whitespace-nowrap')
+      expect(label).not.toHaveClass('max-[1024px]:hidden')
 
       expect(screen.getByTestId('icon-hammer-line')).toBeInTheDocument()
       expect(screen.queryByTestId('icon-hammer-fill')).not.toBeInTheDocument()

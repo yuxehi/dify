@@ -30,7 +30,7 @@ const ExploreNav = ({
           ? <RiPlanetFill className="h-4 w-4" />
           : <RiPlanetLine className="h-4 w-4" />
       }
-      <div className="ml-2 max-[1024px]:hidden">
+      <div className="ml-2 shrink-0 whitespace-nowrap">
         {t('menus.explore', { ns: 'common' })}
       </div>
     </Link>

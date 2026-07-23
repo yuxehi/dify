@@ -22,7 +22,10 @@ const TextLabel: FC<PropsWithChildren> = (props) => {
 
 const FormField: FC<PropsWithChildren<{ label: ReactNode }>> = (props) => {
   return (
-    <div className="flex-1 space-y-2">
+    // Keep enough room for the numeric value, unit, and step controls. The
+    // surrounding rows wrap this field on narrow screens instead of allowing
+    // the unit label to cover the editable value.
+    <div className="min-w-[180px] flex-1 space-y-2">
       <TextLabel>{props.label}</TextLabel>
       {props.children}
     </div>

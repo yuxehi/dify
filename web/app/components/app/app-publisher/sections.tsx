@@ -66,6 +66,7 @@ type ActionsSectionProps = Pick<AppPublisherProps, | 'hasHumanInputNode'
     handleOpenRunConfig?: (url: string) => void
     handlePublish: (params?: ModelAndParameter | PublishWorkflowParams) => Promise<void>
     published: boolean
+    showPrivilegedActions?: boolean
     showBatchRunConfig?: boolean
     showRunConfig?: boolean
     workflowToolIsLoading: boolean
@@ -264,6 +265,7 @@ export const PublisherActionsSection = ({
   hasTriggerNode = false,
   missingStartNode = false,
   publishedAt,
+  showPrivilegedActions = true,
   showBatchRunConfig = false,
   showRunConfig = false,
   toolPublished,
@@ -329,32 +331,38 @@ export const PublisherActionsSection = ({
               {t('common.embedIntoSite', { ns: 'workflow' })}
             </SuggestedAction>
           )}
-      <ActionTooltip disabled={disabledFunctionButton} tooltip={disabledFunctionTooltip}>
-        <SuggestedAction
-          className="flex-1"
-          onClick={() => {
-            if (publishedAt)
-              handleOpenInExplore()
-          }}
-          disabled={disabledFunctionButton}
-          icon={<span className="i-ri-planet-line h-4 w-4" />}
-        >
-          {t('common.openInExplore', { ns: 'workflow' })}
-        </SuggestedAction>
-      </ActionTooltip>
-      <ActionTooltip
-        disabled={!publishedAt || missingStartNode}
-        tooltip={!publishedAt ? t('notPublishedYet', { ns: 'app' }) : t('noUserInputNode', { ns: 'app' })}
-      >
-        <SuggestedAction
-          className="flex-1"
-          disabled={!publishedAt || missingStartNode}
-          link="./develop"
-          icon={<span className="i-ri-terminal-box-line h-4 w-4" />}
-        >
-          {t('common.accessAPIReference', { ns: 'workflow' })}
-        </SuggestedAction>
-      </ActionTooltip>
+      {/* ZNT teaching platform: Explore and API management are reserved for
+          teachers/administrators; students retain the normal publish/run flow. */}
+      {showPrivilegedActions && (
+        <>
+          <ActionTooltip disabled={disabledFunctionButton} tooltip={disabledFunctionTooltip}>
+            <SuggestedAction
+              className="flex-1"
+              onClick={() => {
+                if (publishedAt)
+                  handleOpenInExplore()
+              }}
+              disabled={disabledFunctionButton}
+              icon={<span className="i-ri-planet-line h-4 w-4" />}
+            >
+              {t('common.openInExplore', { ns: 'workflow' })}
+            </SuggestedAction>
+          </ActionTooltip>
+          <ActionTooltip
+            disabled={!publishedAt || missingStartNode}
+            tooltip={!publishedAt ? t('notPublishedYet', { ns: 'app' }) : t('noUserInputNode', { ns: 'app' })}
+          >
+            <SuggestedAction
+              className="flex-1"
+              disabled={!publishedAt || missingStartNode}
+              link="./develop"
+              icon={<span className="i-ri-terminal-box-line h-4 w-4" />}
+            >
+              {t('common.accessAPIReference', { ns: 'workflow' })}
+            </SuggestedAction>
+          </ActionTooltip>
+        </>
+      )}
       {appDetail?.mode === AppModeEnum.WORKFLOW && !hasHumanInputNode && (
         <WorkflowToolConfigureButton
           disabled={workflowToolDisabled}

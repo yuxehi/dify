@@ -97,8 +97,8 @@ const Header = () => {
   }
 
   return (
-    <div className="flex h-[56px] items-center">
-      <div className="flex min-w-0 flex-1 items-center pr-2 pl-3 min-[1280px]:pr-3">
+    <div className="flex h-[56px] items-center max-[1024px]:h-auto max-[1024px]:flex-wrap max-[1024px]:py-1">
+      <div className="flex min-w-0 flex-1 items-center pr-2 pl-3 min-[1280px]:pr-3 max-[1024px]:order-1">
         {isCurrentWorkspaceManager && renderLogo()}
         {isCurrentWorkspaceManager && <div className="mx-1.5 shrink-0 font-light text-divider-deep">/</div>}
         {isCurrentWorkspaceManager && (
@@ -108,13 +108,15 @@ const Header = () => {
         )}
         {isCurrentWorkspaceManager && (enableBilling ? <PlanBadge allowHover sandboxAsUpgrade plan={plan.type} onClick={handlePlanClick} /> : <LicenseNav />)}
       </div>
-      <div className="flex items-center space-x-2">
+      {/* Preserve complete navigation labels on narrow desktop/tablet widths
+          by giving navigation its own row instead of falling back to icons. */}
+      <div className="flex items-center space-x-2 max-[1024px]:order-3 max-[1024px]:w-full max-[1024px]:justify-center">
         {isCurrentWorkspaceManager && !isCurrentWorkspaceDatasetOperator && <ExploreNav className={navClassName} />}
         {!isCurrentWorkspaceDatasetOperator && <AppNav />}
         {(isCurrentWorkspaceEditor || isCurrentWorkspaceDatasetOperator) && <DatasetNav />}
         {isCurrentWorkspaceManager && !isCurrentWorkspaceDatasetOperator && <ToolsNav className={navClassName} />}
       </div>
-      <div className="flex min-w-0 flex-1 items-center justify-end pr-3 pl-2 min-[1280px]:pl-3">
+      <div className="flex min-w-0 flex-1 items-center justify-end pr-3 pl-2 min-[1280px]:pl-3 max-[1024px]:order-2">
         {isCurrentWorkspaceManager && <EnvNav />}
         <div className="mr-2">
           {isCurrentWorkspaceManager && <PluginsNav />}

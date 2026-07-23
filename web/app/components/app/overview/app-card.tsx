@@ -157,11 +157,18 @@ function AppCard({
     }
   }, [appDetail, setAppDetail])
 
-  const operationKeys = useMemo(() => getAppCardOperationKeys({
-    cardType,
-    appMode: cardState.appMode,
-    isCurrentWorkspaceEditor,
-  }), [cardState.appMode, cardType, isCurrentWorkspaceEditor])
+  const operationKeys = useMemo(() => {
+    // ZNT teaching platform: students can use the published API, but API
+    // documentation and configuration remain teacher/administrator features.
+    if (cardType === 'api' && !isCurrentWorkspaceManager)
+      return []
+
+    return getAppCardOperationKeys({
+      cardType,
+      appMode: cardState.appMode,
+      isCurrentWorkspaceEditor,
+    })
+  }, [cardState.appMode, cardType, isCurrentWorkspaceEditor, isCurrentWorkspaceManager])
 
   const handleLaunch = useCallback(() => {
     window.open(cardState.accessibleUrl, '_blank')

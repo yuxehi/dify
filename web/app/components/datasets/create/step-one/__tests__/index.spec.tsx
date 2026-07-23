@@ -234,6 +234,8 @@ describe('StepOne', () => {
       render(<StepOne {...defaultProps} dataSourceType={DataSourceType.FILE} />)
 
       expect(screen.getByTestId('file-uploader')).toBeInTheDocument()
+      expect(screen.getByText('datasetCreation.stepOne.teachingSource.title')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'datasetCreation.stepOne.teachingSource.selectButton' })).toBeInTheDocument()
     })
 
     it('should render NotionConnector when dataSourceType is NOTION and not authenticated', () => {
