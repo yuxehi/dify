@@ -227,7 +227,6 @@ const StepOne = ({
                     <TeachingFileChooser
                       fileList={files}
                       isShow
-                      loadAllFiles={isCurrentWorkspaceManager}
                       onClose={closeTeachingFileChooser}
                       onFileListUpdate={updateFileList}
                     />

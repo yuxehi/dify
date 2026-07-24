@@ -31,16 +31,12 @@ class TeachingFileListApi(Resource):
 
         account, _ = current_account_with_tenant()
         requested_email = request.args.get("email", type=str, default="").strip().lower()
-        scope = request.args.get("scope", type=str, default="self").strip().lower()
 
-        # A student may only request their own platform files. The explicit
-        # all-files scope is reserved for the administrator creation screen.
+        # Preserve the 1.0.1 behavior for every role: the chooser loads files
+        # bound to the current account's email. Unlike 1.0.1, the API validates
+        # that email so a crafted request cannot read another member's files.
         try:
-            email_filter = resolve_teaching_file_email_filter(
-                account=account,
-                requested_email=requested_email,
-                scope=scope,
-            )
+            email_filter = resolve_teaching_file_email_filter(account=account, requested_email=requested_email)
         except PermissionError as exc:
             return {"message": str(exc)}, 403
 
