@@ -225,6 +225,11 @@ def test_get_type_and_create_delegate(milvus_module):
     create_args = vector.create_collection.call_args.args
     assert create_args[0] == [[0.1, 0.2]]
     assert create_args[1] == [{}]
+    assert create_args[2] == {
+        "metric_type": "IP",
+        "index_type": "IVF_PQ",
+        "params": {"nlist": 64, "m": 16},
+    }
     vector.add_texts.assert_called_once_with(docs, [[0.1, 0.2]])
 
 
@@ -383,6 +388,7 @@ def test_create_collection_builds_schema_and_indexes(milvus_module, monkeypatch:
     assert len(schema.functions) == 1
     assert len(index_params_obj.indexes) == 2
     assert call_kwargs["consistency_level"] == "Session"
+    assert call_kwargs["properties"] == {"mmap.enabled": "true"}
 
 
 def test_factory_initializes_milvus_vector(milvus_module, monkeypatch: pytest.MonkeyPatch):

@@ -19,6 +19,14 @@ from models.dataset import Dataset
 
 logger = logging.getLogger(__name__)
 
+# Keep new collections aligned with the production Dify 1.0.1 Milvus profile during migration.
+LEGACY_DENSE_INDEX_PARAMS: dict[str, Any] = {
+    "metric_type": "IP",
+    "index_type": "IVF_PQ",
+    "params": {"nlist": 64, "m": 16},
+}
+LEGACY_COLLECTION_PROPERTIES: dict[str, str] = {"mmap.enabled": "true"}
+
 
 class MilvusParamsDict(TypedDict):
     uri: str
@@ -127,9 +135,8 @@ class MilvusVector(BaseVector):
         """
         Create a collection and add texts with embeddings.
         """
-        index_params = {"metric_type": "IP", "index_type": "HNSW", "params": {"M": 8, "efConstruction": 64}}
         metadatas = [d.metadata if d.metadata is not None else {} for d in texts]
-        self.create_collection(embeddings, metadatas, index_params)
+        self.create_collection(embeddings, metadatas, LEGACY_DENSE_INDEX_PARAMS)
         self.add_texts(texts, embeddings)
 
     def add_texts(self, documents: list[Document], embeddings: list[list[float]], **kwargs):
@@ -381,6 +388,7 @@ class MilvusVector(BaseVector):
                     schema=schema,
                     index_params=index_params_obj,
                     consistency_level=self._consistency_level,
+                    properties=LEGACY_COLLECTION_PROPERTIES,
                 )
             redis_client.set(collection_exist_cache_key, 1, ex=3600)
 

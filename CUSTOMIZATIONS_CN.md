@@ -198,12 +198,11 @@ Editor 学生保留应用、知识库和应用配置/Workflow 编辑，并允许
 - `docker/docker-compose.yaml`：使用教学镜像、默认 HTTPS，并将 PostgreSQL 默认仅绑定 `127.0.0.1`。
 - `docker/ssrf_proxy/squid.conf.template`：允许非标准 HTTPS 端口，保证可访问教学平台的 `3019` 端口。
 - 默认向量库已从 Weaviate 改为 Milvus：`VECTOR_STORE=milvus`，Compose 默认启用 `milvus` profile，并让 API/Worker 通过默认网络连接 `http://milvus-standalone:19530`。
-- Milvus 保持官方 Dify 1.14.2 推荐的 `milvusdb/milvus:v2.6.3`，使用默认 `root/Milvus` 鉴权；没有移植 1.0.1 的 IVF_PQ、mmap 或 RC 版本配置。
+- Milvus 保持官方 Dify 1.14.2 推荐的 `milvusdb/milvus:v2.6.3`，使用默认 `root/Milvus` 鉴权；新建 Collection 的稠密向量索引沿用生产 1.0.1 的 `IVF_PQ`（`IP`、`nlist=64`、`m=16`），并设置 `mmap.enabled=true`。现有 Collection 不会被重建或改写。
 
 ## 明确未移植的旧修改
 
 - 1.0.1 的聊天页状态、欢迎语和布局补丁未直接移植。1.14.2 已重构相关实现，应通过实际回归发现问题后再做最小修复。
-- 1.0.1 的 Milvus 底层索引强制修改未移植，避免影响官方升级兼容性。
 - 1.0.1 的 Python 兼容和零散源码修补未移植；以官方 1.14.2 实现为准。
 
 ## 部署前检查清单
