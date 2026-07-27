@@ -36,10 +36,6 @@ type CreateAppProps = {
   defaultAppMode?: AppModeEnum
 }
 
-const shouldExpandBeginnerAppTypes = (appMode?: AppModeEnum) => {
-  return appMode === AppModeEnum.CHAT || appMode === AppModeEnum.AGENT_CHAT || appMode === AppModeEnum.COMPLETION
-}
-
 function CreateApp({ onClose, onSuccess, onCreateFromTemplate, defaultAppMode }: CreateAppProps) {
   const { t } = useTranslation()
   const { push } = useRouter()
@@ -49,7 +45,10 @@ function CreateApp({ onClose, onSuccess, onCreateFromTemplate, defaultAppMode }:
   const [showAppIconPicker, setShowAppIconPicker] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [isAppTypeExpanded, setIsAppTypeExpanded] = useState(() => shouldExpandBeginnerAppTypes(defaultAppMode))
+  // Keep the beginner-friendly app types visible when the blank-app dialog
+  // opens. This is intentionally role-independent so teachers and students
+  // receive the same default layout while retaining the manual collapse.
+  const [isAppTypeExpanded, setIsAppTypeExpanded] = useState(true)
 
   const { plan, enableBilling } = useProviderContext()
   const isAppsFull = (enableBilling && plan.usage.buildApps >= plan.total.buildApps)
@@ -146,6 +145,7 @@ function CreateApp({ onClose, onSuccess, onCreateFromTemplate, defaultAppMode }:
                 <div className="mb-2 flex items-center">
                   <button
                     type="button"
+                    aria-expanded={isAppTypeExpanded}
                     className="flex cursor-pointer items-center border-0 bg-transparent p-0 text-left focus-visible:ring-1 focus-visible:ring-components-input-border-active focus-visible:outline-hidden"
                     onClick={() => setIsAppTypeExpanded(!isAppTypeExpanded)}
                   >

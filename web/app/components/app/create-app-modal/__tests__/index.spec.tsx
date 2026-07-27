@@ -221,7 +221,6 @@ describe('CreateAppModal', () => {
     mockCreateApp.mockResolvedValue({ id: 'chat-app', mode: AppModeEnum.CHAT } as App)
     renderModal()
 
-    fireEvent.click(screen.getByText('app.newApp.forBeginners'))
     fireEvent.click(screen.getByText('app.types.chatbot'))
     fireEvent.click(screen.getByText('open-icon-picker'))
     fireEvent.click(screen.getByText('select-image-icon'))
@@ -285,7 +284,6 @@ describe('CreateAppModal', () => {
 
     fireEvent.click(screen.getByText('app.types.workflow'))
     fireEvent.click(screen.getByText('app.types.advanced'))
-    fireEvent.click(screen.getByText('app.newApp.forBeginners'))
     fireEvent.click(screen.getByText('app.types.agent'))
     fireEvent.click(screen.getByText('app.newApp.completeApp'))
     fireEvent.change(screen.getByPlaceholderText('app.newApp.appNamePlaceholder'), {
@@ -302,16 +300,28 @@ describe('CreateAppModal', () => {
     })
   })
 
-  it('should offer the completion app type to a student editor', () => {
+  it('should expand beginner app types by default for a student editor', () => {
     mockUseAppContext.mockReturnValue({
       isCurrentWorkspaceEditor: true,
       isCurrentWorkspaceManager: false,
     } as unknown as ReturnType<typeof useAppContext>)
 
     renderModal()
-    fireEvent.click(screen.getByText('app.newApp.forBeginners'))
 
     expect(screen.getByText('app.newApp.completeApp')).toBeInTheDocument()
+  })
+
+  it('should expand beginner app types by default and still allow manual collapse', () => {
+    renderModal()
+
+    const beginnerToggle = screen.getByRole('button', { name: 'app.newApp.forBeginners' })
+    expect(beginnerToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('app.types.chatbot')).toBeInTheDocument()
+
+    fireEvent.click(beginnerToggle)
+
+    expect(beginnerToggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('app.types.chatbot')).not.toBeInTheDocument()
   })
 
   it('should ignore duplicate create clicks while a request is in flight', async () => {
