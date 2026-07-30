@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { renderWithSystemFeatures } from '@/__tests__/utils/mock-system-features'
 import { useMarketplacePlugins } from '@/app/components/plugins/marketplace/hooks'
 import { CollectionType } from '@/app/components/tools/types'
+import { useAppContext } from '@/context/app-context'
 import { useGetLanguage, useLocale } from '@/context/i18n'
 import useTheme from '@/hooks/use-theme'
 import { useFeaturedTriggersRecommendations } from '@/service/use-plugins'
@@ -18,6 +19,10 @@ import AllStartBlocks from '../all-start-blocks'
 vi.mock('@/context/i18n', () => ({
   useGetLanguage: vi.fn(),
   useLocale: vi.fn(),
+}))
+
+vi.mock('@/context/app-context', () => ({
+  useAppContext: vi.fn(),
 }))
 
 vi.mock('@/hooks/use-theme', () => ({
@@ -55,6 +60,7 @@ vi.mock('@/utils/var', async (importOriginal) => {
 
 const mockUseGetLanguage = vi.mocked(useGetLanguage)
 const mockUseLocale = vi.mocked(useLocale)
+const mockUseAppContext = vi.mocked(useAppContext)
 const mockUseTheme = vi.mocked(useTheme)
 const mockUseMarketplacePlugins = vi.mocked(useMarketplacePlugins)
 const mockUseAllTriggerPlugins = vi.mocked(useAllTriggerPlugins)
@@ -171,6 +177,9 @@ describe('AllStartBlocks', () => {
     enableMarketplaceForRender = false
     mockUseGetLanguage.mockReturnValue('en_US')
     mockUseLocale.mockReturnValue('en_US')
+    mockUseAppContext.mockReturnValue({
+      isCurrentWorkspaceManager: true,
+    } as ReturnType<typeof useAppContext>)
     mockUseTheme.mockReturnValue({ theme: Theme.light } as ReturnType<typeof useTheme>)
     mockUseMarketplacePlugins.mockReturnValue(createMarketplacePluginsMock())
     mockUseAllTriggerPlugins.mockReturnValue(createTriggerPluginsQueryResult([createTriggerProvider()]))
@@ -225,7 +234,28 @@ describe('AllStartBlocks', () => {
         />,
       )
 
+      expect(mockUseFeaturedTriggersRecommendations).toHaveBeenCalledWith(true)
+      expect(await screen.findByText('workflow.tabs.featuredTools')).toBeInTheDocument()
       expect(await screen.findByRole('link', { name: /plugin\.findMoreInMarketplace/ })).toHaveAttribute('href', 'https://marketplace.test/start')
+    })
+
+    it('should hide trigger recommendations and the Marketplace footer for a student', () => {
+      enableMarketplaceForRender = true
+      mockUseAppContext.mockReturnValue({
+        isCurrentWorkspaceManager: false,
+      } as ReturnType<typeof useAppContext>)
+
+      render(
+        <AllStartBlocks
+          searchText=""
+          onSelect={vi.fn()}
+          availableBlocksTypes={[BlockEnum.TriggerPlugin]}
+        />,
+      )
+
+      expect(mockUseFeaturedTriggersRecommendations).toHaveBeenCalledWith(false)
+      expect(screen.queryByText('workflow.tabs.featuredTools')).not.toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: /plugin\.findMoreInMarketplace/ })).not.toBeInTheDocument()
     })
   })
 

@@ -19,6 +19,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import Divider from '@/app/components/base/divider'
 import { SearchMenu } from '@/app/components/base/icons/src/vender/line/general'
+import { useAppContext } from '@/context/app-context'
 import Link from '@/next/link'
 import { systemFeaturesQueryOptions } from '@/service/system-features'
 import { useFeaturedTriggersRecommendations } from '@/service/use-plugins'
@@ -53,6 +54,7 @@ const AllStartBlocks = ({
   allowUserInputSelection = false,
 }: AllStartBlocksProps) => {
   const { t } = useTranslation()
+  const { isCurrentWorkspaceManager } = useAppContext()
   const [hasStartBlocksContent, setHasStartBlocksContent] = useState(false)
   const [hasPluginContent, setHasPluginContent] = useState(false)
   const { data: enable_marketplace } = useSuspenseQuery({
@@ -89,17 +91,23 @@ const AllStartBlocks = ({
   const {
     plugins: featuredPlugins = [],
     isLoading: featuredLoading,
-  } = useFeaturedTriggersRecommendations(enableTriggerPlugin && enable_marketplace && !hasFilter)
+  } = useFeaturedTriggersRecommendations(
+    isCurrentWorkspaceManager && enableTriggerPlugin && enable_marketplace && !hasFilter,
+  )
   const {
     queryPluginsWithDebounced: fetchPlugins,
     plugins: marketplacePlugins = [],
   } = useMarketplacePlugins()
 
-  const shouldShowFeatured = enableTriggerPlugin
+  // Teaching students should work from installed/built-in triggers without
+  // seeing Marketplace recommendations. Managers retain the official Dify
+  // discovery section, and recommendation data is not fetched for students.
+  const shouldShowFeatured = isCurrentWorkspaceManager
+    && enableTriggerPlugin
     && enable_marketplace
     && !hasFilter
   const shouldShowTriggerListTitle = hasStartBlocksContent || hasPluginContent
-  const shouldShowMarketplaceFooter = enable_marketplace && !hasFilter
+  const shouldShowMarketplaceFooter = isCurrentWorkspaceManager && enable_marketplace && !hasFilter
 
   const handleStartBlocksContentChange = useCallback((hasContent: boolean) => {
     setHasStartBlocksContent(hasContent)
