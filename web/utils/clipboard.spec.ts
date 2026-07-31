@@ -75,6 +75,23 @@ describe('Clipboard Utilities', () => {
       expect(removeChildSpy).toHaveBeenCalled()
     })
 
+    it('should fallback to execCommand when clipboard API rejects the write', async () => {
+      const mockWriteText = vi.fn().mockRejectedValue(new DOMException('Not allowed', 'NotAllowedError'))
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: mockWriteText },
+        writable: true,
+        configurable: true,
+      })
+
+      const mockExecCommand = vi.fn().mockReturnValue(true)
+      document.execCommand = mockExecCommand
+
+      await writeTextToClipboard('iframe fallback text')
+
+      expect(mockWriteText).toHaveBeenCalledWith('iframe fallback text')
+      expect(mockExecCommand).toHaveBeenCalledWith('copy')
+    })
+
     /**
      * Test error handling when execCommand returns false
      * execCommand returns false when the operation fails
