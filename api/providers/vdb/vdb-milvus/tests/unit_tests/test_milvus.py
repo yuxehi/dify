@@ -3,6 +3,7 @@ import sys
 import threading
 import types
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -114,7 +115,9 @@ def milvus_module(monkeypatch: pytest.MonkeyPatch):
 
     import dify_vdb_milvus.milvus_vector as module
 
-    return importlib.reload(module)
+    module = importlib.reload(module)
+    monkeypatch.setattr(module, "collection_activity", lambda _collection_name: nullcontext())
+    return module
 
 
 def _config(module, **overrides):
@@ -305,6 +308,30 @@ def test_search_retries_collection_not_loaded_only_once(milvus_module):
         vector.search_by_vector([0.1, 0.2])
 
     assert vector._client.search.call_count == 2
+
+
+def test_query_reloads_and_retries_once_for_collection_not_loaded(milvus_module, monkeypatch: pytest.MonkeyPatch):
+    vector = milvus_module.MilvusVector.__new__(milvus_module.MilvusVector)
+    vector._collection_name = "collection_1"
+    vector._client = MagicMock()
+    vector._client.get_load_state.side_effect = [
+        {"state": "Loaded"},
+        {"state": "NotLoad"},
+        {"state": "NotLoad"},
+        {"state": "Loaded"},
+    ]
+    vector._client.has_collection.return_value = True
+    vector._client.query.side_effect = [milvus_module.MilvusException(101, "collection not loaded"), [{"id": 1}]]
+    lock = MagicMock()
+    lock.__enter__.return_value = None
+    lock.__exit__.return_value = None
+    monkeypatch.setattr(milvus_module.redis_client, "lock", MagicMock(return_value=lock))
+
+    result = vector.get_ids_by_metadata_field("document_id", "doc-1")
+
+    assert result == [1]
+    assert vector._client.query.call_count == 2
+    vector._client.load_collection.assert_called_once()
 
 
 def test_search_does_not_retry_other_milvus_errors(milvus_module):

@@ -4,6 +4,12 @@ import ssl
 from unittest.mock import MagicMock, patch
 
 
+def test_convert_daily_schedule_time_from_shanghai_to_utc():
+    from extensions.ext_celery import convert_daily_schedule_time
+
+    assert convert_daily_schedule_time(23, 0, "Asia/Shanghai", "UTC") == (15, 0)
+
+
 class TestCelerySSLConfiguration:
     """Test suite for Celery SSL configuration."""
 

@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import Field, PositiveInt
 from pydantic_settings import BaseSettings
 
 
@@ -40,4 +40,38 @@ class MilvusConfig(BaseSettings):
     MILVUS_ANALYZER_PARAMS: str | None = Field(
         description='Milvus text analyzer parameters, e.g., {"type": "chinese"} for Chinese segmentation support.',
         default=None,
+    )
+
+    MILVUS_ENABLE_IDLE_COLLECTION_RELEASE: bool = Field(
+        description="Release Milvus collections that have not been accessed within the configured idle period",
+        default=True,
+    )
+
+    MILVUS_IDLE_COLLECTION_RELEASE_DAYS: PositiveInt = Field(
+        description="Number of idle days before a loaded Milvus collection is eligible for release",
+        default=30,
+    )
+
+    MILVUS_IDLE_COLLECTION_RELEASE_BATCH_SIZE: PositiveInt = Field(
+        description="Number of idle Milvus collections processed per throttled batch within one nightly run",
+        default=20,
+    )
+
+    MILVUS_IDLE_COLLECTION_RELEASE_HOUR: int = Field(
+        description="Local hour when the daily Milvus idle collection release task starts",
+        default=23,
+        ge=0,
+        le=23,
+    )
+
+    MILVUS_IDLE_COLLECTION_RELEASE_MINUTE: int = Field(
+        description="Local minute when the daily Milvus idle collection release task starts",
+        default=0,
+        ge=0,
+        le=59,
+    )
+
+    MILVUS_IDLE_COLLECTION_RELEASE_TIMEZONE: str = Field(
+        description="IANA timezone used to interpret the configured Milvus idle collection release time",
+        default="Asia/Shanghai",
     )

@@ -17,6 +17,8 @@ from core.rag.models.document import Document
 from extensions.ext_redis import redis_client
 from models.dataset import Dataset
 
+from .collection_lifecycle import collection_activity, load_state_is_loaded
+
 logger = logging.getLogger(__name__)
 
 # Keep new collections aligned with the production Dify 1.0.1 Milvus profile during migration.
@@ -115,9 +117,7 @@ class MilvusVector(BaseVector):
 
     @staticmethod
     def _load_state_is_loaded(load_state: dict[str, Any]) -> bool:
-        state = load_state.get("state")
-        state_name = getattr(state, "name", str(state))
-        return state_name == "Loaded" or state_name.endswith(": Loaded>")
+        return load_state_is_loaded(load_state)
 
     def _ensure_collection_loaded(self) -> None:
         """Load the collection before a read operation, serializing concurrent loads across Dify processes."""
@@ -148,18 +148,35 @@ class MilvusVector(BaseVector):
 
     def _search_with_collection_load(self, **search_kwargs: Any) -> list[Any]:
         """Run a search after loading its collection, retrying one collection-not-loaded race."""
-        self._ensure_collection_loaded()
-        try:
-            return self._client.search(**search_kwargs)
-        except MilvusException as error:
-            if error.code != COLLECTION_NOT_LOADED_ERROR_CODE:
-                raise
-            logger.warning(
-                "Milvus collection became unloaded during search; loading and retrying once: %s",
-                self._collection_name,
-            )
+        with collection_activity(self._collection_name):
             self._ensure_collection_loaded()
-            return self._client.search(**search_kwargs)
+            try:
+                return self._client.search(**search_kwargs)
+            except MilvusException as error:
+                if error.code != COLLECTION_NOT_LOADED_ERROR_CODE:
+                    raise
+                logger.warning(
+                    "Milvus collection became unloaded during search; loading and retrying once: %s",
+                    self._collection_name,
+                )
+                self._ensure_collection_loaded()
+                return self._client.search(**search_kwargs)
+
+    def _query_with_collection_load(self, **query_kwargs: Any) -> list[Any]:
+        """Run a query with the same load, activity lease, and one-race retry guarantees as search."""
+        with collection_activity(self._collection_name):
+            self._ensure_collection_loaded()
+            try:
+                return self._client.query(**query_kwargs)
+            except MilvusException as error:
+                if error.code != COLLECTION_NOT_LOADED_ERROR_CODE:
+                    raise
+                logger.warning(
+                    "Milvus collection became unloaded during query; loading and retrying once: %s",
+                    self._collection_name,
+                )
+                self._ensure_collection_loaded()
+                return self._client.query(**query_kwargs)
 
     def _check_hybrid_search_support(self) -> bool:
         """
@@ -199,6 +216,10 @@ class MilvusVector(BaseVector):
         """
         Add texts and their embeddings to the collection.
         """
+        with collection_activity(self._collection_name):
+            return self._add_texts(documents, embeddings)
+
+    def _add_texts(self, documents: list[Document], embeddings: list[list[float]]) -> list[str]:
         insert_dict_list = []
         for i in range(len(documents)):
             insert_dict = {
@@ -228,7 +249,7 @@ class MilvusVector(BaseVector):
         """
         Get document IDs by metadata field key and value.
         """
-        result = self._client.query(
+        result = self._query_with_collection_load(
             collection_name=self._collection_name, filter=f'metadata["{key}"] == "{value}"', output_fields=["id"]
         )
         if result:
@@ -250,7 +271,7 @@ class MilvusVector(BaseVector):
         Delete documents by their IDs.
         """
         if self._client.has_collection(self._collection_name):
-            result = self._client.query(
+            result = self._query_with_collection_load(
                 collection_name=self._collection_name, filter=f'metadata["doc_id"] in {ids}', output_fields=["id"]
             )
             if result:
@@ -271,7 +292,7 @@ class MilvusVector(BaseVector):
         if not self._client.has_collection(self._collection_name):
             return False
 
-        result = self._client.query(
+        result = self._query_with_collection_load(
             collection_name=self._collection_name, filter=f'metadata["doc_id"] == "{id}"', output_fields=["id"]
         )
 

@@ -211,6 +211,24 @@ class TestRedisClientWrapperKeyPrefix:
         assert args == ("enterprise-a:zset:key", {"member": 1})
         assert kwargs["nx"] is False
 
+    def test_wrapper_sorted_set_reads_and_removals_prefix_key_name(self):
+        mock_client = MagicMock()
+        wrapper = RedisClientWrapper()
+        wrapper.initialize(mock_client)
+
+        with patch("extensions.ext_redis.dify_config") as mock_config:
+            mock_config.REDIS_KEY_PREFIX = "enterprise-a"
+
+            wrapper.zrangebyscore("zset:key", "-inf", 10, start=0, num=20)
+            wrapper.zscore("zset:key", "member")
+            wrapper.zrem("zset:key", "member")
+
+        mock_client.zrangebyscore.assert_called_once_with(
+            "enterprise-a:zset:key", "-inf", 10, start=0, num=20, withscores=False
+        )
+        mock_client.zscore.assert_called_once_with("enterprise-a:zset:key", "member")
+        mock_client.zrem.assert_called_once_with("enterprise-a:zset:key", "member")
+
     def test_wrapper_preserves_keys_when_prefix_is_empty(self):
         mock_client = MagicMock()
         wrapper = RedisClientWrapper()

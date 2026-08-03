@@ -202,6 +202,30 @@ class RedisClientWrapper:
     def zcard(self, name: str | bytes) -> Any:
         return self._require_client().zcard(_serialize_redis_name_arg(name, self._get_prefix()))
 
+    def zrangebyscore(
+        self,
+        name: str | bytes,
+        min: float | str,
+        max: float | str,
+        start: int | None = None,
+        num: int | None = None,
+        withscores: bool = False,
+    ) -> Any:
+        return self._require_client().zrangebyscore(
+            _serialize_redis_name_arg(name, self._get_prefix()),
+            min,
+            max,
+            start=start,
+            num=num,
+            withscores=withscores,
+        )
+
+    def zscore(self, name: str | bytes, value: str | bytes) -> Any:
+        return self._require_client().zscore(_serialize_redis_name_arg(name, self._get_prefix()), value)
+
+    def zrem(self, name: str | bytes, *values: str | bytes) -> Any:
+        return self._require_client().zrem(_serialize_redis_name_arg(name, self._get_prefix()), *values)
+
     def pubsub(self) -> PubSub:
         return self._require_client().pubsub()
 

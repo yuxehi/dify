@@ -1,6 +1,7 @@
 import ssl
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytz  # type: ignore[import-untyped]
 from celery import Celery, Task
@@ -88,6 +89,19 @@ def get_celery_redis_global_keyprefix() -> str | None:
     if not normalized_prefix:
         return None
     return f"{normalized_prefix}:"
+
+
+def convert_daily_schedule_time(
+    hour: int,
+    minute: int,
+    source_timezone: str,
+    celery_timezone: str,
+) -> tuple[int, int]:
+    """Convert a wall-clock daily schedule into the timezone used by Celery Beat."""
+    source_now = datetime.now(ZoneInfo(source_timezone))
+    source_run_at = source_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    celery_run_at = source_run_at.astimezone(ZoneInfo(celery_timezone))
+    return celery_run_at.hour, celery_run_at.minute
 
 
 def init_app(app: DifyApp) -> Celery:
@@ -240,6 +254,22 @@ def init_app(app: DifyApp) -> Celery:
         beat_schedule["batch_update_api_token_last_used"] = {
             "task": "schedule.update_api_token_last_used_task.batch_update_api_token_last_used",
             "schedule": timedelta(minutes=dify_config.API_TOKEN_LAST_USED_UPDATE_INTERVAL),
+        }
+
+    if dify_config.VECTOR_STORE == "milvus" and dify_config.MILVUS_ENABLE_IDLE_COLLECTION_RELEASE:
+        release_hour, release_minute = convert_daily_schedule_time(
+            dify_config.MILVUS_IDLE_COLLECTION_RELEASE_HOUR,
+            dify_config.MILVUS_IDLE_COLLECTION_RELEASE_MINUTE,
+            dify_config.MILVUS_IDLE_COLLECTION_RELEASE_TIMEZONE,
+            dify_config.LOG_TZ or "UTC",
+        )
+        imports.append("schedule.release_idle_milvus_collections_task")
+        beat_schedule["release_idle_milvus_collections"] = {
+            "task": "schedule.release_idle_milvus_collections_task.release_idle_milvus_collections_task",
+            "schedule": crontab(
+                minute=release_minute,
+                hour=release_hour,
+            ),
         }
 
     if dify_config.ENTERPRISE_ENABLED and dify_config.ENTERPRISE_TELEMETRY_ENABLED:
