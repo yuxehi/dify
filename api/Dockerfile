@@ -99,9 +99,11 @@ ENV VIRTUAL_ENV=/app/api/.venv
 COPY --from=packages --chown=dify:dify ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
-# Download nltk data
-RUN mkdir -p /usr/local/share/nltk_data \
-    && NLTK_DATA=/usr/local/share/nltk_data python -c "import nltk; nltk.download('punkt'); nltk.download('averaged_perceptron_tagger'); nltk.download('stopwords')" \
+# Download each NLTK resource with retries, then fail the build if an archive is
+# corrupt or the extracted resource cannot be found.
+COPY docker/download_nltk_data.py /tmp/download_nltk_data.py
+RUN NLTK_DATA=/usr/local/share/nltk_data python /tmp/download_nltk_data.py \
+    && rm /tmp/download_nltk_data.py \
     && chmod -R 755 /usr/local/share/nltk_data
 
 ENV TIKTOKEN_CACHE_DIR=/app/api/.tiktoken_cache
