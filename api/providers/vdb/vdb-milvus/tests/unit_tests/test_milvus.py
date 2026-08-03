@@ -1,6 +1,8 @@
 import importlib
 import sys
+import threading
 import types
+from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -19,7 +21,12 @@ def _build_fake_pymilvus_modules():
     pymilvus_orm_types = types.ModuleType("pymilvus.orm.types")
 
     class MilvusError(Exception):
-        pass
+        def __init__(self, code=1, message="", **_kwargs):
+            if isinstance(code, str) and not message:
+                message = code
+                code = 1
+            self.code = code
+            super().__init__(message)
 
     class MilvusClient:
         def __init__(self, **kwargs):
@@ -29,6 +36,8 @@ def _build_fake_pymilvus_modules():
                 return_value={"fields": [{"name": "id"}, {"name": "content"}, {"name": "metadata"}]}
             )
             self.get_server_version = MagicMock(return_value="2.5.0")
+            self.get_load_state = MagicMock(return_value={"state": "Loaded"})
+            self.load_collection = MagicMock()
             self.insert = MagicMock(return_value=[1])
             self.query = MagicMock(return_value=[])
             self.delete = MagicMock()
@@ -189,6 +198,126 @@ def test_load_collection_fields_from_argument_and_remote(milvus_module):
 
     vector._load_collection_fields()
     assert vector._fields == ["content"]
+
+
+def test_ensure_collection_loaded_skips_load_when_already_loaded(milvus_module, monkeypatch: pytest.MonkeyPatch):
+    vector = milvus_module.MilvusVector.__new__(milvus_module.MilvusVector)
+    vector._collection_name = "collection_1"
+    vector._client = MagicMock()
+    vector._client.get_load_state.return_value = {"state": "Loaded"}
+    redis_lock = MagicMock()
+    monkeypatch.setattr(milvus_module.redis_client, "lock", redis_lock)
+
+    vector._ensure_collection_loaded()
+
+    vector._client.load_collection.assert_not_called()
+    redis_lock.assert_not_called()
+
+
+def test_ensure_collection_loaded_loads_once_for_concurrent_requests(milvus_module, monkeypatch: pytest.MonkeyPatch):
+    vector = milvus_module.MilvusVector.__new__(milvus_module.MilvusVector)
+    vector._collection_name = "collection_1"
+    vector._client = MagicMock()
+    loaded = threading.Event()
+    shared_lock = threading.Lock()
+
+    vector._client.get_load_state.side_effect = lambda **_kwargs: {"state": "Loaded" if loaded.is_set() else "NotLoad"}
+    vector._client.has_collection.return_value = True
+    vector._client.load_collection.side_effect = lambda **_kwargs: loaded.set()
+    monkeypatch.setattr(milvus_module.redis_client, "lock", MagicMock(return_value=shared_lock))
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        list(executor.map(lambda _index: vector._ensure_collection_loaded(), range(8)))
+
+    vector._client.load_collection.assert_called_once_with(
+        collection_name="collection_1", timeout=milvus_module.COLLECTION_LOAD_TIMEOUT_SECONDS
+    )
+
+
+def test_ensure_collection_loaded_raises_when_collection_disappears(milvus_module, monkeypatch: pytest.MonkeyPatch):
+    vector = milvus_module.MilvusVector.__new__(milvus_module.MilvusVector)
+    vector._collection_name = "collection_1"
+    vector._client = MagicMock()
+    vector._client.get_load_state.return_value = {"state": "NotLoad"}
+    vector._client.has_collection.return_value = False
+    lock = MagicMock()
+    lock.__enter__.return_value = None
+    lock.__exit__.return_value = None
+    monkeypatch.setattr(milvus_module.redis_client, "lock", MagicMock(return_value=lock))
+
+    with pytest.raises(milvus_module.MilvusException, match="no longer exists"):
+        vector._ensure_collection_loaded()
+
+    vector._client.load_collection.assert_not_called()
+
+
+def test_ensure_collection_loaded_raises_when_load_does_not_complete(milvus_module, monkeypatch: pytest.MonkeyPatch):
+    vector = milvus_module.MilvusVector.__new__(milvus_module.MilvusVector)
+    vector._collection_name = "collection_1"
+    vector._client = MagicMock()
+    vector._client.get_load_state.side_effect = [
+        {"state": "NotLoad"},
+        {"state": "NotLoad"},
+        {"state": "Loading"},
+    ]
+    vector._client.has_collection.return_value = True
+    lock = MagicMock()
+    lock.__enter__.return_value = None
+    lock.__exit__.return_value = None
+    monkeypatch.setattr(milvus_module.redis_client, "lock", MagicMock(return_value=lock))
+
+    with pytest.raises(milvus_module.MilvusException, match="did not finish loading"):
+        vector._ensure_collection_loaded()
+
+
+def test_search_reloads_and_retries_once_for_collection_not_loaded(milvus_module, monkeypatch: pytest.MonkeyPatch):
+    vector = milvus_module.MilvusVector.__new__(milvus_module.MilvusVector)
+    vector._collection_name = "collection_1"
+    vector._client = MagicMock()
+    vector._client.get_load_state.side_effect = [
+        {"state": "Loaded"},
+        {"state": "NotLoad"},
+        {"state": "NotLoad"},
+        {"state": "Loaded"},
+    ]
+    vector._client.has_collection.return_value = True
+    vector._client.search.side_effect = [milvus_module.MilvusException(101, "collection not loaded"), [[]]]
+    lock = MagicMock()
+    lock.__enter__.return_value = None
+    lock.__exit__.return_value = None
+    monkeypatch.setattr(milvus_module.redis_client, "lock", MagicMock(return_value=lock))
+
+    result = vector.search_by_vector([0.1, 0.2])
+
+    assert result == []
+    assert vector._client.search.call_count == 2
+    vector._client.load_collection.assert_called_once()
+
+
+def test_search_retries_collection_not_loaded_only_once(milvus_module):
+    vector = milvus_module.MilvusVector.__new__(milvus_module.MilvusVector)
+    vector._collection_name = "collection_1"
+    vector._client = MagicMock()
+    vector._client.get_load_state.return_value = {"state": "Loaded"}
+    vector._client.search.side_effect = milvus_module.MilvusException(101, "collection not loaded")
+
+    with pytest.raises(milvus_module.MilvusException, match="collection not loaded"):
+        vector.search_by_vector([0.1, 0.2])
+
+    assert vector._client.search.call_count == 2
+
+
+def test_search_does_not_retry_other_milvus_errors(milvus_module):
+    vector = milvus_module.MilvusVector.__new__(milvus_module.MilvusVector)
+    vector._collection_name = "collection_1"
+    vector._client = MagicMock()
+    vector._client.get_load_state.return_value = {"state": "Loaded"}
+    vector._client.search.side_effect = milvus_module.MilvusException(999, "different failure")
+
+    with pytest.raises(milvus_module.MilvusException, match="different failure"):
+        vector.search_by_vector([0.1, 0.2])
+
+    vector._client.search.assert_called_once()
 
 
 def test_check_hybrid_search_support_branches(milvus_module):

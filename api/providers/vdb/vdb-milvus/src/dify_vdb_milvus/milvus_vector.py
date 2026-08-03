@@ -26,6 +26,10 @@ LEGACY_DENSE_INDEX_PARAMS: dict[str, Any] = {
     "params": {"nlist": 64, "m": 16},
 }
 LEGACY_COLLECTION_PROPERTIES: dict[str, str] = {"mmap.enabled": "true"}
+COLLECTION_LOAD_TIMEOUT_SECONDS = 60
+COLLECTION_LOAD_LOCK_TIMEOUT_SECONDS = 75
+COLLECTION_LOAD_LOCK_BLOCKING_TIMEOUT_SECONDS = 65
+COLLECTION_NOT_LOADED_ERROR_CODE = 101
 
 
 class MilvusParamsDict(TypedDict):
@@ -85,6 +89,10 @@ class MilvusConfig(BaseModel):
 class MilvusVector(BaseVector):
     """
     Milvus vector storage implementation.
+
+    Search operations load existing collections on demand. A per-collection Redis lock prevents API and worker
+    processes from issuing duplicate load requests after a restore or release. Only Milvus' collection-not-loaded
+    error is retried, and it is retried once so unrelated failures remain visible.
     """
 
     def __init__(self, collection_name: str, config: MilvusConfig):
@@ -104,6 +112,54 @@ class MilvusVector(BaseVector):
             fields = [field["name"] for field in collection_info["fields"]]
         # Since primary field is auto-id, no need to track it
         self._fields = [f for f in fields if f != Field.PRIMARY_KEY]
+
+    @staticmethod
+    def _load_state_is_loaded(load_state: dict[str, Any]) -> bool:
+        state = load_state.get("state")
+        state_name = getattr(state, "name", str(state))
+        return state_name == "Loaded" or state_name.endswith(": Loaded>")
+
+    def _ensure_collection_loaded(self) -> None:
+        """Load the collection before a read operation, serializing concurrent loads across Dify processes."""
+        if self._load_state_is_loaded(self._client.get_load_state(collection_name=self._collection_name)):
+            return
+
+        lock_name = f"vector_collection_load_lock_{self._collection_name}"
+        with redis_client.lock(
+            lock_name,
+            timeout=COLLECTION_LOAD_LOCK_TIMEOUT_SECONDS,
+            blocking_timeout=COLLECTION_LOAD_LOCK_BLOCKING_TIMEOUT_SECONDS,
+        ):
+            # Another API or worker process may have completed the load while this request waited for the lock.
+            if self._load_state_is_loaded(self._client.get_load_state(collection_name=self._collection_name)):
+                return
+            if not self._client.has_collection(self._collection_name):
+                raise MilvusException(message=f"Milvus collection {self._collection_name} no longer exists")
+
+            logger.info("Loading Milvus collection on demand: %s", self._collection_name)
+            self._client.load_collection(
+                collection_name=self._collection_name,
+                timeout=COLLECTION_LOAD_TIMEOUT_SECONDS,
+            )
+            if not self._load_state_is_loaded(self._client.get_load_state(collection_name=self._collection_name)):
+                raise MilvusException(
+                    message=f"Milvus collection {self._collection_name} did not finish loading within the timeout"
+                )
+
+    def _search_with_collection_load(self, **search_kwargs: Any) -> list[Any]:
+        """Run a search after loading its collection, retrying one collection-not-loaded race."""
+        self._ensure_collection_loaded()
+        try:
+            return self._client.search(**search_kwargs)
+        except MilvusException as error:
+            if error.code != COLLECTION_NOT_LOADED_ERROR_CODE:
+                raise
+            logger.warning(
+                "Milvus collection became unloaded during search; loading and retrying once: %s",
+                self._collection_name,
+            )
+            self._ensure_collection_loaded()
+            return self._client.search(**search_kwargs)
 
     def _check_hybrid_search_support(self) -> bool:
         """
@@ -258,7 +314,7 @@ class MilvusVector(BaseVector):
         if document_ids_filter:
             document_ids = ", ".join(f'"{id}"' for id in document_ids_filter)
             filter = f'metadata["document_id"] in [{document_ids}]'
-        results = self._client.search(
+        results = self._search_with_collection_load(
             collection_name=self._collection_name,
             data=[query_vector],
             anns_field=Field.VECTOR,
@@ -294,7 +350,7 @@ class MilvusVector(BaseVector):
             document_ids = ", ".join(f"'{id}'" for id in document_ids_filter)
             filter = f'metadata["document_id"] in [{document_ids}]'
 
-        results = self._client.search(
+        results = self._search_with_collection_load(
             collection_name=self._collection_name,
             data=[query],
             anns_field=Field.SPARSE_VECTOR,
