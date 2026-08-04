@@ -6,7 +6,12 @@ from tasks.report_teaching_token_usage_task import report_teaching_token_usage_t
 
 @message_was_created.connect
 def handle(sender: Message, **kwargs):
-    """Queue the legacy teaching-platform token callback for message apps."""
+    """Queue the legacy teaching-platform callback for message-based chat and agent apps.
+
+    Standalone workflows are reported by their workflow execution repository. Classic
+    chat and agent apps share this Message completion path and report their persisted
+    prompt and answer token totals here.
+    """
     if not dify_config.TEACHING_MODE_ENABLED:
         return
 

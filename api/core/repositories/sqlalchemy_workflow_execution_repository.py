@@ -20,6 +20,7 @@ from models import (
     WorkflowRun,
 )
 from models.enums import WorkflowRunTriggeredFrom
+from tasks.report_teaching_token_usage_task import report_teaching_token_usage_task
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +186,9 @@ class SQLAlchemyWorkflowExecutionRepository(WorkflowExecutionRepository):
         4. Updates the in-memory cache for faster subsequent lookups
 
         The method handles both creating new records and updating existing ones through
-        SQLAlchemy's merge operation.
+        SQLAlchemy's merge operation. After a terminal standalone workflow is committed,
+        it also queues the teaching-platform usage callback. Message-based chat and agent
+        apps report usage from their persisted Message event instead.
 
         Args:
             execution: The WorkflowExecution domain entity to persist
@@ -209,3 +212,25 @@ class SQLAlchemyWorkflowExecutionRepository(WorkflowExecutionRepository):
 
             # Update the in-memory cache for faster subsequent lookups
             self._execution_cache[db_model.id] = db_model
+
+        if (
+            self._app_id
+            and execution.workflow_type == WorkflowType.WORKFLOW
+            and execution.finished_at is not None
+            and int(execution.total_tokens or 0) > 0
+        ):
+            try:
+                report_teaching_token_usage_task.delay(
+                    app_id=self._app_id,
+                    total_tokens=int(execution.total_tokens or 0),
+                    event_type="workflow",
+                    event_id=str(execution.id_),
+                )
+            except Exception:
+                # Usage reporting is auxiliary and must not turn a successfully
+                # committed workflow into an application-visible failure.
+                logger.exception(
+                    "Failed to queue teaching token usage: app_id=%s workflow_run_id=%s",
+                    self._app_id,
+                    execution.id_,
+                )

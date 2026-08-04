@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -27,6 +27,14 @@ def mock_session_factory():
 def mock_engine():
     """Mock SQLAlchemy Engine."""
     return MagicMock(spec=Engine)
+
+
+@pytest.fixture(autouse=True)
+def mock_teaching_report_delay():
+    with patch(
+        "core.repositories.sqlalchemy_workflow_execution_repository.report_teaching_token_usage_task.delay"
+    ) as report_delay:
+        yield report_delay
 
 
 @pytest.fixture
@@ -221,7 +229,7 @@ class TestSQLAlchemyWorkflowExecutionRepository:
         with pytest.raises(ValueError, match="created_by_role is required"):
             repo._to_db_model(sample_workflow_execution)
 
-    def test_save(self, mock_session_factory, mock_account, sample_workflow_execution):
+    def test_save(self, mock_session_factory, mock_account, sample_workflow_execution, mock_teaching_report_delay):
         repo = SQLAlchemyWorkflowExecutionRepository(
             session_factory=mock_session_factory,
             user=mock_account,
@@ -239,6 +247,50 @@ class TestSQLAlchemyWorkflowExecutionRepository:
         assert sample_workflow_execution.id_ in repo._execution_cache
         cached_model = repo._execution_cache[sample_workflow_execution.id_]
         assert cached_model.id == sample_workflow_execution.id_
+        mock_teaching_report_delay.assert_called_once_with(
+            app_id="test_app",
+            total_tokens=100,
+            event_type="workflow",
+            event_id=sample_workflow_execution.id_,
+        )
+
+    def test_save_does_not_report_chat_workflow(
+        self, mock_session_factory, mock_account, sample_workflow_execution, mock_teaching_report_delay
+    ):
+        repo = SQLAlchemyWorkflowExecutionRepository(
+            session_factory=mock_session_factory,
+            user=mock_account,
+            app_id="test_app",
+            triggered_from=WorkflowRunTriggeredFrom.APP_RUN,
+        )
+        sample_workflow_execution.workflow_type = WorkflowType.CHAT
+
+        repo.save(sample_workflow_execution)
+
+        mock_teaching_report_delay.assert_not_called()
+
+    @pytest.mark.parametrize(("finished_at", "total_tokens"), [(None, 100), (datetime.now(UTC), 0)])
+    def test_save_does_not_report_incomplete_or_zero_token_workflow(
+        self,
+        mock_session_factory,
+        mock_account,
+        sample_workflow_execution,
+        finished_at,
+        total_tokens,
+        mock_teaching_report_delay,
+    ):
+        repo = SQLAlchemyWorkflowExecutionRepository(
+            session_factory=mock_session_factory,
+            user=mock_account,
+            app_id="test_app",
+            triggered_from=WorkflowRunTriggeredFrom.APP_RUN,
+        )
+        sample_workflow_execution.finished_at = finished_at
+        sample_workflow_execution.total_tokens = total_tokens
+
+        repo.save(sample_workflow_execution)
+
+        mock_teaching_report_delay.assert_not_called()
 
     def test_save_uses_execution_started_at_when_record_does_not_exist(
         self, mock_session_factory, mock_account, sample_workflow_execution

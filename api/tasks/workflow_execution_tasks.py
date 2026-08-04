@@ -14,6 +14,7 @@ from sqlalchemy import select
 
 from core.db.session_factory import session_factory
 from graphon.entities import WorkflowExecution
+from graphon.enums import WorkflowType
 from graphon.workflow_type_encoder import WorkflowRuntimeTypeConverter
 from models import CreatorUserRole, WorkflowRun
 from models.enums import WorkflowRunTriggeredFrom
@@ -76,7 +77,11 @@ def save_workflow_execution_task(
             # A workflow execution may be persisted more than once. The reporting
             # task deduplicates by execution ID and only emits the legacy platform
             # payload after the execution reaches a terminal state.
-            if execution.finished_at is not None and int(execution.total_tokens or 0) > 0:
+            if (
+                execution.workflow_type == WorkflowType.WORKFLOW
+                and execution.finished_at is not None
+                and int(execution.total_tokens or 0) > 0
+            ):
                 report_teaching_token_usage_task.delay(
                     app_id=app_id,
                     total_tokens=int(execution.total_tokens or 0),

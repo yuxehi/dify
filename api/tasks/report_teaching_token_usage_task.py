@@ -11,10 +11,11 @@ from models import Account, App
 
 logger = logging.getLogger(__name__)
 
-_IDEMPOTENCY_TTL_SECONDS = 60 * 60 * 24 * 30
+_PROCESSING_TTL_SECONDS = 60 * 10
+_REPORTED_TTL_SECONDS = 60 * 60 * 24 * 30
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=30)
+@shared_task(queue="ops_trace", bind=True, max_retries=3, default_retry_delay=30)
 def report_teaching_token_usage_task(
     self,
     *,
@@ -34,7 +35,9 @@ def report_teaching_token_usage_task(
         return True
 
     idempotency_key = f"teaching:token-report:{event_type}:{event_id}"
-    if not redis_client.set(idempotency_key, "processing", nx=True, ex=_IDEMPOTENCY_TTL_SECONDS):
+    # A short processing lease allows recovery if a worker is terminated after
+    # acquiring the key. Successful reports retain the longer deduplication TTL.
+    if not redis_client.set(idempotency_key, "processing", nx=True, ex=_PROCESSING_TTL_SECONDS):
         logger.info("Teaching token usage already reported or in progress: %s", idempotency_key)
         return True
 
@@ -57,7 +60,14 @@ def report_teaching_token_usage_task(
             timeout=dify_config.TEACHING_REQUEST_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
-        redis_client.set(idempotency_key, "reported", ex=_IDEMPOTENCY_TTL_SECONDS)
+        redis_client.set(idempotency_key, "reported", ex=_REPORTED_TTL_SECONDS)
+        logger.info(
+            "Reported teaching token usage: app_id=%s event_type=%s event_id=%s total_tokens=%s",
+            app_id,
+            event_type,
+            event_id,
+            total_tokens,
+        )
         return True
     except Exception as exc:
         # Delete the processing marker so the Celery retry can acquire it again.
