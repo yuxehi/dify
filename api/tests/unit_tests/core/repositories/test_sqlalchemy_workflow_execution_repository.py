@@ -254,7 +254,7 @@ class TestSQLAlchemyWorkflowExecutionRepository:
             event_id=sample_workflow_execution.id_,
         )
 
-    def test_save_does_not_report_chat_workflow(
+    def test_save_reports_chat_workflow(
         self, mock_session_factory, mock_account, sample_workflow_execution, mock_teaching_report_delay
     ):
         repo = SQLAlchemyWorkflowExecutionRepository(
@@ -264,6 +264,26 @@ class TestSQLAlchemyWorkflowExecutionRepository:
             triggered_from=WorkflowRunTriggeredFrom.APP_RUN,
         )
         sample_workflow_execution.workflow_type = WorkflowType.CHAT
+
+        repo.save(sample_workflow_execution)
+
+        mock_teaching_report_delay.assert_called_once_with(
+            app_id="test_app",
+            total_tokens=100,
+            event_type="workflow",
+            event_id=sample_workflow_execution.id_,
+        )
+
+    def test_save_does_not_report_rag_pipeline_workflow(
+        self, mock_session_factory, mock_account, sample_workflow_execution, mock_teaching_report_delay
+    ):
+        repo = SQLAlchemyWorkflowExecutionRepository(
+            session_factory=mock_session_factory,
+            user=mock_account,
+            app_id="test_app",
+            triggered_from=WorkflowRunTriggeredFrom.APP_RUN,
+        )
+        sample_workflow_execution.workflow_type = WorkflowType.RAG_PIPELINE
 
         repo.save(sample_workflow_execution)
 

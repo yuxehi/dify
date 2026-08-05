@@ -186,9 +186,9 @@ class SQLAlchemyWorkflowExecutionRepository(WorkflowExecutionRepository):
         4. Updates the in-memory cache for faster subsequent lookups
 
         The method handles both creating new records and updating existing ones through
-        SQLAlchemy's merge operation. After a terminal standalone workflow is committed,
-        it also queues the teaching-platform usage callback. Message-based chat and agent
-        apps report usage from their persisted Message event instead.
+        SQLAlchemy's merge operation. After a terminal workflow or chatflow is committed,
+        it also queues the teaching-platform usage callback. Classic chat and agent apps
+        report usage from their persisted Message event instead.
 
         Args:
             execution: The WorkflowExecution domain entity to persist
@@ -215,7 +215,7 @@ class SQLAlchemyWorkflowExecutionRepository(WorkflowExecutionRepository):
 
         if (
             self._app_id
-            and execution.workflow_type == WorkflowType.WORKFLOW
+            and execution.workflow_type in {WorkflowType.WORKFLOW, WorkflowType.CHAT}
             and execution.finished_at is not None
             and int(execution.total_tokens or 0) > 0
         ):
