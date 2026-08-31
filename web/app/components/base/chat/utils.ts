@@ -1,22 +1,95 @@
-import { UUID_NIL } from './constants'
 import type { IChatItem } from './chat/type'
 import type { ChatItem, ChatItemInTree } from './types'
+import { UUID_NIL } from './constants'
 
 async function decodeBase64AndDecompress(base64String: string) {
-  const binaryString = atob(base64String)
-  const compressedUint8Array = Uint8Array.from(binaryString, char => char.charCodeAt(0))
-  const decompressedStream = new Response(compressedUint8Array).body?.pipeThrough(new DecompressionStream('gzip'))
-  const decompressedArrayBuffer = await new Response(decompressedStream).arrayBuffer()
-  return new TextDecoder().decode(decompressedArrayBuffer)
+  try {
+    const binaryString = atob(base64String)
+    const compressedUint8Array = Uint8Array.from(binaryString, char => char.charCodeAt(0))
+    const decompressedStream = new Response(compressedUint8Array).body?.pipeThrough(new DecompressionStream('gzip'))
+    const decompressedArrayBuffer = await new Response(decompressedStream).arrayBuffer()
+    return new TextDecoder().decode(decompressedArrayBuffer)
+  }
+  catch {
+    return undefined
+  }
 }
 
-function getProcessedInputsFromUrlParams(): Record<string, any> {
+async function getRawInputsFromUrlParams(): Promise<Record<string, any>> {
   const urlParams = new URLSearchParams(window.location.search)
   const inputs: Record<string, any> = {}
-  urlParams.forEach(async (value, key) => {
-    inputs[key] = await decodeBase64AndDecompress(decodeURIComponent(value))
-  })
+  const entriesArray = Array.from(urlParams.entries())
+  await Promise.all(entriesArray.map(async ([key, value]) => {
+    const prefixArray = ['sys.', 'user.']
+    if (prefixArray.some(prefix => key.startsWith(prefix)))
+      return
+
+    inputs[key] = decodeURIComponent(value)
+  }))
   return inputs
+}
+
+async function getProcessedInputsFromUrlParams(): Promise<Record<string, any>> {
+  const urlParams = new URLSearchParams(window.location.search)
+  const inputs: Record<string, any> = {}
+  const entriesArray = Array.from(urlParams.entries())
+  await Promise.all(
+    entriesArray.map(async ([key, value]) => {
+      const prefixArray = ['sys.', 'user.']
+      if (!prefixArray.some(prefix => key.startsWith(prefix)))
+        inputs[key] = await decodeBase64AndDecompress(decodeURIComponent(value))
+    }),
+  )
+  return inputs
+}
+
+async function getProcessedSystemVariablesFromUrlParams(): Promise<Record<string, any>> {
+  const urlParams = new URLSearchParams(window.location.search)
+  const redirectUrl = urlParams.get('redirect_url')
+  if (redirectUrl) {
+    const decodedRedirectUrl = decodeURIComponent(redirectUrl)
+    const queryString = decodedRedirectUrl.split('?')[1]
+    if (queryString) {
+      const redirectParams = new URLSearchParams(queryString)
+      for (const [key, value] of redirectParams.entries())
+        urlParams.set(key, value)
+    }
+  }
+  const systemVariables: Record<string, any> = {}
+  const entriesArray = Array.from(urlParams.entries())
+  await Promise.all(
+    entriesArray.map(async ([key, value]) => {
+      if (key.startsWith('sys.'))
+        systemVariables[key.slice(4)] = await decodeBase64AndDecompress(decodeURIComponent(value))
+    }),
+  )
+  return systemVariables
+}
+
+async function getProcessedUserVariablesFromUrlParams(): Promise<Record<string, any>> {
+  const urlParams = new URLSearchParams(window.location.search)
+  const userVariables: Record<string, any> = {}
+  const entriesArray = Array.from(urlParams.entries())
+  await Promise.all(
+    entriesArray.map(async ([key, value]) => {
+      if (key.startsWith('user.'))
+        userVariables[key.slice(5)] = await decodeBase64AndDecompress(decodeURIComponent(value))
+    }),
+  )
+  return userVariables
+}
+
+async function getRawUserVariablesFromUrlParams(): Promise<Record<string, any>> {
+  const urlParams = new URLSearchParams(window.location.search)
+  const userVariables: Record<string, any> = {}
+  const entriesArray = Array.from(urlParams.entries())
+  await Promise.all(entriesArray.map(async ([key, value]) => {
+    if (!key.startsWith('user.'))
+      return
+
+    userVariables[key.slice(5)] = decodeURIComponent(value)
+  }))
+  return userVariables
 }
 
 function isValidGeneratedAnswer(item?: ChatItem | ChatItemInTree): boolean {
@@ -25,7 +98,7 @@ function isValidGeneratedAnswer(item?: ChatItem | ChatItemInTree): boolean {
 
 function getLastAnswer<T extends ChatItem | ChatItemInTree>(chatList: T[]): T | null {
   for (let i = chatList.length - 1; i >= 0; i--) {
-    const item = chatList[i]
+    const item = chatList[i]!
     if (isValidGeneratedAnswer(item))
       return item
   }
@@ -85,10 +158,12 @@ function buildChatItemTree(allMessages: IChatItem[]): ChatItemInTree[] {
       if (
         !parentMessageId
         || !allMessages.some(item => item.id === parentMessageId) // parent message might not be fetched yet, in this case we will append the question to the root nodes
-      )
+      ) {
         rootNodes.push(questionNode)
-      else
-        map[parentMessageId]?.children!.push(questionNode)
+      }
+      else {
+        map[parentMessageId]!.children!.push(questionNode)
+      }
     }
   }
 
@@ -117,8 +192,8 @@ function getThreadMessages(tree: ChatItemInTree[], targetMessageId?: string): Ch
 
         const parentAnswer = path[index - 2]
         const siblingCount = !parentAnswer ? tree.length : parentAnswer.children!.length
-        const prevSibling = !parentAnswer ? tree[item.siblingIndex! - 1]?.children?.[0]?.id : parentAnswer.children![item.siblingIndex! - 1]?.children?.[0].id
-        const nextSibling = !parentAnswer ? tree[item.siblingIndex! + 1]?.children?.[0]?.id : parentAnswer.children![item.siblingIndex! + 1]?.children?.[0].id
+        const prevSibling = !parentAnswer ? tree[item.siblingIndex! - 1]?.children?.[0]?.id : parentAnswer.children![item.siblingIndex! - 1]?.children?.[0]!.id
+        const nextSibling = !parentAnswer ? tree[item.siblingIndex! + 1]?.children?.[0]?.id : parentAnswer.children![item.siblingIndex! + 1]?.children?.[0]!.id
 
         return { ...item, siblingCount, prevSibling, nextSibling }
       })
@@ -127,8 +202,8 @@ function getThreadMessages(tree: ChatItemInTree[], targetMessageId?: string): Ch
     if (node.children) {
       for (let i = node.children.length - 1; i >= 0; i--) {
         stack.push({
-          node: node.children[i],
-          path: [...path, node.children[i]],
+          node: node.children[i]!,
+          path: [...path, node.children[i]!],
         })
       }
     }
@@ -162,9 +237,13 @@ function getThreadMessages(tree: ChatItemInTree[], targetMessageId?: string): Ch
 }
 
 export {
-  getProcessedInputsFromUrlParams,
-  isValidGeneratedAnswer,
-  getLastAnswer,
   buildChatItemTree,
+  getLastAnswer,
+  getProcessedInputsFromUrlParams,
+  getProcessedSystemVariablesFromUrlParams,
+  getProcessedUserVariablesFromUrlParams,
+  getRawInputsFromUrlParams,
+  getRawUserVariablesFromUrlParams,
   getThreadMessages,
+  isValidGeneratedAnswer,
 }

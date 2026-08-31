@@ -1,7 +1,14 @@
-from flask_restful import fields  # type: ignore
+from flask_restx import fields
 
 from fields.dataset_fields import dataset_fields
 from libs.helper import TimestampField
+
+document_metadata_fields = {
+    "id": fields.String,
+    "name": fields.String,
+    "type": fields.String,
+    "value": fields.String,
+}
 
 document_fields = {
     "id": fields.String,
@@ -25,6 +32,12 @@ document_fields = {
     "word_count": fields.Integer,
     "hit_count": fields.Integer,
     "doc_form": fields.String,
+    "doc_metadata": fields.List(fields.Nested(document_metadata_fields), attribute="doc_metadata_details"),
+    # Summary index generation status:
+    # "SUMMARIZING" (when task is queued and generating)
+    "summary_index_status": fields.String,
+    # Whether this document needs summary index generation
+    "need_summary": fields.Boolean,
 }
 
 document_with_segments_fields = {
@@ -51,6 +64,11 @@ document_with_segments_fields = {
     "hit_count": fields.Integer,
     "completed_segments": fields.Integer,
     "total_segments": fields.Integer,
+    "doc_metadata": fields.List(fields.Nested(document_metadata_fields), attribute="doc_metadata_details"),
+    # Summary index generation status:
+    # "SUMMARIZING" (when task is queued and generating)
+    "summary_index_status": fields.String,
+    "need_summary": fields.Boolean,  # Whether this document needs summary index generation
 }
 
 dataset_and_document_fields = {

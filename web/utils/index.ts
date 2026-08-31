@@ -1,4 +1,4 @@
-import { escape } from 'lodash-es'
+import { escape } from 'es-toolkit/string'
 
 export const sleep = (ms: number) => {
   return new Promise(resolve => setTimeout(resolve, ms))

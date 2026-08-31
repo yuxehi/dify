@@ -4,6 +4,7 @@ import type {
   CommonNodeType,
   ErrorHandleMode,
   ValueSelector,
+  ValueType,
   Var,
   VarType,
 } from '@/app/components/workflow/types'
@@ -43,7 +44,7 @@ export type Condition = {
   variable_selector?: ValueSelector
   key?: string // sub variable key
   comparison_operator?: ComparisonOperator
-  value: string | string[]
+  value: string | string[] | boolean
   numberVarType?: NumberVarType
   sub_variable_condition?: CaseItem
 }
@@ -56,7 +57,6 @@ export type CaseItem = {
 export type HandleAddCondition = (valueSelector: ValueSelector, varItem: Var) => void
 export type HandleRemoveCondition = (conditionId: string) => void
 export type HandleUpdateCondition = (conditionId: string, newCondition: Condition) => void
-export type HandleUpdateConditionLogicalOperator = (value: LogicalOperator) => void
 
 export type HandleToggleConditionLogicalOperator = () => void
 
@@ -65,6 +65,13 @@ export type handleRemoveSubVariableCondition = (conditionId: string, subConditio
 export type HandleUpdateSubVariableCondition = (conditionId: string, subConditionId: string, newSubCondition: Condition) => void
 export type HandleToggleSubVariableConditionLogicalOperator = (conditionId: string) => void
 
+export type LoopVariable = {
+  id: string
+  label: string
+  var_type: VarType
+  value_type: ValueType
+  value: any
+}
 export type LoopNodeType = CommonNodeType & {
   startNodeType?: BlockEnum
   start_node_id: string
@@ -73,4 +80,14 @@ export type LoopNodeType = CommonNodeType & {
   break_conditions?: Condition[]
   loop_count: number
   error_handle_mode: ErrorHandleMode // how to handle error in the iteration
+  loop_variables?: LoopVariable[]
+}
+
+type HandleUpdateLoopVariable = (id: string, updateData: Partial<LoopVariable>) => void
+type HandleRemoveLoopVariable = (id: string) => void
+
+export type LoopVariablesComponentShape = {
+  nodeId: string
+  handleRemoveLoopVariable: HandleRemoveLoopVariable
+  handleUpdateLoopVariable: HandleUpdateLoopVariable
 }

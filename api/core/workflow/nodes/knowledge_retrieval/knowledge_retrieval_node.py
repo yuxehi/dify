@@ -1,291 +1,330 @@
-import logging
-import time
-from collections.abc import Mapping, Sequence
-from typing import Any, cast
+"""Knowledge retrieval workflow node implementation.
 
-from sqlalchemy import func
+This node now lives under ``core.workflow.nodes`` and is discovered directly by
+the workflow node registry.
+"""
+
+import logging
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Literal
 
 from core.app.app_config.entities import DatasetRetrieveConfigEntity
-from core.app.entities.app_invoke_entities import ModelConfigWithCredentialsEntity
-from core.entities.agent_entities import PlanningStrategy
-from core.entities.model_entities import ModelStatus
-from core.model_manager import ModelInstance, ModelManager
-from core.model_runtime.entities.model_entities import ModelFeature, ModelType
-from core.model_runtime.model_providers.__base.large_language_model import LargeLanguageModel
-from core.rag.datasource.retrieval_service import RetrievalService
+from core.app.entities.app_invoke_entities import DIFY_RUN_CONTEXT_KEY, DifyRunContext
+from core.rag.data_post_processor.data_post_processor import RerankingModelDict, WeightsDict
 from core.rag.retrieval.dataset_retrieval import DatasetRetrieval
-from core.rag.retrieval.retrieval_methods import RetrievalMethod
-from core.variables import StringSegment
-from core.workflow.entities.node_entities import NodeRunResult
-from core.workflow.nodes.base import BaseNode
-from core.workflow.nodes.enums import NodeType
-from extensions.ext_database import db
-from extensions.ext_redis import redis_client
-from models.dataset import Dataset, Document, RateLimitLog
-from models.workflow import WorkflowNodeExecutionStatus
-from services.feature_service import FeatureService
+from core.workflow.file_reference import parse_file_reference
+from graphon.entities import GraphInitParams
+from graphon.enums import (
+    BuiltinNodeTypes,
+    WorkflowNodeExecutionMetadataKey,
+    WorkflowNodeExecutionStatus,
+)
+from graphon.model_runtime.entities.llm_entities import LLMUsage
+from graphon.model_runtime.utils.encoders import jsonable_encoder
+from graphon.node_events import NodeRunResult
+from graphon.nodes.base import LLMUsageTrackingMixin
+from graphon.nodes.base.node import Node
+from graphon.variables import (
+    ArrayFileSegment,
+    FileSegment,
+    StringSegment,
+)
+from graphon.variables.segments import ArrayObjectSegment
 
-from .entities import KnowledgeRetrievalNodeData
+from .entities import (
+    Condition,
+    KnowledgeRetrievalNodeData,
+    MetadataFilteringCondition,
+)
 from .exc import (
     KnowledgeRetrievalNodeError,
-    ModelCredentialsNotInitializedError,
-    ModelNotExistError,
-    ModelNotSupportedError,
-    ModelQuotaExceededError,
+    RateLimitExceededError,
 )
+from .retrieval import KnowledgeRetrievalRequest, Source
+
+if TYPE_CHECKING:
+    from graphon.file import File
+    from graphon.runtime import GraphRuntimeState
 
 logger = logging.getLogger(__name__)
 
-default_retrieval_model = {
-    "search_method": RetrievalMethod.SEMANTIC_SEARCH.value,
-    "reranking_enable": False,
-    "reranking_model": {"reranking_provider_name": "", "reranking_model_name": ""},
-    "top_k": 2,
-    "score_threshold_enabled": False,
-}
+
+def _normalize_metadata_filter_scalar(value: object) -> str | int | float | None:
+    if value is None or isinstance(value, (str, float)):
+        return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    return str(value)
 
 
-class KnowledgeRetrievalNode(BaseNode[KnowledgeRetrievalNodeData]):
-    _node_data_cls = KnowledgeRetrievalNodeData
-    _node_type = NodeType.KNOWLEDGE_RETRIEVAL
+def _normalize_metadata_filter_sequence_item(value: object) -> str:
+    return value if isinstance(value, str) else str(value)
+
+
+class KnowledgeRetrievalNode(LLMUsageTrackingMixin, Node[KnowledgeRetrievalNodeData]):
+    node_type = BuiltinNodeTypes.KNOWLEDGE_RETRIEVAL
+
+    # Instance attributes specific to LLMNode.
+    # Output variable for file
+    _file_outputs: list["File"]
+
+    def __init__(
+        self,
+        node_id: str,
+        data: KnowledgeRetrievalNodeData,
+        *,
+        graph_init_params: "GraphInitParams",
+        graph_runtime_state: "GraphRuntimeState",
+    ) -> None:
+        super().__init__(
+            node_id=node_id,
+            data=data,
+            graph_init_params=graph_init_params,
+            graph_runtime_state=graph_runtime_state,
+        )
+        # LLM file outputs, used for MultiModal outputs.
+        self._file_outputs = []
+        self._rag_retrieval = DatasetRetrieval()
+
+    @classmethod
+    def version(cls):
+        return "1"
 
     def _run(self) -> NodeRunResult:
-        # extract variables
-        variable = self.graph_runtime_state.variable_pool.get(self.node_data.query_variable_selector)
-        if not isinstance(variable, StringSegment):
+        usage = LLMUsage.empty_usage()
+        if not self._node_data.query_variable_selector and not self._node_data.query_attachment_selector:
             return NodeRunResult(
-                status=WorkflowNodeExecutionStatus.FAILED,
+                status=WorkflowNodeExecutionStatus.SUCCEEDED,
                 inputs={},
-                error="Query variable is not string type.",
+                process_data={},
+                outputs={},
+                metadata={},
+                llm_usage=usage,
             )
-        query = variable.value
-        variables = {"query": query}
-        if not query:
-            return NodeRunResult(
-                status=WorkflowNodeExecutionStatus.FAILED, inputs=variables, error="Query is required."
-            )
-        # check rate limit
-        if self.tenant_id:
-            knowledge_rate_limit = FeatureService.get_knowledge_rate_limit(self.tenant_id)
-            if knowledge_rate_limit.enabled:
-                current_time = int(time.time() * 1000)
-                key = f"rate_limit_{self.tenant_id}"
-                redis_client.zadd(key, {current_time: current_time})
-                redis_client.zremrangebyscore(key, 0, current_time - 60000)
-                request_count = redis_client.zcard(key)
-                if request_count > knowledge_rate_limit.limit:
-                    # add ratelimit record
-                    rate_limit_log = RateLimitLog(
-                        tenant_id=self.tenant_id,
-                        subscription_plan=knowledge_rate_limit.subscription_plan,
-                        operation="knowledge",
-                    )
-                    db.session.add(rate_limit_log)
-                    db.session.commit()
-                    return NodeRunResult(
-                        status=WorkflowNodeExecutionStatus.FAILED,
-                        inputs=variables,
-                        error="Sorry, you have reached the knowledge base request rate limit of your subscription.",
-                        error_type="RateLimitExceeded",
-                    )
+        variables: dict[str, Any] = {}
+        # extract variables
+        if self._node_data.query_variable_selector:
+            variable = self.graph_runtime_state.variable_pool.get(self._node_data.query_variable_selector)
+            if not isinstance(variable, StringSegment):
+                return NodeRunResult(
+                    status=WorkflowNodeExecutionStatus.FAILED,
+                    inputs={},
+                    error="Query variable is not string type.",
+                )
+            query = variable.value
+            variables["query"] = query
 
-        # retrieve knowledge
+        if self._node_data.query_attachment_selector:
+            variable = self.graph_runtime_state.variable_pool.get(self._node_data.query_attachment_selector)
+            if not isinstance(variable, ArrayFileSegment) and not isinstance(variable, FileSegment):
+                return NodeRunResult(
+                    status=WorkflowNodeExecutionStatus.FAILED,
+                    inputs={},
+                    error="Attachments variable is not array file or file type.",
+                )
+            if isinstance(variable, ArrayFileSegment):
+                variables["attachments"] = variable.value
+            else:
+                variables["attachments"] = [variable.value]
+
         try:
-            results = self._fetch_dataset_retriever(node_data=self.node_data, query=query)
-            outputs = {"result": results}
+            results, usage = self._fetch_dataset_retriever(node_data=self._node_data, variables=variables)
+            outputs = {"result": ArrayObjectSegment(value=[item.model_dump(by_alias=True) for item in results])}
             return NodeRunResult(
-                status=WorkflowNodeExecutionStatus.SUCCEEDED, inputs=variables, process_data=None, outputs=outputs
+                status=WorkflowNodeExecutionStatus.SUCCEEDED,
+                inputs=variables,
+                process_data={"usage": jsonable_encoder(usage)},
+                outputs=outputs,  # type: ignore
+                metadata={
+                    WorkflowNodeExecutionMetadataKey.TOTAL_TOKENS: usage.total_tokens,
+                    WorkflowNodeExecutionMetadataKey.TOTAL_PRICE: usage.total_price,
+                    WorkflowNodeExecutionMetadataKey.CURRENCY: usage.currency,
+                },
+                llm_usage=usage,
             )
-
-        except KnowledgeRetrievalNodeError as e:
-            logger.warning("Error when running knowledge retrieval node")
+        except RateLimitExceededError as e:
+            logger.warning(e, exc_info=True)
             return NodeRunResult(
                 status=WorkflowNodeExecutionStatus.FAILED,
                 inputs=variables,
                 error=str(e),
                 error_type=type(e).__name__,
+                llm_usage=usage,
+            )
+        except KnowledgeRetrievalNodeError as e:
+            logger.warning("Error when running knowledge retrieval node", exc_info=True)
+            return NodeRunResult(
+                status=WorkflowNodeExecutionStatus.FAILED,
+                inputs=variables,
+                error=str(e),
+                error_type=type(e).__name__,
+                llm_usage=usage,
             )
         # Temporary handle all exceptions from DatasetRetrieval class here.
         except Exception as e:
+            logger.warning(e, exc_info=True)
             return NodeRunResult(
                 status=WorkflowNodeExecutionStatus.FAILED,
                 inputs=variables,
                 error=str(e),
                 error_type=type(e).__name__,
+                llm_usage=usage,
             )
 
-    def _fetch_dataset_retriever(self, node_data: KnowledgeRetrievalNodeData, query: str) -> list[dict[str, Any]]:
-        available_datasets = []
+    def _fetch_dataset_retriever(
+        self, node_data: KnowledgeRetrievalNodeData, variables: dict[str, Any]
+    ) -> tuple[list[Source], LLMUsage]:
+        dify_ctx = DifyRunContext.model_validate(self.require_run_context_value(DIFY_RUN_CONTEXT_KEY))
         dataset_ids = node_data.dataset_ids
+        query = variables.get("query")
+        attachments = variables.get("attachments")
+        retrieval_resource_list = []
 
-        # Subquery: Count the number of available documents for each dataset
-        subquery = (
-            db.session.query(Document.dataset_id, func.count(Document.id).label("available_document_count"))
-            .filter(
-                Document.indexing_status == "completed",
-                Document.enabled == True,
-                Document.archived == False,
-                Document.dataset_id.in_(dataset_ids),
-            )
-            .group_by(Document.dataset_id)
-            .having(func.count(Document.id) > 0)
-            .subquery()
+        metadata_filtering_mode: Literal["disabled", "automatic", "manual"] = "disabled"
+        if node_data.metadata_filtering_mode is not None:
+            metadata_filtering_mode = node_data.metadata_filtering_mode
+
+        resolved_metadata_conditions = (
+            self._resolve_metadata_filtering_conditions(node_data.metadata_filtering_conditions)
+            if node_data.metadata_filtering_conditions
+            else None
         )
 
-        results = (
-            db.session.query(Dataset)
-            .outerjoin(subquery, Dataset.id == subquery.c.dataset_id)
-            .filter(Dataset.tenant_id == self.tenant_id, Dataset.id.in_(dataset_ids))
-            .filter((subquery.c.available_document_count > 0) | (Dataset.provider == "external"))
-            .all()
-        )
-
-        for dataset in results:
-            # pass if dataset is not available
-            if not dataset:
-                continue
-            available_datasets.append(dataset)
-        all_documents = []
-        dataset_retrieval = DatasetRetrieval()
-        if node_data.retrieval_mode == DatasetRetrieveConfigEntity.RetrieveStrategy.SINGLE.value:
+        if str(node_data.retrieval_mode) == DatasetRetrieveConfigEntity.RetrieveStrategy.SINGLE and query:
             # fetch model config
-            model_instance, model_config = self._fetch_model_config(node_data)
-            # check model is support tool calling
-            model_type_instance = model_config.provider_model_bundle.model_type_instance
-            model_type_instance = cast(LargeLanguageModel, model_type_instance)
-            # get model schema
-            model_schema = model_type_instance.get_model_schema(
-                model=model_config.model, credentials=model_config.credentials
-            )
-
-            if model_schema:
-                planning_strategy = PlanningStrategy.REACT_ROUTER
-                features = model_schema.features
-                if features:
-                    if ModelFeature.TOOL_CALL in features or ModelFeature.MULTI_TOOL_CALL in features:
-                        planning_strategy = PlanningStrategy.ROUTER
-                all_documents = dataset_retrieval.single_retrieve(
-                    available_datasets=available_datasets,
-                    tenant_id=self.tenant_id,
-                    user_id=self.user_id,
-                    app_id=self.app_id,
-                    user_from=self.user_from.value,
+            if node_data.single_retrieval_config is None:
+                raise ValueError("single_retrieval_config is required for single retrieval mode")
+            model = node_data.single_retrieval_config.model
+            retrieval_resource_list = self._rag_retrieval.knowledge_retrieval(
+                request=KnowledgeRetrievalRequest(
+                    tenant_id=dify_ctx.tenant_id,
+                    user_id=dify_ctx.user_id,
+                    app_id=dify_ctx.app_id,
+                    user_from=dify_ctx.user_from.value,
+                    dataset_ids=dataset_ids,
+                    retrieval_mode=DatasetRetrieveConfigEntity.RetrieveStrategy.SINGLE.value,
+                    completion_params=model.completion_params,
+                    model_provider=model.provider,
+                    model_mode=model.mode,
+                    model_name=model.name,
+                    metadata_model_config=node_data.metadata_model_config,
+                    metadata_filtering_conditions=resolved_metadata_conditions,
+                    metadata_filtering_mode=metadata_filtering_mode,
                     query=query,
-                    model_config=model_config,
-                    model_instance=model_instance,
-                    planning_strategy=planning_strategy,
                 )
-        elif node_data.retrieval_mode == DatasetRetrieveConfigEntity.RetrieveStrategy.MULTIPLE.value:
+            )
+        elif str(node_data.retrieval_mode) == DatasetRetrieveConfigEntity.RetrieveStrategy.MULTIPLE:
             if node_data.multiple_retrieval_config is None:
                 raise ValueError("multiple_retrieval_config is required")
-            if node_data.multiple_retrieval_config.reranking_mode == "reranking_model":
-                if node_data.multiple_retrieval_config.reranking_model:
-                    reranking_model = {
-                        "reranking_provider_name": node_data.multiple_retrieval_config.reranking_model.provider,
-                        "reranking_model_name": node_data.multiple_retrieval_config.reranking_model.model,
-                    }
-                else:
-                    reranking_model = None
-                weights = None
-            elif node_data.multiple_retrieval_config.reranking_mode == "weighted_score":
-                if node_data.multiple_retrieval_config.weights is None:
-                    raise ValueError("weights is required")
-                reranking_model = None
-                vector_setting = node_data.multiple_retrieval_config.weights.vector_setting
-                weights = {
-                    "vector_setting": {
-                        "vector_weight": vector_setting.vector_weight,
-                        "embedding_provider_name": vector_setting.embedding_provider_name,
-                        "embedding_model_name": vector_setting.embedding_model_name,
-                    },
-                    "keyword_setting": {
-                        "keyword_weight": node_data.multiple_retrieval_config.weights.keyword_setting.keyword_weight
-                    },
-                }
-            else:
-                reranking_model = None
-                weights = None
-            all_documents = dataset_retrieval.multiple_retrieve(
-                app_id=self.app_id,
-                tenant_id=self.tenant_id,
-                user_id=self.user_id,
-                user_from=self.user_from.value,
-                available_datasets=available_datasets,
-                query=query,
-                top_k=node_data.multiple_retrieval_config.top_k,
-                score_threshold=node_data.multiple_retrieval_config.score_threshold
-                if node_data.multiple_retrieval_config.score_threshold is not None
-                else 0.0,
-                reranking_mode=node_data.multiple_retrieval_config.reranking_mode,
-                reranking_model=reranking_model,
-                weights=weights,
-                reranking_enable=node_data.multiple_retrieval_config.reranking_enable,
-            )
-        dify_documents = [item for item in all_documents if item.provider == "dify"]
-        external_documents = [item for item in all_documents if item.provider == "external"]
-        retrieval_resource_list = []
-        # deal with external documents
-        for item in external_documents:
-            source = {
-                "metadata": {
-                    "_source": "knowledge",
-                    "dataset_id": item.metadata.get("dataset_id"),
-                    "dataset_name": item.metadata.get("dataset_name"),
-                    "document_name": item.metadata.get("title"),
-                    "data_source_type": "external",
-                    "retriever_from": "workflow",
-                    "score": item.metadata.get("score"),
-                },
-                "title": item.metadata.get("title"),
-                "content": item.page_content,
-            }
-            retrieval_resource_list.append(source)
-        # deal with dify documents
-        if dify_documents:
-            records = RetrievalService.format_retrieval_documents(dify_documents)
-            if records:
-                for record in records:
-                    segment = record.segment
-                    dataset = Dataset.query.filter_by(id=segment.dataset_id).first()
-                    document = Document.query.filter(
-                        Document.id == segment.document_id,
-                        Document.enabled == True,
-                        Document.archived == False,
-                    ).first()
-                    if dataset and document:
-                        source = {
-                            "metadata": {
-                                "_source": "knowledge",
-                                "dataset_id": dataset.id,
-                                "dataset_name": dataset.name,
-                                "document_id": document.id,
-                                "document_name": document.name,
-                                "document_data_source_type": document.data_source_type,
-                                "segment_id": segment.id,
-                                "retriever_from": "workflow",
-                                "score": record.score or 0.0,
-                                "segment_hit_count": segment.hit_count,
-                                "segment_word_count": segment.word_count,
-                                "segment_position": segment.position,
-                                "segment_index_node_hash": segment.index_node_hash,
-                                "doc_metadata": document.doc_metadata,
-                            },
-                            "title": document.name,
+            reranking_model: RerankingModelDict | None = None
+            weights: WeightsDict | None = None
+            match node_data.multiple_retrieval_config.reranking_mode:
+                case "reranking_model":
+                    if node_data.multiple_retrieval_config.reranking_model:
+                        reranking_model = {
+                            "reranking_provider_name": node_data.multiple_retrieval_config.reranking_model.provider,
+                            "reranking_model_name": node_data.multiple_retrieval_config.reranking_model.model,
                         }
-                        if segment.answer:
-                            source["content"] = f"question:{segment.get_sign_content()} \nanswer:{segment.answer}"
-                        else:
-                            source["content"] = segment.get_sign_content()
-                        retrieval_resource_list.append(source)
-        if retrieval_resource_list:
-            retrieval_resource_list = sorted(
-                retrieval_resource_list,
-                key=lambda x: x["metadata"]["score"] if x["metadata"].get("score") is not None else 0.0,
-                reverse=True,
+                    else:
+                        reranking_model = None
+                    weights = None
+                case "weighted_score":
+                    if node_data.multiple_retrieval_config.weights is None:
+                        raise ValueError("weights is required")
+                    reranking_model = None
+                    vector_setting = node_data.multiple_retrieval_config.weights.vector_setting
+                    weights = {
+                        "vector_setting": {
+                            "vector_weight": vector_setting.vector_weight,
+                            "embedding_provider_name": vector_setting.embedding_provider_name,
+                            "embedding_model_name": vector_setting.embedding_model_name,
+                        },
+                        "keyword_setting": {
+                            "keyword_weight": node_data.multiple_retrieval_config.weights.keyword_setting.keyword_weight
+                        },
+                    }
+                case _:
+                    # Handle any other reranking_mode values
+                    reranking_model = None
+                    weights = None
+
+            retrieval_resource_list = self._rag_retrieval.knowledge_retrieval(
+                request=KnowledgeRetrievalRequest(
+                    app_id=dify_ctx.app_id,
+                    tenant_id=dify_ctx.tenant_id,
+                    user_id=dify_ctx.user_id,
+                    user_from=dify_ctx.user_from.value,
+                    dataset_ids=dataset_ids,
+                    query=query,
+                    retrieval_mode=DatasetRetrieveConfigEntity.RetrieveStrategy.MULTIPLE.value,
+                    top_k=node_data.multiple_retrieval_config.top_k,
+                    score_threshold=node_data.multiple_retrieval_config.score_threshold
+                    if node_data.multiple_retrieval_config.score_threshold is not None
+                    else 0.0,
+                    reranking_mode=node_data.multiple_retrieval_config.reranking_mode,
+                    reranking_model=reranking_model,
+                    weights=weights,
+                    reranking_enable=node_data.multiple_retrieval_config.reranking_enable,
+                    metadata_model_config=node_data.metadata_model_config,
+                    metadata_filtering_conditions=resolved_metadata_conditions,
+                    metadata_filtering_mode=metadata_filtering_mode,
+                    attachment_ids=[
+                        parsed_reference.record_id
+                        for attachment in attachments
+                        if (parsed_reference := parse_file_reference(attachment.reference)) is not None
+                    ]
+                    if attachments
+                    else None,
+                )
             )
-            for position, item in enumerate(retrieval_resource_list, start=1):
-                item["metadata"]["position"] = position
-        return retrieval_resource_list
+
+        usage = self._rag_retrieval.llm_usage
+        return retrieval_resource_list, usage
+
+    def _resolve_metadata_filtering_conditions(
+        self, conditions: MetadataFilteringCondition
+    ) -> MetadataFilteringCondition:
+        if conditions.conditions is None:
+            return MetadataFilteringCondition(
+                logical_operator=conditions.logical_operator,
+                conditions=None,
+            )
+
+        variable_pool = self.graph_runtime_state.variable_pool
+        resolved_conditions: list[Condition] = []
+        for cond in conditions.conditions or []:
+            value = cond.value
+            resolved_value: str | Sequence[str] | int | float | None
+            if isinstance(value, str):
+                segment_group = variable_pool.convert_template(value)
+                if len(segment_group.value) == 1:
+                    resolved_value = _normalize_metadata_filter_scalar(segment_group.value[0].to_object())
+                else:
+                    resolved_value = segment_group.text
+            elif isinstance(value, Sequence) and all(isinstance(v, str) for v in value):
+                resolved_values: list[str] = []
+                for v in value:
+                    segment_group = variable_pool.convert_template(v)
+                    if len(segment_group.value) == 1:
+                        resolved_values.append(
+                            _normalize_metadata_filter_sequence_item(segment_group.value[0].to_object())
+                        )
+                    else:
+                        resolved_values.append(segment_group.text)
+                resolved_value = resolved_values
+            else:
+                resolved_value = value
+            resolved_conditions.append(
+                Condition(
+                    name=cond.name,
+                    comparison_operator=cond.comparison_operator,
+                    value=resolved_value,
+                )
+            )
+        return MetadataFilteringCondition(
+            logical_operator=conditions.logical_operator or "and",
+            conditions=resolved_conditions,
+        )
 
     @classmethod
     def _extract_variable_selector_to_variable_mapping(
@@ -295,80 +334,10 @@ class KnowledgeRetrievalNode(BaseNode[KnowledgeRetrievalNodeData]):
         node_id: str,
         node_data: KnowledgeRetrievalNodeData,
     ) -> Mapping[str, Sequence[str]]:
-        """
-        Extract variable selector to variable mapping
-        :param graph_config: graph config
-        :param node_id: node id
-        :param node_data: node data
-        :return:
-        """
+        # graph_config is not used in this node type
         variable_mapping = {}
-        variable_mapping[node_id + ".query"] = node_data.query_variable_selector
+        if node_data.query_variable_selector:
+            variable_mapping[node_id + ".query"] = node_data.query_variable_selector
+        if node_data.query_attachment_selector:
+            variable_mapping[node_id + ".queryAttachment"] = node_data.query_attachment_selector
         return variable_mapping
-
-    def _fetch_model_config(
-        self, node_data: KnowledgeRetrievalNodeData
-    ) -> tuple[ModelInstance, ModelConfigWithCredentialsEntity]:
-        """
-        Fetch model config
-        :param node_data: node data
-        :return:
-        """
-        if node_data.single_retrieval_config is None:
-            raise ValueError("single_retrieval_config is required")
-        model_name = node_data.single_retrieval_config.model.name
-        provider_name = node_data.single_retrieval_config.model.provider
-
-        model_manager = ModelManager()
-        model_instance = model_manager.get_model_instance(
-            tenant_id=self.tenant_id, model_type=ModelType.LLM, provider=provider_name, model=model_name
-        )
-
-        provider_model_bundle = model_instance.provider_model_bundle
-        model_type_instance = model_instance.model_type_instance
-        model_type_instance = cast(LargeLanguageModel, model_type_instance)
-
-        model_credentials = model_instance.credentials
-
-        # check model
-        provider_model = provider_model_bundle.configuration.get_provider_model(
-            model=model_name, model_type=ModelType.LLM
-        )
-
-        if provider_model is None:
-            raise ModelNotExistError(f"Model {model_name} not exist.")
-
-        if provider_model.status == ModelStatus.NO_CONFIGURE:
-            raise ModelCredentialsNotInitializedError(f"Model {model_name} credentials is not initialized.")
-        elif provider_model.status == ModelStatus.NO_PERMISSION:
-            raise ModelNotSupportedError(f"Dify Hosted OpenAI {model_name} currently not support.")
-        elif provider_model.status == ModelStatus.QUOTA_EXCEEDED:
-            raise ModelQuotaExceededError(f"Model provider {provider_name} quota exceeded.")
-
-        # model config
-        completion_params = node_data.single_retrieval_config.model.completion_params
-        stop = []
-        if "stop" in completion_params:
-            stop = completion_params["stop"]
-            del completion_params["stop"]
-
-        # get model mode
-        model_mode = node_data.single_retrieval_config.model.mode
-        if not model_mode:
-            raise ModelNotExistError("LLM mode is required.")
-
-        model_schema = model_type_instance.get_model_schema(model_name, model_credentials)
-
-        if not model_schema:
-            raise ModelNotExistError(f"Model {model_name} not exist.")
-
-        return model_instance, ModelConfigWithCredentialsEntity(
-            provider=provider_name,
-            model=model_name,
-            model_schema=model_schema,
-            mode=model_mode,
-            provider_model_bundle=provider_model_bundle,
-            credentials=model_credentials,
-            parameters=completion_params,
-            stop=stop,
-        )

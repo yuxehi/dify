@@ -1,9 +1,10 @@
 'use client'
 import type { FC } from 'react'
-import React, { useCallback } from 'react'
-import Slider from '@/app/components/base/slider'
+import { Slider } from '@langgenius/dify-ui/slider'
+import * as React from 'react'
+import { useCallback } from 'react'
 
-type Props = {
+export type InputNumberWithSliderProps = {
   value: number
   defaultValue?: number
   min?: number
@@ -12,7 +13,7 @@ type Props = {
   onChange: (value: number) => void
 }
 
-const InputNumberWithSlider: FC<Props> = ({
+const InputNumberWithSlider: FC<InputNumberWithSliderProps> = ({
   value,
   defaultValue = 0,
   min,
@@ -21,7 +22,7 @@ const InputNumberWithSlider: FC<Props> = ({
   onChange,
 }) => {
   const handleBlur = useCallback(() => {
-    if (value === undefined || value === null) {
+    if (value === undefined || value === null || Number.isNaN(value)) {
       onChange(defaultValue)
       return
     }
@@ -38,11 +39,11 @@ const InputNumberWithSlider: FC<Props> = ({
   }, [onChange])
 
   return (
-    <div className='flex justify-between items-center h-8 space-x-2'>
+    <div className="flex h-8 items-center justify-between space-x-2">
       <input
         value={value}
-        className='shrink-0 block pl-3 w-12 h-8 appearance-none outline-none rounded-lg bg-components-input-bg-normal text-[13px] text-components-input-text-filled'
-        type='number'
+        className="block h-8 w-12 shrink-0 appearance-none rounded-lg bg-components-input-bg-normal pl-3 text-[13px] text-components-input-text-filled outline-hidden"
+        type="number"
         min={min}
         max={max}
         step={1}
@@ -51,13 +52,14 @@ const InputNumberWithSlider: FC<Props> = ({
         disabled={readonly}
       />
       <Slider
-        className='grow'
+        className="grow"
         value={value}
         min={min}
         max={max}
         step={1}
-        onChange={onChange}
+        onValueChange={onChange}
         disabled={readonly}
+        aria-label="Number input slider"
       />
     </div>
   )

@@ -1,13 +1,13 @@
 import type { FC } from 'react'
+import { cn } from '@langgenius/dify-ui/cn'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@langgenius/dify-ui/popover'
+import { RiArrowDownSLine } from '@remixicon/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { RiArrowDownSLine } from '@remixicon/react'
-import cn from '@/utils/classnames'
-import {
-  PortalToFollowElem,
-  PortalToFollowElemContent,
-  PortalToFollowElemTrigger,
-} from '@/app/components/base/portal-to-follow-elem'
 import { Check } from '@/app/components/base/icons/src/vender/line/general'
 
 type MethodSelectorProps = {
@@ -20,57 +20,71 @@ const MethodSelector: FC<MethodSelectorProps> = ({
 }) => {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  const handleSelect = (value: string) => {
+    onChange(value)
+    setOpen(false)
+  }
 
   return (
-    <PortalToFollowElem
+    <Popover
       open={open}
       onOpenChange={setOpen}
-      placement='bottom-start'
-      offset={4}
     >
-      <div className='relative'>
-        <PortalToFollowElemTrigger
-          onClick={() => setOpen(v => !v)}
-          className='block'
+      <div className="relative">
+        <PopoverTrigger
+          nativeButton={false}
+          render={(
+            <div className={cn(
+              'flex h-9 min-h-[56px] cursor-pointer items-center gap-1 bg-transparent px-3 py-2 hover:bg-background-section-burn',
+              open && 'bg-background-section-burn! hover:bg-background-section-burn',
+            )}
+            >
+              <div className={cn('grow truncate text-[13px] leading-[18px] text-text-secondary')}>
+                {value === 'llm' ? t('createTool.toolInput.methodParameter', { ns: 'tools' }) : t('createTool.toolInput.methodSetting', { ns: 'tools' })}
+              </div>
+              <div className="ml-1 shrink-0 text-text-secondary opacity-60">
+                <RiArrowDownSLine className="h-4 w-4" />
+              </div>
+            </div>
+          )}
+        />
+        <PopoverContent
+          placement="bottom-start"
+          sideOffset={4}
         >
-          <div className={cn(
-            'flex items-center gap-1 min-h-[56px] px-3 py-2 h-9 bg-transparent cursor-pointer hover:bg-background-section-burn',
-            open && '!bg-background-section-burn hover:bg-background-section-burn',
-          )}>
-            <div className={cn('grow text-[13px] leading-[18px] text-text-secondary truncate')}>
-              {value === 'llm' ? t('tools.createTool.toolInput.methodParameter') : t('tools.createTool.toolInput.methodSetting')}
-            </div>
-            <div className='shrink-0 ml-1 text-text-secondary opacity-60'>
-              <RiArrowDownSLine className='h-4 w-4' />
+          <div className="relative w-[320px]">
+            <div className="p-1">
+              <button
+                type="button"
+                className="block w-full cursor-pointer rounded-lg border-none bg-transparent py-2.5 pr-2 pl-3 text-left hover:bg-components-panel-on-panel-item-bg-hover"
+                onClick={() => handleSelect('llm')}
+              >
+                <div className="flex items-center gap-1">
+                  <div className="h-4 w-4 shrink-0">
+                    {value === 'llm' && <Check className="h-4 w-4 shrink-0 text-text-accent" aria-hidden />}
+                  </div>
+                  <div className="text-[13px] leading-[18px] font-medium text-text-secondary">{t('createTool.toolInput.methodParameter', { ns: 'tools' })}</div>
+                </div>
+                <div className="pl-5 text-[13px] leading-[18px] text-text-tertiary">{t('createTool.toolInput.methodParameterTip', { ns: 'tools' })}</div>
+              </button>
+              <button
+                type="button"
+                className="block w-full cursor-pointer rounded-lg border-none bg-transparent py-2.5 pr-2 pl-3 text-left hover:bg-components-panel-on-panel-item-bg-hover"
+                onClick={() => handleSelect('form')}
+              >
+                <div className="flex items-center gap-1">
+                  <div className="h-4 w-4 shrink-0">
+                    {value === 'form' && <Check className="h-4 w-4 shrink-0 text-text-accent" aria-hidden />}
+                  </div>
+                  <div className="text-[13px] leading-[18px] font-medium text-text-secondary">{t('createTool.toolInput.methodSetting', { ns: 'tools' })}</div>
+                </div>
+                <div className="pl-5 text-[13px] leading-[18px] text-text-tertiary">{t('createTool.toolInput.methodSettingTip', { ns: 'tools' })}</div>
+              </button>
             </div>
           </div>
-        </PortalToFollowElemTrigger>
-        <PortalToFollowElemContent className='z-[1040]'>
-          <div className='relative w-[320px] bg-components-panel-bg-blur backdrop-blur-sm rounded-lg border-[0.5px] border-components-panel-border  shadow-lg'>
-            <div className='p-1'>
-              <div className='pl-3 pr-2 py-2.5 rounded-lg hover:bg-components-panel-on-panel-item-bg-hover cursor-pointer' onClick={() => onChange('llm')}>
-                <div className='flex item-center gap-1'>
-                  <div className='shrink-0 w-4 h-4'>
-                    {value === 'llm' && <Check className='shrink-0 w-4 h-4 text-text-accent' />}
-                  </div>
-                  <div className='text-[13px] text-text-secondary font-medium leading-[18px]'>{t('tools.createTool.toolInput.methodParameter')}</div>
-                </div>
-                <div className='pl-5 text-text-tertiary text-[13px] leading-[18px]'>{t('tools.createTool.toolInput.methodParameterTip')}</div>
-              </div>
-              <div className='pl-3 pr-2 py-2.5 rounded-lg hover:bg-components-panel-on-panel-item-bg-hover cursor-pointer' onClick={() => onChange('form')}>
-                <div className='flex item-center gap-1'>
-                  <div className='shrink-0 w-4 h-4'>
-                    {value === 'form' && <Check className='shrink-0 w-4 h-4 text-text-accent' />}
-                  </div>
-                  <div className='text-[13px] text-text-secondary font-medium leading-[18px]'>{t('tools.createTool.toolInput.methodSetting')}</div>
-                </div>
-                <div className='pl-5 text-text-tertiary text-[13px] leading-[18px]'>{t('tools.createTool.toolInput.methodSettingTip')}</div>
-              </div>
-            </div>
-          </div>
-        </PortalToFollowElemContent>
+        </PopoverContent>
       </div>
-    </PortalToFollowElem>
+    </Popover>
   )
 }
 

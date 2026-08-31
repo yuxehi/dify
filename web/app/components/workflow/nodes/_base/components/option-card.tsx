@@ -1,10 +1,11 @@
 'use client'
-import type { FC } from 'react'
-import React, { useCallback } from 'react'
 import type { VariantProps } from 'class-variance-authority'
+import type { FC } from 'react'
+import { cn } from '@langgenius/dify-ui/cn'
 import { cva } from 'class-variance-authority'
-import cn from '@/utils/classnames'
-import Tooltip from '@/app/components/base/tooltip'
+import * as React from 'react'
+import { useCallback } from 'react'
+import { Infotip } from '@/app/components/base/infotip'
 
 const variants = cva([], {
   variants: {
@@ -17,8 +18,7 @@ const variants = cva([], {
   defaultVariants: {
     align: 'center',
   },
-},
-)
+})
 
 type Props = {
   className?: string
@@ -48,9 +48,9 @@ const OptionCard: FC<Props> = ({
   return (
     <div
       className={cn(
-        'flex items-center px-2 h-8 rounded-md system-sm-regular bg-components-option-card-option-bg border border-components-option-card-option-border text-text-secondary cursor-default',
-        (!selected && !disabled) && 'hover:bg-components-option-card-option-bg-hover hover:border-components-option-card-option-border-hover hover:shadow-xs cursor-pointer',
-        selected && 'bg-components-option-card-option-selected-bg border-[1.5px] border-components-option-card-option-selected-border system-sm-medium shadow-xs',
+        'flex h-8 cursor-default items-center rounded-md border border-components-option-card-option-border bg-components-option-card-option-bg px-2 system-sm-regular text-text-secondary',
+        (!selected && !disabled) && 'cursor-pointer hover:border-components-option-card-option-border-hover hover:bg-components-option-card-option-bg-hover hover:shadow-xs',
+        selected && 'border-[1.5px] border-components-option-card-option-selected-border bg-components-option-card-option-selected-bg system-sm-medium shadow-xs',
         disabled && 'text-text-disabled',
         variants({ align }),
         className,
@@ -59,14 +59,11 @@ const OptionCard: FC<Props> = ({
     >
       <span>{title}</span>
       {tooltip
-        && <Tooltip
-          popupContent={
-            <div className='w-[240px]'>
-              {tooltip}
-            </div>
-          }
-        />
-      }
+        && (
+          <Infotip aria-label={tooltip} popupClassName="w-[240px]">
+            {tooltip}
+          </Infotip>
+        )}
     </div>
   )
 }

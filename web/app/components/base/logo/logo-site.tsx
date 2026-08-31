@@ -1,6 +1,7 @@
 'use client'
 import type { FC } from 'react'
-import classNames from '@/utils/classnames'
+import { cn } from '@langgenius/dify-ui/cn'
+import { basePath } from '@/utils/var'
 
 type LogoSiteProps = {
   className?: string
@@ -11,9 +12,9 @@ const LogoSite: FC<LogoSiteProps> = ({
 }) => {
   return (
     <img
-      src={'/logo/logo.png'}
-      className={classNames('block w-[22.651px] h-[24.5px]', className)}
-      alt='logo'
+      src={`${basePath}/logo/logo.png`}
+      className={cn('block h-[24.5px] w-[22.651px]', className)}
+      alt="logo"
     />
   )
 }

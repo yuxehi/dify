@@ -1,43 +1,44 @@
-import {
-  memo,
-  useEffect,
-} from 'react'
+import type { WorkflowVariableBlockType } from '../../types'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { mergeRegister } from '@lexical/utils'
 import {
   $insertNodes,
   COMMAND_PRIORITY_EDITOR,
   createCommand,
 } from 'lexical'
-import { mergeRegister } from '@lexical/utils'
-import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
-import type { WorkflowVariableBlockType } from '../../types'
+import {
+  memo,
+  useEffect,
+} from 'react'
 import {
   $createWorkflowVariableBlockNode,
   WorkflowVariableBlockNode,
 } from './node'
-import type { Node } from '@/app/components/workflow/types'
 
 export const INSERT_WORKFLOW_VARIABLE_BLOCK_COMMAND = createCommand('INSERT_WORKFLOW_VARIABLE_BLOCK_COMMAND')
 export const DELETE_WORKFLOW_VARIABLE_BLOCK_COMMAND = createCommand('DELETE_WORKFLOW_VARIABLE_BLOCK_COMMAND')
-export const CLEAR_HIDE_MENU_TIMEOUT = createCommand('CLEAR_HIDE_MENU_TIMEOUT')
-export const UPDATE_WORKFLOW_NODES_MAP = createCommand('UPDATE_WORKFLOW_NODES_MAP')
-
-export type WorkflowVariableBlockProps = {
-  getWorkflowNode: (nodeId: string) => Node
-  onInsert?: () => void
-  onDelete?: () => void
+export type UpdateWorkflowNodesMapPayload = {
+  workflowNodesMap: NonNullable<WorkflowVariableBlockType['workflowNodesMap']>
+  availableVariables: NonNullable<WorkflowVariableBlockType['variables']>
 }
+export const UPDATE_WORKFLOW_NODES_MAP = createCommand<UpdateWorkflowNodesMapPayload>('UPDATE_WORKFLOW_NODES_MAP')
 const WorkflowVariableBlock = memo(({
-  workflowNodesMap,
+  workflowNodesMap = {},
+  variables: workflowAvailableVariables,
   onInsert,
   onDelete,
+  getVarType,
 }: WorkflowVariableBlockType) => {
   const [editor] = useLexicalComposerContext()
 
   useEffect(() => {
     editor.update(() => {
-      editor.dispatchCommand(UPDATE_WORKFLOW_NODES_MAP, workflowNodesMap)
+      editor.dispatchCommand(UPDATE_WORKFLOW_NODES_MAP, {
+        workflowNodesMap: workflowNodesMap || {},
+        availableVariables: workflowAvailableVariables || [],
+      })
     })
-  }, [editor, workflowNodesMap])
+  }, [editor, workflowNodesMap, workflowAvailableVariables])
 
   useEffect(() => {
     if (!editor.hasNodes([WorkflowVariableBlockNode]))
@@ -47,8 +48,12 @@ const WorkflowVariableBlock = memo(({
       editor.registerCommand(
         INSERT_WORKFLOW_VARIABLE_BLOCK_COMMAND,
         (variables: string[]) => {
-          editor.dispatchCommand(CLEAR_HIDE_MENU_TIMEOUT, undefined)
-          const workflowVariableBlockNode = $createWorkflowVariableBlockNode(variables, workflowNodesMap)
+          const workflowVariableBlockNode = $createWorkflowVariableBlockNode(
+            variables,
+            workflowNodesMap,
+            getVarType,
+            workflowAvailableVariables || [],
+          )
 
           $insertNodes([workflowVariableBlockNode])
           if (onInsert)
@@ -69,7 +74,7 @@ const WorkflowVariableBlock = memo(({
         COMMAND_PRIORITY_EDITOR,
       ),
     )
-  }, [editor, onInsert, onDelete, workflowNodesMap])
+  }, [editor, onInsert, onDelete, workflowNodesMap, getVarType, workflowAvailableVariables])
 
   return null
 })

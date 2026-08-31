@@ -1,10 +1,11 @@
 'use client'
 import type { FC } from 'react'
-import React, { useCallback } from 'react'
-import { useTranslation } from 'react-i18next'
-import cn from '@/utils/classnames'
 import type { CrawlResultItem as CrawlResultItemType } from '@/models/datasets'
-import Checkbox from '@/app/components/base/checkbox'
+import { Button } from '@langgenius/dify-ui/button'
+import { Checkbox } from '@langgenius/dify-ui/checkbox'
+import { cn } from '@langgenius/dify-ui/cn'
+import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 
 type Props = {
   payload: CrawlResultItemType
@@ -22,18 +23,39 @@ const CrawledResultItem: FC<Props> = ({
   onPreview,
 }) => {
   const { t } = useTranslation()
-
-  const handleCheckChange = useCallback(() => {
-    onCheckChange(!isChecked)
-  }, [isChecked, onCheckChange])
   return (
-    <div className={cn(isPreview ? 'border-[#D1E0FF] bg-primary-50 shadow-xs' : 'group hover:bg-gray-100', 'rounded-md px-2 py-[5px] cursor-pointer border border-transparent')}>
-      <div className='flex items-center h-5'>
-        <Checkbox className='group-hover:border-2 group-hover:border-primary-600 mr-2 shrink-0' checked={isChecked} onCheck={handleCheckChange} />
-        <div className='grow w-0 truncate text-sm font-medium text-gray-700' title={payload.title}>{payload.title}</div>
-        <div onClick={onPreview} className='hidden group-hover:flex items-center h-6 px-2 text-xs rounded-md font-medium text-gray-500 uppercase hover:bg-gray-50'>{t('datasetCreation.stepOne.website.preview')}</div>
+    <div className={cn(isPreview ? 'bg-state-base-active' : 'group hover:bg-state-base-hover', 'rounded-lg p-2')}>
+      <div className="relative flex">
+        <label className="flex min-w-0 grow cursor-pointer">
+          <div className="flex h-5 items-center">
+            <Checkbox
+              className="mr-2 shrink-0"
+              checked={isChecked}
+              onCheckedChange={checked => onCheckChange(checked)}
+            />
+          </div>
+          <div className="flex min-w-0 grow flex-col">
+            <div
+              className="truncate text-sm font-medium text-text-secondary"
+              title={payload.title}
+            >
+              {payload.title}
+            </div>
+            <div
+              className="mt-0.5 truncate text-xs text-text-tertiary"
+              title={payload.source_url}
+            >
+              {payload.source_url}
+            </div>
+          </div>
+        </label>
+        <Button
+          onClick={onPreview}
+          className="top-0 right-0 hidden h-6 px-1.5 text-xs font-medium uppercase group-hover:absolute group-hover:block"
+        >
+          {t('stepOne.website.preview', { ns: 'datasetCreation' })}
+        </Button>
       </div>
-      <div className='mt-0.5 truncate pl-6 leading-[18px] text-xs font-normal text-gray-500' title={payload.source_url}>{payload.source_url}</div>
     </div>
   )
 }

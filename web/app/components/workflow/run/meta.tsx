@@ -26,14 +26,14 @@ const MetaData: FC<Props> = ({
   const { formatTime } = useTimestamp()
 
   return (
-    <div className='relative'>
-      <div className='h-6 py-1 text-text-tertiary system-xs-medium-uppercase'>{t('runLog.meta.title')}</div>
-      <div className='py-1'>
-        <div className='flex'>
-          <div className='shrink-0 w-[104px] px-2 py-1.5 text-text-tertiary system-xs-regular truncate'>{t('runLog.meta.status')}</div>
-          <div className='grow px-2 py-1.5 text-text-secondary system-xs-regular'>
+    <div className="relative">
+      <div className="h-6 py-1 system-xs-medium-uppercase text-text-tertiary">{t('meta.title', { ns: 'runLog' })}</div>
+      <div className="py-1">
+        <div className="flex">
+          <div className="w-[104px] shrink-0 truncate px-2 py-1.5 system-xs-regular text-text-tertiary">{t('meta.status', { ns: 'runLog' })}</div>
+          <div className="grow px-2 py-1.5 system-xs-regular text-text-secondary">
             {status === 'running' && (
-              <div className='my-1 w-16 h-2 rounded-sm bg-text-quaternary'/>
+              <div className="my-1 h-2 w-16 rounded-xs bg-text-quaternary" />
             )}
             {status === 'succeeded' && (
               <span>SUCCESS</span>
@@ -50,58 +50,61 @@ const MetaData: FC<Props> = ({
             {status === 'stopped' && (
               <span>STOP</span>
             )}
+            {status === 'paused' && (
+              <span>PENDING</span>
+            )}
           </div>
         </div>
-        <div className='flex'>
-          <div className='shrink-0 w-[104px] px-2 py-1.5 text-text-tertiary system-xs-regular truncate'>{t('runLog.meta.executor')}</div>
-          <div className='grow px-2 py-1.5 text-text-secondary system-xs-regular'>
+        <div className="flex">
+          <div className="w-[104px] shrink-0 truncate px-2 py-1.5 system-xs-regular text-text-tertiary">{t('meta.executor', { ns: 'runLog' })}</div>
+          <div className="grow px-2 py-1.5 system-xs-regular text-text-secondary">
             {status === 'running' && (
-              <div className='my-1 w-[88px] h-2 rounded-sm bg-text-quaternary'/>
+              <div className="my-1 h-2 w-[88px] rounded-xs bg-text-quaternary" />
             )}
             {status !== 'running' && (
               <span>{executor || 'N/A'}</span>
             )}
           </div>
         </div>
-        <div className='flex'>
-          <div className='shrink-0 w-[104px] px-2 py-1.5 text-text-tertiary system-xs-regular truncate'>{t('runLog.meta.startTime')}</div>
-          <div className='grow px-2 py-1.5 text-text-secondary system-xs-regular'>
+        <div className="flex">
+          <div className="w-[104px] shrink-0 truncate px-2 py-1.5 system-xs-regular text-text-tertiary">{t('meta.startTime', { ns: 'runLog' })}</div>
+          <div className="grow px-2 py-1.5 system-xs-regular text-text-secondary">
             {status === 'running' && (
-              <div className='my-1 w-[72px] h-2 rounded-sm bg-text-quaternary'/>
+              <div className="my-1 h-2 w-[72px] rounded-xs bg-text-quaternary" />
             )}
             {status !== 'running' && (
-              <span>{startTime ? formatTime(startTime, t('appLog.dateTimeFormat') as string) : '-'}</span>
+              <span>{startTime ? formatTime(startTime, t('dateTimeFormat', { ns: 'appLog' }) as string) : '-'}</span>
             )}
           </div>
         </div>
-        <div className='flex'>
-          <div className='shrink-0 w-[104px] px-2 py-1.5 text-text-tertiary system-xs-regular truncate'>{t('runLog.meta.time')}</div>
-          <div className='grow px-2 py-1.5 text-text-secondary system-xs-regular'>
+        <div className="flex">
+          <div className="w-[104px] shrink-0 truncate px-2 py-1.5 system-xs-regular text-text-tertiary">{t('meta.time', { ns: 'runLog' })}</div>
+          <div className="grow px-2 py-1.5 system-xs-regular text-text-secondary">
             {status === 'running' && (
-              <div className='my-1 w-[72px] h-2 rounded-sm bg-text-quaternary'/>
+              <div className="my-1 h-2 w-[72px] rounded-xs bg-text-quaternary" />
             )}
             {status !== 'running' && (
               <span>{time ? `${time.toFixed(3)}s` : '-'}</span>
             )}
           </div>
         </div>
-        <div className='flex'>
-          <div className='shrink-0 w-[104px] px-2 py-1.5 text-text-tertiary system-xs-regular truncate'>{t('runLog.meta.tokens')}</div>
-          <div className='grow px-2 py-1.5 text-text-secondary system-xs-regular'>
-            {status === 'running' && (
-              <div className='my-1 w-[48px] h-2 rounded-sm bg-text-quaternary'/>
+        <div className="flex">
+          <div className="w-[104px] shrink-0 truncate px-2 py-1.5 system-xs-regular text-text-tertiary">{t('meta.tokens', { ns: 'runLog' })}</div>
+          <div className="grow px-2 py-1.5 system-xs-regular text-text-secondary">
+            {['running', 'paused'].includes(status) && (
+              <div className="my-1 h-2 w-[48px] animate-pulse rounded-xs bg-text-quaternary" />
             )}
-            {status !== 'running' && (
+            {!['running', 'paused'].includes(status) && (
               <span>{`${tokens || 0} Tokens`}</span>
             )}
           </div>
         </div>
         {showSteps && (
-          <div className='flex'>
-            <div className='shrink-0 w-[104px] px-2 py-1.5 text-text-tertiary system-xs-regular truncate'>{t('runLog.meta.steps')}</div>
-            <div className='grow px-2 py-1.5 text-text-secondary system-xs-regular'>
+          <div className="flex">
+            <div className="w-[104px] shrink-0 truncate px-2 py-1.5 system-xs-regular text-text-tertiary">{t('meta.steps', { ns: 'runLog' })}</div>
+            <div className="grow px-2 py-1.5 system-xs-regular text-text-secondary">
               {status === 'running' && (
-                <div className='my-1 w-[24px] h-2 rounded-sm bg-text-quaternary'/>
+                <div className="my-1 h-2 w-[24px] rounded-xs bg-text-quaternary" />
               )}
               {status !== 'running' && (
                 <span>{steps}</span>

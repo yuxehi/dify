@@ -1,14 +1,15 @@
+import type { ContextBlockType } from '../../types'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { mergeRegister } from '@lexical/utils'
+import { noop } from 'es-toolkit/function'
+import { $applyNodeReplacement } from 'lexical'
 import {
   memo,
   useCallback,
   useEffect,
 } from 'react'
-import { $applyNodeReplacement } from 'lexical'
-import { mergeRegister } from '@lexical/utils'
-import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
-import { decoratorTransform } from '../../utils'
 import { CONTEXT_PLACEHOLDER_TEXT } from '../../constants'
-import type { ContextBlockType } from '../../types'
+import { decoratorTransform } from '../../utils'
 import {
   $createContextBlockNode,
   ContextBlockNode,
@@ -19,7 +20,7 @@ const REGEX = new RegExp(CONTEXT_PLACEHOLDER_TEXT)
 
 const ContextBlockReplacementBlock = ({
   datasets = [],
-  onAddContext = () => {},
+  onAddContext = noop,
   onInsert,
   canNotAddContext,
 }: ContextBlockType) => {

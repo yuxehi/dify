@@ -1,5 +1,6 @@
-import React, { useCallback } from 'react'
 import type { IPaginationProps, IUsePagination } from './type'
+import * as React from 'react'
+import { useCallback } from 'react'
 
 const usePagination = ({
   currentPage,
@@ -10,9 +11,7 @@ const usePagination = ({
   edgePageCount,
   middlePagesSiblingCount,
 }: IPaginationProps): IUsePagination => {
-  const pages = new Array(totalPages)
-    .fill(0)
-    .map((_, i) => i + 1)
+  const pages = React.useMemo(() => Array.from({ length: totalPages }, (_, i) => i + 1), [totalPages])
 
   const hasPreviousPage = currentPage > 1
   const hasNextPage = currentPage < totalPages
@@ -35,7 +34,7 @@ const usePagination = ({
   }, [currentPage, isReachedToFirst, isReachedToLast, middlePagesSiblingCount, pages])
 
   const getAllPreviousPages = useCallback(() => {
-    return pages.slice(0, middlePages[0] - 1)
+    return pages.slice(0, middlePages[0]! - 1)
   }, [middlePages, pages])
 
   const previousPages = React.useMemo(() => {
@@ -68,12 +67,12 @@ const usePagination = ({
 
   const isPreviousTruncable = React.useMemo(() => {
     // Is truncable if first value of middlePage is larger than last value of previousPages
-    return middlePages[0] > previousPages[previousPages.length - 1] + 1
+    return middlePages[0]! > previousPages[previousPages.length - 1]! + 1
   }, [previousPages, middlePages])
 
   const isNextTruncable = React.useMemo(() => {
     // Is truncable if last value of middlePage is larger than first value of previousPages
-    return middlePages[middlePages.length - 1] + 1 < nextPages[0]
+    return middlePages[middlePages.length - 1]! + 1 < nextPages[0]!
   }, [nextPages, middlePages])
 
   return {

@@ -1,24 +1,25 @@
+import type { HistoryBlockType } from '../../types'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { mergeRegister } from '@lexical/utils'
+import { noop } from 'es-toolkit/function'
+import { $applyNodeReplacement } from 'lexical'
 import {
   useCallback,
   useEffect,
 } from 'react'
-import { $applyNodeReplacement } from 'lexical'
-import { mergeRegister } from '@lexical/utils'
-import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
-import { decoratorTransform } from '../../utils'
 import { HISTORY_PLACEHOLDER_TEXT } from '../../constants'
-import type { HistoryBlockType } from '../../types'
+import { decoratorTransform } from '../../utils'
+import { CustomTextNode } from '../custom-text/node'
 import {
   $createHistoryBlockNode,
   HistoryBlockNode,
 } from '../history-block/node'
-import { CustomTextNode } from '../custom-text/node'
 
 const REGEX = new RegExp(HISTORY_PLACEHOLDER_TEXT)
 
 const HistoryBlockReplacementBlock = ({
   history = { user: '', assistant: '' },
-  onEditRole = () => {},
+  onEditRole = noop,
   onInsert,
 }: HistoryBlockType) => {
   const [editor] = useLexicalComposerContext()

@@ -1,9 +1,9 @@
+import type { IterationFinishedResponse } from '@/types/workflow'
+import { produce } from 'immer'
 import { useCallback } from 'react'
 import { useStoreApi } from 'reactflow'
-import produce from 'immer'
-import type { IterationFinishedResponse } from '@/types/workflow'
-import { useWorkflowStore } from '@/app/components/workflow/store'
 import { DEFAULT_ITER_TIMES } from '@/app/components/workflow/constants'
+import { useWorkflowStore } from '@/app/components/workflow/store'
 
 export const useWorkflowNodeIterationFinished = () => {
   const store = useStoreApi()
@@ -19,6 +19,8 @@ export const useWorkflowNodeIterationFinished = () => {
     const {
       getNodes,
       setNodes,
+      edges,
+      setEdges,
     } = store.getState()
     const nodes = getNodes()
     setWorkflowRunningData(produce(workflowRunningData!, (draft) => {
@@ -38,6 +40,18 @@ export const useWorkflowNodeIterationFinished = () => {
       currentNode.data._runningStatus = data.status
     })
     setNodes(newNodes)
+    const newEdges = produce(edges, (draft) => {
+      const incomeEdges = draft.filter((edge) => {
+        return edge.target === data.node_id
+      })
+      incomeEdges.forEach((edge) => {
+        edge.data = {
+          ...edge.data,
+          _targetRunningStatus: data.status,
+        }
+      })
+    })
+    setEdges(newEdges)
   }, [workflowStore, store])
 
   return {

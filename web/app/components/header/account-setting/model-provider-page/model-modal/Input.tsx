@@ -13,6 +13,7 @@ type InputProps = {
   min?: number
   max?: number
 }
+
 const Input: FC<InputProps> = ({
   value,
   onChange,
@@ -32,22 +33,23 @@ const Input: FC<InputProps> = ({
       onChange(`${min}`)
       return
     }
-
     if (!isNaN(maxNum) && Number.parseFloat(v) > maxNum)
       onChange(`${max}`)
   }
+
   return (
-    <div className='relative'>
+    <div className="relative">
       <input
         tabIndex={0}
+        // Do not set autoComplete for security - prevents browser from storing sensitive API keys
         className={`
-          block px-3 w-full h-8 bg-components-input-bg-normal text-sm text-components-input-text-filled rounded-lg border border-transparent
-          appearance-none outline-none caret-primary-600
-          hover:border-components-input-border-hover hover:bg-components-input-bg-hover
-          focus:bg-components-input-bg-active focus:border-components-input-border-active focus:shadow-xs
+          block h-8 w-full appearance-none rounded-lg border border-transparent bg-components-input-bg-normal px-3 text-sm
+          text-components-input-text-filled caret-primary-600 outline-hidden
           placeholder:text-sm placeholder:text-text-tertiary
-          ${validated && 'pr-[30px]'}
-          ${className}
+          hover:border-components-input-border-hover hover:bg-components-input-bg-hover focus:border-components-input-border-active
+          focus:bg-components-input-bg-active focus:shadow-xs
+          ${validated ? 'pr-[30px]' : ''}
+          ${className || ''}
         `}
         placeholder={placeholder || ''}
         onChange={e => onChange(e.target.value)}
@@ -59,13 +61,11 @@ const Input: FC<InputProps> = ({
         min={min}
         max={max}
       />
-      {
-        validated && (
-          <div className='absolute top-2.5 right-2.5'>
-            <CheckCircle className='w-4 h-4 text-[#039855]' />
-          </div>
-        )
-      }
+      {validated && (
+        <div className="absolute top-2.5 right-2.5">
+          <CheckCircle className="h-4 w-4 text-[#039855]" />
+        </div>
+      )}
     </div>
   )
 }

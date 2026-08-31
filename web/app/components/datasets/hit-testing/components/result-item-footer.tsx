@@ -1,17 +1,17 @@
 'use client'
 import type { FC } from 'react'
-import React from 'react'
-import { useTranslation } from 'react-i18next'
-import { RiArrowRightUpLine } from '@remixicon/react'
-import FileIcon from '@/app/components/base/file-uploader/file-type-icon'
 import type { FileAppearanceTypeEnum } from '@/app/components/base/file-uploader/types'
+import { RiArrowRightUpLine } from '@remixicon/react'
+import * as React from 'react'
+import { useTranslation } from 'react-i18next'
+import FileIcon from '@/app/components/base/file-uploader/file-type-icon'
 
 type Props = {
   docType: FileAppearanceTypeEnum
   docTitle: string
   showDetailModal: () => void
 }
-const i18nPrefix = 'datasetHitTesting'
+const i18nPrefix = ''
 
 const ResultItemFooter: FC<Props> = ({
   docType,
@@ -21,20 +21,21 @@ const ResultItemFooter: FC<Props> = ({
   const { t } = useTranslation()
 
   return (
-    <div className="mt-3 flex justify-between items-center h-10 pl-3 pr-2 border-t border-divider-subtle">
-      <div className="grow flex items-center space-x-1">
+    <div className="mt-3 flex h-10 items-center justify-between border-t border-divider-subtle pr-2 pl-3">
+      <div className="flex grow items-center space-x-1">
         <FileIcon type={docType} size="sm" />
-        <span className="grow w-0 truncate text-text-secondary text-[13px] font-normal">
+        <span className="w-0 grow truncate text-[13px] font-normal text-text-secondary">
           {docTitle}
         </span>
       </div>
-      <div
-        className="flex items-center space-x-1 cursor-pointer text-text-tertiary"
+      <button
+        type="button"
+        className="flex cursor-pointer items-center space-x-1 border-none bg-transparent p-0 text-left text-text-tertiary"
         onClick={showDetailModal}
       >
-        <div className="text-xs uppercase">{t(`${i18nPrefix}.open`)}</div>
-        <RiArrowRightUpLine className="size-3.5" />
-      </div>
+        <div className="text-xs uppercase">{t(`${i18nPrefix}open`, { ns: 'datasetHitTesting' })}</div>
+        <RiArrowRightUpLine className="size-3.5" aria-hidden />
+      </button>
     </div>
   )
 }

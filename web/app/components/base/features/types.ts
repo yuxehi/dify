@@ -1,18 +1,26 @@
-import type { Resolution, TransferMethod, TtsAutoPlay } from '@/types/app'
 import type { FileUploadConfigResponse } from '@/models/common'
+import type {
+  Model,
+  Resolution,
+  TransferMethod,
+  TtsAutoPlay,
+} from '@/types/app'
 
-export interface EnabledOrDisabled {
+type EnabledOrDisabled = {
   enabled?: boolean
 }
 
-export type MoreLikeThis = EnabledOrDisabled
+type MoreLikeThis = EnabledOrDisabled
 
 export type OpeningStatement = EnabledOrDisabled & {
   opening_statement?: string
   suggested_questions?: string[]
 }
 
-export type SuggestedQuestionsAfterAnswer = EnabledOrDisabled
+export type SuggestedQuestionsAfterAnswer = EnabledOrDisabled & {
+  model?: Model
+  prompt?: string
+}
 
 export type TextToSpeech = EnabledOrDisabled & {
   language?: string
@@ -29,9 +37,30 @@ export type SensitiveWordAvoidance = EnabledOrDisabled & {
   config?: any
 }
 
+export enum PreviewMode {
+  NewPage = 'new_page',
+  CurrentPage = 'current_page',
+}
+
 export type FileUpload = {
   image?: EnabledOrDisabled & {
     detail?: Resolution
+    number_limits?: number
+    transfer_methods?: TransferMethod[]
+  }
+  document?: EnabledOrDisabled & {
+    number_limits?: number
+    transfer_methods?: TransferMethod[]
+  }
+  audio?: EnabledOrDisabled & {
+    number_limits?: number
+    transfer_methods?: TransferMethod[]
+  }
+  video?: EnabledOrDisabled & {
+    number_limits?: number
+    transfer_methods?: TransferMethod[]
+  }
+  custom?: EnabledOrDisabled & {
     number_limits?: number
     transfer_methods?: TransferMethod[]
   }
@@ -40,9 +69,13 @@ export type FileUpload = {
   allowed_file_upload_methods?: TransferMethod[]
   number_limits?: number
   fileUploadConfig?: FileUploadConfigResponse
+  preview_config?: {
+    mode?: PreviewMode
+    file_type_list?: string[]
+  }
 } & EnabledOrDisabled
 
-export interface AnnotationReplyConfig {
+type AnnotationReplyConfig = {
   enabled: boolean
   id?: string
   score_threshold?: number
@@ -64,7 +97,7 @@ export enum FeatureEnum {
   annotationReply = 'annotationReply',
 }
 
-export interface Features {
+export type Features = {
   [FeatureEnum.moreLikeThis]?: MoreLikeThis
   [FeatureEnum.opening]?: OpeningStatement
   [FeatureEnum.suggested]?: SuggestedQuestionsAfterAnswer

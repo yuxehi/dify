@@ -1,17 +1,17 @@
-import { createStore } from 'zustand'
 import type { Features } from './types'
+import { createStore } from 'zustand'
 import { Resolution, TransferMethod } from '@/types/app'
 
-export interface FeaturesModal {
+type FeaturesModal = {
   showFeaturesModal: boolean
   setShowFeaturesModal: (showFeaturesModal: boolean) => void
 }
 
-export interface FeaturesState {
+export type FeaturesState = {
   features: Features
 }
 
-export interface FeaturesAction {
+type FeaturesAction = {
   setFeatures: (features: Features) => void
 }
 

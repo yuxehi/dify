@@ -1,13 +1,17 @@
-import React from 'react'
+import * as React from 'react'
 import Main from '@/app/components/datasets/hit-testing'
 
 type Props = {
-  params: { datasetId: string }
+  params: Promise<{ datasetId: string }>
 }
 
-const HitTesting = ({
-  params: { datasetId },
-}: Props) => {
+const HitTesting = async (props: Props) => {
+  const params = await props.params
+
+  const {
+    datasetId,
+  } = params
+
   return (
     <Main datasetId={datasetId} />
   )

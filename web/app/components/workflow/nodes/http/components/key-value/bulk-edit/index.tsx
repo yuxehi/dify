@@ -1,11 +1,12 @@
 'use client'
 import type { FC } from 'react'
-import React, { useCallback } from 'react'
+import * as React from 'react'
+import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import TextEditor from '@/app/components/workflow/nodes/_base/components/editor/text-editor'
 import { LayoutGrid02 } from '@/app/components/base/icons/src/vender/line/layout'
+import TextEditor from '@/app/components/workflow/nodes/_base/components/editor/text-editor'
 
-const i18nPrefix = 'workflow.nodes.http'
+const i18nPrefix = 'nodes.http'
 
 type Props = {
   value: string
@@ -38,22 +39,22 @@ const BulkEdit: FC<Props> = ({
     <div>
       <TextEditor
         isInNode
-        title={<div className='uppercase'>{t(`${i18nPrefix}.bulkEdit`)}</div>}
+        title={<div className="uppercase">{t(`${i18nPrefix}.bulkEdit`, { ns: 'workflow' })}</div>}
         value={tempValue}
         onChange={handleChange}
         onBlur={handleBlur}
-        headerRight={
-          <div className='flex items-center h-[18px]'>
+        headerRight={(
+          <div className="flex h-[18px] items-center">
             <div
-              className='flex items-center space-x-1 cursor-pointer'
+              className="flex cursor-pointer items-center space-x-1"
               onClick={handleSwitchToKeyValueEdit}
             >
-              <LayoutGrid02 className='w-3 h-3 text-gray-500' />
-              <div className='leading-[18px] text-xs font-normal text-gray-500'>{t(`${i18nPrefix}.keyValueEdit`)}</div>
+              <LayoutGrid02 className="h-3 w-3 text-gray-500" />
+              <div className="text-xs leading-[18px] font-normal text-gray-500">{t(`${i18nPrefix}.keyValueEdit`, { ns: 'workflow' })}</div>
             </div>
-            <div className='ml-3 mr-1.5 w-px h-3 bg-gray-200'></div>
+            <div className="mr-1.5 ml-3 h-3 w-px bg-gray-200"></div>
           </div>
-        }
+        )}
         minHeight={150}
       />
     </div>

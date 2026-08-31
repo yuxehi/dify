@@ -1,13 +1,13 @@
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import type { ToolInfoInThought } from '../type'
+import { cn } from '@langgenius/dify-ui/cn'
 import {
   RiArrowDownSLine,
   RiArrowRightSLine,
   RiHammerFill,
   RiLoader2Line,
 } from '@remixicon/react'
-import type { ToolInfoInThought } from '../type'
-import cn from '@/utils/classnames'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 type ToolDetailProps = {
   payload: ToolInfoInThought
@@ -17,7 +17,7 @@ const ToolDetail = ({
 }: ToolDetailProps) => {
   const { t } = useTranslation()
   const { name, label, input, isFinished, output } = payload
-  const toolLabel = name.startsWith('dataset_') ? t('dataset.knowledge') : label
+  const toolLabel = name.startsWith('dataset_') ? t('knowledge', { ns: 'dataset' }) : label
   const [expand, setExpand] = useState(false)
 
   return (
@@ -30,34 +30,34 @@ const ToolDetail = ({
     >
       <div
         className={cn(
-          'flex items-center system-xs-medium text-text-tertiary px-2.5 py-2 cursor-pointer',
+          'flex cursor-pointer items-center px-2.5 py-2 system-xs-medium text-text-tertiary',
           expand && 'pb-1.5',
         )}
         onClick={() => setExpand(!expand)}
       >
-        {isFinished && <RiHammerFill className='mr-1 w-3.5 h-3.5' />}
-        {!isFinished && <RiLoader2Line className='mr-1 w-3.5 h-3.5 animate-spin' />}
-        {t(`tools.thought.${isFinished ? 'used' : 'using'}`)}
-        <div className='mx-1 text-text-secondary'>{toolLabel}</div>
-        {!expand && <RiArrowRightSLine className='w-4 h-4' />}
-        {expand && <RiArrowDownSLine className='ml-auto w-4 h-4' />}
+        {isFinished && <RiHammerFill className="mr-1 h-3.5 w-3.5" />}
+        {!isFinished && <RiLoader2Line className="mr-1 h-3.5 w-3.5 animate-spin" />}
+        {t(`thought.${isFinished ? 'used' : 'using'}`, { ns: 'tools' })}
+        <div className="mx-1 text-text-secondary">{toolLabel}</div>
+        {!expand && <RiArrowRightSLine className="h-4 w-4" />}
+        {expand && <RiArrowDownSLine className="ml-auto h-4 w-4" />}
       </div>
       {
         expand && (
           <>
-            <div className='mb-0.5 mx-1 rounded-[10px] bg-components-panel-on-panel-item-bg text-text-secondary'>
-              <div className='flex items-center justify-between px-2 pt-1 h-7 system-xs-semibold-uppercase'>
-                {t('tools.thought.requestTitle')}
+            <div className="mx-1 mb-0.5 rounded-[10px] bg-components-panel-on-panel-item-bg text-text-secondary">
+              <div className="flex h-7 items-center justify-between px-2 pt-1 system-xs-semibold-uppercase">
+                {t('thought.requestTitle', { ns: 'tools' })}
               </div>
-              <div className='pt-1 px-3 pb-2 code-xs-regular break-words'>
+              <div className="px-3 pt-1 pb-2 code-xs-regular wrap-break-word">
                 {input}
               </div>
             </div>
-            <div className='mx-1 mb-1 rounded-[10px] bg-components-panel-on-panel-item-bg text-text-secondary'>
-              <div className='flex items-center justify-between px-2 pt-1 h-7 system-xs-semibold-uppercase'>
-                {t('tools.thought.responseTitle')}
+            <div className="mx-1 mb-1 rounded-[10px] bg-components-panel-on-panel-item-bg text-text-secondary">
+              <div className="flex h-7 items-center justify-between px-2 pt-1 system-xs-semibold-uppercase">
+                {t('thought.responseTitle', { ns: 'tools' })}
               </div>
-              <div className='pt-1 px-3 pb-2 code-xs-regular break-words'>
+              <div className="px-3 pt-1 pb-2 code-xs-regular wrap-break-word">
                 {output}
               </div>
             </div>

@@ -1,3 +1,6 @@
+import type {
+  FileEntity,
+} from './types'
 import {
   createContext,
   useContext,
@@ -7,9 +10,6 @@ import {
   create,
   useStore as useZustandStore,
 } from 'zustand'
-import type {
-  FileEntity,
-} from './types'
 
 type Shape = {
   files: FileEntity[]
@@ -54,7 +54,7 @@ export const FileContextProvider = ({
   value,
   onChange,
 }: FileProviderProps) => {
-  const storeRef = useRef<FileStore>()
+  const storeRef = useRef<FileStore | undefined>(undefined)
 
   if (!storeRef.current)
     storeRef.current = createFileStore(value, onChange)

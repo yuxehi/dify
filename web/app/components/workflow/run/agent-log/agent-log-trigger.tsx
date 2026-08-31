@@ -1,9 +1,9 @@
-import { RiArrowRightLine } from '@remixicon/react'
-import { useTranslation } from 'react-i18next'
 import type {
   AgentLogItemWithChildren,
   NodeTracing,
 } from '@/types/workflow'
+import { RiArrowRightLine } from '@remixicon/react'
+import { useTranslation } from 'react-i18next'
 
 type AgentLogTriggerProps = {
   nodeInfo: NodeTracing
@@ -19,27 +19,27 @@ const AgentLogTrigger = ({
 
   return (
     <div
-      className='bg-components-button-tertiary-bg rounded-[10px] cursor-pointer'
+      className="cursor-pointer rounded-[10px] bg-components-button-tertiary-bg"
       onClick={() => {
-        onShowAgentOrToolLog({ id: nodeInfo.id, children: agentLog || [] } as AgentLogItemWithChildren)
+        onShowAgentOrToolLog({ message_id: nodeInfo.id, children: agentLog || [] } as AgentLogItemWithChildren)
       }}
     >
-      <div className='flex items-center px-3 pt-2 system-2xs-medium-uppercase text-text-tertiary'>
-        {t('workflow.nodes.agent.strategy.label')}
+      <div className="flex items-center px-3 pt-2 system-2xs-medium-uppercase text-text-tertiary">
+        {t('nodes.agent.strategy.label', { ns: 'workflow' })}
       </div>
-      <div className='flex items-center pl-3 pt-1 pr-2 pb-1.5'>
+      <div className="flex items-center pt-1 pr-2 pb-1.5 pl-3">
         {
           agentStrategy && (
-            <div className='grow system-xs-medium text-text-secondary'>
+            <div className="grow system-xs-medium text-text-secondary">
               {agentStrategy}
             </div>
           )
         }
         <div
-          className='shrink-0 flex items-center px-[1px] system-xs-regular-uppercase text-text-tertiary cursor-pointer'
+          className="flex shrink-0 cursor-pointer items-center px-px system-xs-regular-uppercase text-text-tertiary"
         >
-          {t('runLog.detail')}
-          <RiArrowRightLine className='ml-0.5 w-3.5 h-3.5' />
+          {t('detail', { ns: 'runLog' })}
+          <RiArrowRightLine className="ml-0.5 h-3.5 w-3.5" />
         </div>
       </div>
     </div>

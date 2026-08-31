@@ -1,14 +1,15 @@
 'use client'
 import type { FC } from 'react'
-import React from 'react'
-import cn from '@/utils/classnames'
-import Tooltip from '@/app/components/base/tooltip'
+import { cn } from '@langgenius/dify-ui/cn'
+import * as React from 'react'
+import { Infotip } from '@/app/components/base/infotip'
+
 type Props = {
   className?: string
-  icon: JSX.Element
+  icon: React.JSX.Element
   name: string
   description: string
-  children: JSX.Element
+  children: React.JSX.Element
 }
 
 const ItemPanel: FC<Props> = ({
@@ -19,18 +20,13 @@ const ItemPanel: FC<Props> = ({
   children,
 }) => {
   return (
-    <div className={cn(className, 'flex justify-between items-center h-12 px-3 rounded-lg bg-background-section-burn')}>
-      <div className='flex items-center'>
+    <div className={cn(className, 'flex h-12 items-center justify-between rounded-lg bg-background-section-burn px-3')}>
+      <div className="flex items-center">
         {icon}
-        <div className='ml-3 mr-1 leading-6 text-sm font-semibold text-text-secondary'>{name}</div>
-        <Tooltip
-          popupContent={
-            <div className='w-[180px]'>
-              {description}
-            </div>
-          }
-        >
-        </Tooltip>
+        <div className="mr-1 ml-3 text-sm leading-6 font-semibold text-text-secondary">{name}</div>
+        <Infotip aria-label={description} popupClassName="w-[180px]">
+          {description}
+        </Infotip>
       </div>
       <div>
         {children}

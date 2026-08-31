@@ -1,15 +1,13 @@
 'use client'
 import type { FC } from 'react'
-import React from 'react'
-import { useTranslation } from 'react-i18next'
-import cn from '@/utils/classnames'
-import exploreI18n from '@/i18n/en-US/explore'
 import type { AppCategory } from '@/models/explore'
+import { cn } from '@langgenius/dify-ui/cn'
+import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { ThumbsUp } from '@/app/components/base/icons/src/vender/line/alertsAndFeedback'
+import exploreI18n from '@/i18n/en-US/explore.json'
 
-const categoryI18n = exploreI18n.category
-
-export type ICategoryProps = {
+type ICategoryProps = {
   className?: string
   list: AppCategory[]
   value: string
@@ -31,18 +29,23 @@ const Category: FC<ICategoryProps> = ({
   const isAllCategories = !list.includes(value as AppCategory) || value === allCategoriesEn
 
   const itemClassName = (isSelected: boolean) => cn(
-    'flex items-center px-3 py-[7px] h-[32px] rounded-lg border-[0.5px] border-transparent text-gray-700 font-medium leading-[18px] cursor-pointer hover:bg-gray-200',
-    isSelected && 'bg-white border-gray-200 shadow-xs text-primary-600 hover:bg-white',
+    'flex h-7 cursor-pointer items-center rounded-lg border border-transparent px-3 system-sm-medium text-text-tertiary hover:bg-components-main-nav-nav-button-bg-active',
+    isSelected && 'border-components-main-nav-nav-button-border bg-components-main-nav-nav-button-bg-active text-components-main-nav-nav-button-text-active shadow-xs',
   )
 
+  const renderCategoryName = (name: AppCategory) => {
+    const categoryKey = `category.${name}` as keyof typeof exploreI18n
+    return categoryKey in exploreI18n ? t(categoryKey, { ns: 'explore' }) : name
+  }
+
   return (
-    <div className={cn(className, 'flex space-x-1 text-[13px] flex-wrap')}>
+    <div className={cn(className, 'flex flex-wrap gap-1 text-[13px]')}>
       <div
         className={itemClassName(isAllCategories)}
         onClick={() => onChange(allCategoriesEn)}
       >
-        <ThumbsUp className='mr-1 w-3.5 h-3.5' />
-        {t('explore.apps.allCategories')}
+        <ThumbsUp className="mr-1 h-3.5 w-3.5" />
+        {t('apps.allCategories', { ns: 'explore' })}
       </div>
       {list.filter(name => name !== allCategoriesEn).map(name => (
         <div
@@ -50,7 +53,7 @@ const Category: FC<ICategoryProps> = ({
           className={itemClassName(name === value)}
           onClick={() => onChange(name)}
         >
-          {categoryI18n[name] ? t(`explore.category.${name}`) : name}
+          {renderCategoryName(name)}
         </div>
       ))}
     </div>

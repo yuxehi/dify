@@ -1,10 +1,10 @@
-import { memo } from 'react'
-import { useViewport } from 'reactflow'
-import { useStore } from '../store'
 import type {
   HelpLineHorizontalPosition,
   HelpLineVerticalPosition,
 } from './types'
+import { memo } from 'react'
+import { useViewport } from 'reactflow'
+import { useStore } from '../store'
 
 const HelpLineHorizontal = memo(({
   top,
@@ -15,7 +15,7 @@ const HelpLineHorizontal = memo(({
 
   return (
     <div
-      className='absolute h-[1px] bg-primary-300 z-[9]'
+      className="absolute z-9 h-px bg-primary-300"
       style={{
         top: top * zoom + y,
         left: left * zoom + x,
@@ -35,7 +35,7 @@ const HelpLineVertical = memo(({
 
   return (
     <div
-      className='absolute w-[1px] bg-primary-300 z-[9]'
+      className="absolute z-9 w-px bg-primary-300"
       style={{
         top: top * zoom + y,
         left: left * zoom + x,

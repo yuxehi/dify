@@ -1,25 +1,20 @@
-import { RiLoopLeftLine } from '@remixicon/react'
-import { useCallback, useMemo } from 'react'
-import {
-  type CaseItem,
-  type HandleAddSubVariableCondition,
-  type HandleRemoveCondition,
-  type HandleToggleConditionLogicalOperator,
-  type HandleToggleSubVariableConditionLogicalOperator,
-  type HandleUpdateCondition,
-  type HandleUpdateSubVariableCondition,
-  LogicalOperator,
-  type handleRemoveSubVariableCondition,
-} from '../../types'
-import ConditionItem from './condition-item'
+import type { CaseItem, HandleAddSubVariableCondition, HandleRemoveCondition, handleRemoveSubVariableCondition, HandleToggleConditionLogicalOperator, HandleToggleSubVariableConditionLogicalOperator, HandleUpdateCondition, HandleUpdateSubVariableCondition } from '../../types'
 import type {
   Node,
   NodeOutPutVar,
   Var,
 } from '@/app/components/workflow/types'
-import cn from '@/utils/classnames'
+import { cn } from '@langgenius/dify-ui/cn'
+import { RiLoopLeftLine } from '@remixicon/react'
+import { useCallback, useMemo } from 'react'
+import {
 
-interface ConditionListProps {
+  LogicalOperator,
+
+} from '../../types'
+import ConditionItem from './condition-item'
+
+type ConditionListProps = {
   isSubVariable?: boolean
   disabled?: boolean
   caseId: string
@@ -90,15 +85,16 @@ const ConditionList = ({
             'absolute top-0 bottom-0 left-0 w-[60px]',
             isSubVariable && logical_operator === LogicalOperator.and && 'left-[-10px]',
             isSubVariable && logical_operator === LogicalOperator.or && 'left-[-18px]',
-          )}>
-            <div className='absolute top-4 bottom-4 left-[46px] w-2.5 border border-divider-deep rounded-l-[8px] border-r-0'></div>
-            <div className='absolute top-1/2 -translate-y-1/2 right-0 w-4 h-[29px] bg-components-panel-bg'></div>
+          )}
+          >
+            <div className="absolute top-4 bottom-4 left-[46px] w-2.5 rounded-l-[8px] border border-r-0 border-divider-deep"></div>
+            <div className="absolute top-1/2 right-0 h-[29px] w-4 -translate-y-1/2 bg-components-panel-bg"></div>
             <div
-              className='absolute top-1/2 right-1 -translate-y-1/2 flex items-center px-1 h-[21px] rounded-md border-[0.5px] border-components-button-secondary-border shadow-xs bg-components-button-secondary-bg text-text-accent-secondary text-[10px] font-semibold cursor-pointer select-none'
+              className="absolute top-1/2 right-1 flex h-[21px] -translate-y-1/2 cursor-pointer items-center rounded-md border-[0.5px] border-components-button-secondary-border bg-components-button-secondary-bg px-1 text-[10px] font-semibold text-text-accent-secondary shadow-xs select-none"
               onClick={doToggleConditionLogicalOperator}
             >
               {logical_operator.toUpperCase()}
-              <RiLoopLeftLine className='ml-0.5 w-3 h-3' />
+              <RiLoopLeftLine className="ml-0.5 h-3 w-3" />
             </div>
           </div>
         )
@@ -124,7 +120,7 @@ const ConditionList = ({
             availableNodes={availableNodes}
             filterVar={filterVar}
             numberVariables={numberVariables}
-            file={varsIsVarFileAttribute[condition.id] ? { key: (condition.variable_selector || []).slice(-1)[0] } : undefined}
+            file={varsIsVarFileAttribute[condition.id] ? { key: (condition.variable_selector || []).slice(-1)[0]! } : undefined}
             isSubVariableKey={isSubVariable}
           />
         ))

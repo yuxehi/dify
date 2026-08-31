@@ -1,51 +1,60 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { useTranslation } from 'react-i18next'
-import { useContext } from 'use-context-selector'
-import useSWR from 'swr'
-import { useDebounceFn } from 'ahooks'
-import Toast from '../../base/toast'
-import s from './style.module.css'
-import cn from '@/utils/classnames'
-import ExploreContext from '@/context/explore-context'
-import type { App } from '@/models/explore'
-import Category from '@/app/components/explore/category'
-import AppCard from '@/app/components/explore/app-card'
-import { fetchAppDetail, fetchAppList } from '@/service/explore'
-import { importDSL } from '@/service/apps'
-import { useTabSearchParams } from '@/hooks/use-tab-searchparams'
-import CreateAppModal from '@/app/components/explore/create-app-modal'
 import type { CreateAppModalProps } from '@/app/components/explore/create-app-modal'
-import Loading from '@/app/components/base/loading'
-import { NEED_REFRESH_APP_LIST_KEY } from '@/config'
-import { useAppContext } from '@/context/app-context'
-import { getRedirection } from '@/utils/app-redirection'
+import type { App } from '@/models/explore'
+import type { TryAppSelection } from '@/types/try-app'
+import type { TrackCreateAppParams } from '@/utils/create-app-tracking'
+import { Button } from '@langgenius/dify-ui/button'
+import { cn } from '@langgenius/dify-ui/cn'
+import { useSuspenseQuery } from '@tanstack/react-query'
+import { useDebounceFn } from 'ahooks'
+import { useQueryState } from 'nuqs'
+import * as React from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import DSLConfirmModal from '@/app/components/app/create-from-dsl-modal/dsl-confirm-modal'
 import Input from '@/app/components/base/input'
-import { DSLImportMode } from '@/models/app'
-import { usePluginDependencies } from '@/app/components/workflow/plugin-dependency/hooks'
+import Loading from '@/app/components/base/loading'
+import AppCard from '@/app/components/explore/app-card'
+import Banner from '@/app/components/explore/banner/banner'
+import Category from '@/app/components/explore/category'
+import CreateAppModal from '@/app/components/explore/create-app-modal'
+import { useAppContext } from '@/context/app-context'
+import { useImportDSL } from '@/hooks/use-import-dsl'
+import {
+  DSLImportMode,
+} from '@/models/app'
+import { fetchAppDetail } from '@/service/explore'
+import { systemFeaturesQueryOptions } from '@/service/system-features'
+import { useMembers } from '@/service/use-common'
+import { useExploreAppList } from '@/service/use-explore'
+import { trackCreateApp } from '@/utils/create-app-tracking'
+import TryApp from '../try-app'
+import s from './style.module.css'
 
 type AppsProps = {
   onSuccess?: () => void
-}
-
-export enum PageType {
-  EXPLORE = 'explore',
-  CREATE = 'create',
 }
 
 const Apps = ({
   onSuccess,
 }: AppsProps) => {
   const { t } = useTranslation()
-  const { isCurrentWorkspaceEditor } = useAppContext()
-  const { push } = useRouter()
-  const { hasEditPermission } = useContext(ExploreContext)
-  const allCategoriesEn = t('explore.apps.allCategories', { lng: 'en' })
+  const { userProfile } = useAppContext()
+  const { data: systemFeatures } = useSuspenseQuery(systemFeaturesQueryOptions())
+  const { data: membersData } = useMembers()
+  const allCategoriesEn = t('apps.allCategories', { ns: 'explore', lng: 'en' })
+  const userAccount = membersData?.accounts?.find(account => account.id === userProfile.id)
+  const hasEditPermission = !!userAccount && userAccount.role !== 'normal'
 
   const [keywords, setKeywords] = useState('')
   const [searchKeywords, setSearchKeywords] = useState('')
+
+  const hasFilterCondition = !!keywords
+  const handleResetFilter = useCallback(() => {
+    setKeywords('')
+    setSearchKeywords('')
+  }, [])
 
   const { run: handleSearch } = useDebounceFn(() => {
     setSearchKeywords(keywords)
@@ -56,51 +65,24 @@ const Apps = ({
     handleSearch()
   }
 
-  const [currentType, setCurrentType] = useState<string>('')
-  const [currCategory, setCurrCategory] = useTabSearchParams({
-    defaultTab: allCategoriesEn,
-    disableSearchParams: false,
+  const [currCategory, setCurrCategory] = useQueryState('category', {
+    defaultValue: allCategoriesEn,
   })
 
   const {
-    data: { categories, allList },
-  } = useSWR(
-    ['/explore/apps'],
-    () =>
-      fetchAppList().then(({ categories, recommended_apps }) => ({
-        categories,
-        allList: recommended_apps.sort((a, b) => a.position - b.position),
-      })),
-    {
-      fallbackData: {
-        categories: [],
-        allList: [],
-      },
-    },
-  )
+    data,
+    isLoading,
+    isError,
+  } = useExploreAppList()
 
   const filteredList = useMemo(() => {
-    if (currCategory === allCategoriesEn) {
-      if (!currentType)
-        return allList
-      else if (currentType === 'chatbot')
-        return allList.filter(item => (item.app.mode === 'chat' || item.app.mode === 'advanced-chat'))
-      else if (currentType === 'agent')
-        return allList.filter(item => (item.app.mode === 'agent-chat'))
-      else
-        return allList.filter(item => (item.app.mode === 'workflow'))
-    }
-    else {
-      if (!currentType)
-        return allList.filter(item => item.category === currCategory)
-      else if (currentType === 'chatbot')
-        return allList.filter(item => (item.app.mode === 'chat' || item.app.mode === 'advanced-chat') && item.category === currCategory)
-      else if (currentType === 'agent')
-        return allList.filter(item => (item.app.mode === 'agent-chat') && item.category === currCategory)
-      else
-        return allList.filter(item => (item.app.mode === 'workflow') && item.category === currCategory)
-    }
-  }, [currentType, currCategory, allCategoriesEn, allList])
+    if (!data)
+      return []
+    return data.allList.filter(item => (
+      currCategory === allCategoriesEn
+      || item.categories?.includes(currCategory)
+    ))
+  }, [data, currCategory, allCategoriesEn])
 
   const searchFilteredList = useMemo(() => {
     if (!searchKeywords || !filteredList || filteredList.length === 0)
@@ -113,47 +95,92 @@ const Apps = ({
     )
   }, [searchKeywords, filteredList])
 
-  const [currApp, setCurrApp] = React.useState<App | null>(null)
-  const [isShowCreateModal, setIsShowCreateModal] = React.useState(false)
-  const { handleCheckPluginDependencies } = usePluginDependencies()
-  const onCreate: CreateAppModalProps['onConfirm'] = async ({
+  const [currApp, setCurrApp] = useState<App | null>(null)
+  const [isShowCreateModal, setIsShowCreateModal] = useState(false)
+
+  const {
+    handleImportDSL,
+    handleImportDSLConfirm,
+    versions,
+    isFetching,
+  } = useImportDSL()
+  const [showDSLConfirmModal, setShowDSLConfirmModal] = useState(false)
+
+  const [currentTryApp, setCurrentTryApp] = useState<TryAppSelection | undefined>(undefined)
+  const currentCreateAppModeRef = useRef<App['app']['mode'] | null>(null)
+  const currentCreateAppTrackingRef = useRef<Pick<TrackCreateAppParams, 'source' | 'templateId'> | null>(null)
+  const isShowTryAppPanel = !!currentTryApp
+  const hideTryAppPanel = useCallback(() => {
+    setCurrentTryApp(undefined)
+  }, [])
+  const handleTryApp = useCallback((params: TryAppSelection) => {
+    setCurrentTryApp(params)
+  }, [])
+  const handleShowFromTryApp = useCallback(() => {
+    setCurrApp(currentTryApp?.app || null)
+    currentCreateAppTrackingRef.current = {
+      source: 'explore_template_preview',
+      templateId: currentTryApp?.appId || currentTryApp?.app.app_id,
+    }
+    setIsShowCreateModal(true)
+  }, [currentTryApp?.app, currentTryApp?.appId])
+  const trackCurrentCreateApp = useCallback((appMode?: App['app']['mode'] | null) => {
+    const currentCreateAppTracking = currentCreateAppTrackingRef.current
+    const resolvedAppMode = appMode ?? currentCreateAppModeRef.current
+    if (!resolvedAppMode || !currentCreateAppTracking)
+      return
+
+    trackCreateApp({
+      ...currentCreateAppTracking,
+      appMode: resolvedAppMode,
+    })
+    currentCreateAppTrackingRef.current = null
+    currentCreateAppModeRef.current = null
+  }, [])
+
+  const onCreate: CreateAppModalProps['onConfirm'] = useCallback(async ({
     name,
     icon_type,
     icon,
     icon_background,
     description,
   }) => {
+    hideTryAppPanel()
+
     const { export_data, mode } = await fetchAppDetail(
       currApp?.app.id as string,
     )
-    try {
-      const app = await importDSL({
-        mode: DSLImportMode.YAML_CONTENT,
-        yaml_content: export_data,
-        name,
-        icon_type,
-        icon,
-        icon_background,
-        description,
-      })
-      setIsShowCreateModal(false)
-      Toast.notify({
-        type: 'success',
-        message: t('app.newApp.appCreated'),
-      })
-      if (onSuccess)
-        onSuccess()
-      if (app.app_id)
-        await handleCheckPluginDependencies(app.app_id)
-      localStorage.setItem(NEED_REFRESH_APP_LIST_KEY, '1')
-      getRedirection(isCurrentWorkspaceEditor, { id: app.app_id, mode }, push)
+    currentCreateAppModeRef.current = mode
+    const payload = {
+      mode: DSLImportMode.YAML_CONTENT,
+      yaml_content: export_data,
+      name,
+      icon_type,
+      icon,
+      icon_background,
+      description,
     }
-    catch (e) {
-      Toast.notify({ type: 'error', message: t('app.newApp.appCreateFailed') })
-    }
-  }
+    await handleImportDSL(payload, {
+      onSuccess: (response) => {
+        trackCurrentCreateApp(response.app_mode)
+        setIsShowCreateModal(false)
+      },
+      onPending: () => {
+        setShowDSLConfirmModal(true)
+      },
+    })
+  }, [currApp?.app.id, handleImportDSL, hideTryAppPanel, trackCurrentCreateApp])
 
-  if (!categories || categories.length === 0) {
+  const onConfirmDSL = useCallback(async () => {
+    await handleImportDSLConfirm({
+      onSuccess: (response) => {
+        trackCurrentCreateApp(response.app_mode)
+        onSuccess?.()
+      },
+    })
+  }, [handleImportDSLConfirm, onSuccess, trackCurrentCreateApp])
+
+  if (isLoading) {
     return (
       <div className="flex h-full items-center">
         <Loading type="area" />
@@ -161,59 +188,85 @@ const Apps = ({
     )
   }
 
+  if (isError || !data)
+    return null
+
+  const { categories } = data
+
   return (
     <div className={cn(
-      'flex flex-col h-full border-l-[0.5px] border-divider-regular',
-    )}>
+      'flex h-full min-h-0 flex-col overflow-hidden border-l-[0.5px] border-divider-regular',
+    )}
+    >
+      <div className="flex flex-1 flex-col overflow-y-auto">
+        {systemFeatures.enable_explore_banner && (
+          <div className="mt-4 px-12">
+            <Banner />
+          </div>
+        )}
 
-      <div className='shrink-0 pt-6 px-12'>
-        <div className={`mb-1 ${s.textGradient} text-xl font-semibold`}>{t('explore.apps.title')}</div>
-        <div className='text-text-tertiary text-sm'>{t('explore.apps.description')}</div>
-      </div>
-
-      <div className={cn(
-        'flex items-center justify-between mt-6 px-12',
-      )}>
-        <>
-          <Category
-            list={categories}
-            value={currCategory}
-            onChange={setCurrCategory}
-            allCategoriesEn={allCategoriesEn}
-          />
-        </>
-        <Input
-          showLeftIcon
-          showClearIcon
-          wrapperClassName='w-[200px]'
-          value={keywords}
-          onChange={e => handleKeywordsChange(e.target.value)}
-          onClear={() => handleKeywordsChange('')}
-        />
-
-      </div>
-
-      <div className={cn(
-        'relative flex flex-1 pb-6 flex-col overflow-auto shrink-0 grow mt-4',
-      )}>
-        <nav
-          className={cn(
-            s.appList,
-            'grid content-start shrink-0 gap-4 px-6 sm:px-12',
-          )}>
-          {searchFilteredList.map(app => (
-            <AppCard
-              key={app.app_id}
-              isExplore
-              app={app}
-              canCreate={hasEditPermission}
-              onCreate={() => {
-                setCurrApp(app)
-                setIsShowCreateModal(true)
-              }}
+        <div className="sticky top-0 z-10 bg-background-body">
+          <div className={cn(
+            'flex items-center justify-between px-12 pt-6',
+          )}
+          >
+            <div className="flex items-center">
+              <div className="grow truncate system-xl-semibold text-text-primary">{!hasFilterCondition ? t('apps.title', { ns: 'explore' }) : t('apps.resultNum', { num: searchFilteredList.length, ns: 'explore' })}</div>
+              {hasFilterCondition && (
+                <>
+                  <div className="mx-3 h-4 w-px bg-divider-regular"></div>
+                  <Button size="medium" onClick={handleResetFilter}>{t('apps.resetFilter', { ns: 'explore' })}</Button>
+                </>
+              )}
+            </div>
+            <Input
+              showLeftIcon
+              showClearIcon
+              wrapperClassName="w-[200px] self-start"
+              value={keywords}
+              onChange={e => handleKeywordsChange(e.target.value)}
+              onClear={() => handleKeywordsChange('')}
             />
-          ))}
-        </nav>
+          </div>
+
+          <div className="px-12 pt-2 pb-4">
+            <Category
+              list={categories}
+              value={currCategory}
+              onChange={setCurrCategory}
+              allCategoriesEn={allCategoriesEn}
+            />
+          </div>
+        </div>
+
+        <div className={cn(
+          'relative flex flex-1 shrink-0 grow flex-col pb-6',
+        )}
+        >
+          <nav
+            className={cn(
+              s.appList,
+              'grid shrink-0 content-start gap-4 px-6 sm:px-12',
+            )}
+          >
+            {searchFilteredList.map(app => (
+              <AppCard
+                key={app.app_id}
+                app={app}
+                canCreate={hasEditPermission}
+                onCreate={() => {
+                  currentCreateAppTrackingRef.current = {
+                    source: 'explore_template_list',
+                    templateId: app.app_id,
+                  }
+                  setCurrApp(app)
+                  setIsShowCreateModal(true)
+                }}
+                onTry={handleTryApp}
+              />
+            ))}
+          </nav>
+        </div>
       </div>
       {isShowCreateModal && (
         <CreateAppModal
@@ -225,7 +278,28 @@ const Apps = ({
           appDescription={currApp?.app.description || ''}
           show={isShowCreateModal}
           onConfirm={onCreate}
+          confirmDisabled={isFetching}
           onHide={() => setIsShowCreateModal(false)}
+        />
+      )}
+      {
+        showDSLConfirmModal && (
+          <DSLConfirmModal
+            versions={versions}
+            onCancel={() => setShowDSLConfirmModal(false)}
+            onConfirm={onConfirmDSL}
+            confirmDisabled={isFetching}
+          />
+        )
+      }
+
+      {isShowTryAppPanel && (
+        <TryApp
+          appId={currentTryApp?.appId || ''}
+          app={currentTryApp?.app}
+          categories={currentTryApp?.app?.categories}
+          onClose={hideTryAppPanel}
+          onCreate={handleShowFromTryApp}
         />
       )}
     </div>

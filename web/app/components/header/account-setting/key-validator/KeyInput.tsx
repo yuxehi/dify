@@ -1,12 +1,12 @@
 import type { ChangeEvent } from 'react'
+import type { ValidatedStatusState } from './declarations'
+import { ValidatedStatus } from './declarations'
 import {
   ValidatedErrorIcon,
   ValidatedErrorMessage,
   ValidatedSuccessIcon,
   ValidatingTip,
 } from './ValidateStatus'
-import { ValidatedStatus } from './declarations'
-import type { ValidatedStatusState } from './declarations'
 
 type KeyInputProps = {
   value?: string
@@ -52,16 +52,17 @@ const KeyInput = ({
   return (
     <div className={className}>
       <div className="mb-2 text-[13px] font-medium text-gray-800">{name}</div>
-      <div className='
-        flex items-center px-3 bg-white rounded-lg
+      <div className="
+        flex items-center rounded-lg bg-white px-3
         shadow-xs
-      '>
+      "
+      >
         <input
-          className='
-            w-full py-[9px] mr-2
-            text-xs font-medium text-gray-700 leading-[18px]
-            appearance-none outline-none bg-transparent
-          '
+          className="
+            mr-2 w-full appearance-none
+            bg-transparent py-[9px] text-xs leading-[18px]
+            font-medium text-gray-700 outline-hidden
+          "
           value={value}
           placeholder={placeholder}
           onChange={handleChange}

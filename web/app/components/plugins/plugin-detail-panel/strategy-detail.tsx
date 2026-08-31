@@ -1,23 +1,31 @@
 'use client'
 import type { FC } from 'react'
-import React, { useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
+import type {
+  StrategyDetail as StrategyDetailType,
+} from '@/app/components/plugins/types'
+import type { Locale } from '@/i18n-config'
+import { cn } from '@langgenius/dify-ui/cn'
+import {
+  Drawer,
+  DrawerBackdrop,
+  DrawerContent,
+  DrawerPopup,
+  DrawerPortal,
+  DrawerViewport,
+} from '@langgenius/dify-ui/drawer'
 import {
   RiArrowLeftLine,
   RiCloseLine,
 } from '@remixicon/react'
-import Drawer from '@/app/components/base/drawer'
+import * as React from 'react'
+import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import ActionButton from '@/app/components/base/action-button'
+import Divider from '@/app/components/base/divider'
 import Icon from '@/app/components/plugins/card/base/card-icon'
 import Description from '@/app/components/plugins/card/base/description'
-import Divider from '@/app/components/base/divider'
-import type {
-  StrategyDetail,
-} from '@/app/components/plugins/types'
-import type { Locale } from '@/i18n'
-import { useRenderI18nObject } from '@/hooks/use-i18n'
 import { API_PREFIX } from '@/config'
-import cn from '@/utils/classnames'
+import { useRenderI18nObject } from '@/hooks/use-i18n'
 
 type Props = {
   provider: {
@@ -29,7 +37,7 @@ type Props = {
     label: Record<Locale, string>
     tags: string[]
   }
-  detail: StrategyDetail
+  detail: StrategyDetailType
   onHide: () => void
 }
 
@@ -43,15 +51,15 @@ const StrategyDetail: FC<Props> = ({
 
   const outputSchema = useMemo(() => {
     const res: any[] = []
-    if (!detail.output_schema)
+    if (!detail.output_schema || !detail.output_schema.properties)
       return []
     Object.keys(detail.output_schema.properties).forEach((outputKey) => {
       const output = detail.output_schema.properties[outputKey]
       res.push({
         name: outputKey,
         type: output.type === 'array'
-          ? `Array[${output.items?.type.slice(0, 1).toLocaleUpperCase()}${output.items?.type.slice(1)}]`
-          : `${output.type.slice(0, 1).toLocaleUpperCase()}${output.type.slice(1)}`,
+          ? `Array[${output.items?.type ? output.items.type.slice(0, 1).toLocaleUpperCase() + output.items.type.slice(1) : 'Unknown'}]`
+          : `${output.type ? output.type.slice(0, 1).toLocaleUpperCase() + output.type.slice(1) : 'Unknown'}`,
         description: output.description,
       })
     })
@@ -60,11 +68,13 @@ const StrategyDetail: FC<Props> = ({
 
   const getType = (type: string) => {
     if (type === 'number-input')
-      return t('tools.setBuiltInTools.number')
+      return t('setBuiltInTools.number', { ns: 'tools' })
     if (type === 'text-input')
-      return t('tools.setBuiltInTools.string')
+      return t('setBuiltInTools.string', { ns: 'tools' })
+    if (type === 'checkbox')
+      return 'boolean'
     if (type === 'file')
-      return t('tools.setBuiltInTools.file')
+      return t('setBuiltInTools.file', { ns: 'tools' })
     if (type === 'array[tools]')
       return 'multiple-tool-select'
     return type
@@ -72,92 +82,99 @@ const StrategyDetail: FC<Props> = ({
 
   return (
     <Drawer
-      isOpen
-      clickOutsideNotOpen={false}
-      onClose={onHide}
-      footer={null}
-      mask={false}
-      positionCenter={false}
-      panelClassname={cn('justify-start mt-[64px] mr-2 mb-2 !w-[420px] !max-w-[420px] !p-0 !bg-components-panel-bg rounded-2xl border-[0.5px] border-components-panel-border shadow-xl')}
+      open
+      modal
+      swipeDirection="right"
+      onOpenChange={(open) => {
+        if (!open)
+          onHide()
+      }}
     >
-      <>
-        {/* header */}
-        <div className='relative p-4 pb-3 border-b border-divider-subtle'>
-          <div className='absolute top-3 right-3'>
-            <ActionButton onClick={onHide}>
-              <RiCloseLine className='w-4 h-4' />
-            </ActionButton>
-          </div>
-          <div
-            className='mb-2 flex items-center gap-1 text-text-accent-secondary system-xs-semibold-uppercase cursor-pointer'
-            onClick={onHide}
-          >
-            <RiArrowLeftLine className='w-4 h-4' />
-            BACK
-          </div>
-          <div className='flex items-center gap-1'>
-            <Icon size='tiny' className='w-6 h-6' src={`${API_PREFIX}/workspaces/current/plugin/icon?tenant_id=${provider.tenant_id}&filename=${provider.icon}`} />
-            <div className=''>{getValueFromI18nObject(provider.label)}</div>
-          </div>
-          <div className='mt-1 text-text-primary system-md-semibold'>{getValueFromI18nObject(detail.identity.label)}</div>
-          <Description className='mt-3' text={getValueFromI18nObject(detail.description)} descriptionLineRows={2}></Description>
-        </div>
-        {/* form */}
-        <div className='h-full'>
-          <div className='flex flex-col h-full overflow-y-auto'>
-            <div className='p-4 pb-1 text-text-primary system-sm-semibold-uppercase'>{t('tools.setBuiltInTools.parameters')}</div>
-            <div className='px-4'>
-              {detail.parameters.length > 0 && (
-                <div className='py-2 space-y-1'>
-                  {detail.parameters.map((item: any, index) => (
-                    <div key={index} className='py-1'>
-                      <div className='flex items-center gap-2'>
-                        <div className='text-text-secondary code-sm-semibold'>{getValueFromI18nObject(item.label)}</div>
-                        <div className='text-text-tertiary system-xs-regular'>
-                          {getType(item.type)}
-                        </div>
-                        {item.required && (
-                          <div className='text-text-warning-secondary system-xs-medium'>{t('tools.setBuiltInTools.required')}</div>
-                        )}
+      <DrawerPortal>
+        <DrawerBackdrop className="bg-transparent" />
+        <DrawerViewport>
+          <DrawerPopup className={cn('justify-start bg-components-panel-bg! p-0! shadow-xl data-[swipe-direction=right]:top-16 data-[swipe-direction=right]:right-2 data-[swipe-direction=right]:bottom-2 data-[swipe-direction=right]:h-auto data-[swipe-direction=right]:w-[420px] data-[swipe-direction=right]:max-w-[420px] data-[swipe-direction=right]:rounded-2xl data-[swipe-direction=right]:border-[0.5px] data-[swipe-direction=right]:border-components-panel-border')}>
+            <DrawerContent className="flex min-h-0 flex-1 flex-col p-0 pb-0">
+              {/* header */}
+              <div className="relative border-b border-divider-subtle p-4 pb-3">
+                <div className="absolute top-3 right-3">
+                  <ActionButton onClick={onHide}>
+                    <RiCloseLine className="h-4 w-4" />
+                  </ActionButton>
+                </div>
+                <div
+                  className="mb-2 flex cursor-pointer items-center gap-1 system-xs-semibold-uppercase text-text-accent-secondary"
+                  onClick={onHide}
+                >
+                  <RiArrowLeftLine className="h-4 w-4" />
+                  BACK
+                </div>
+                <div className="flex items-center gap-1">
+                  <Icon size="tiny" className="h-6 w-6" src={`${API_PREFIX}/workspaces/current/plugin/icon?tenant_id=${provider.tenant_id}&filename=${provider.icon}`} />
+                  <div className="">{getValueFromI18nObject(provider.label)}</div>
+                </div>
+                <div className="mt-1 system-md-semibold text-text-primary">{getValueFromI18nObject(detail.identity.label)}</div>
+                <Description className="mt-3" text={getValueFromI18nObject(detail.description)} descriptionLineRows={2}></Description>
+              </div>
+              {/* form */}
+              <div className="h-full">
+                <div className="flex h-full flex-col overflow-y-auto">
+                  <div className="p-4 pb-1 system-sm-semibold-uppercase text-text-primary">{t('setBuiltInTools.parameters', { ns: 'tools' })}</div>
+                  <div className="px-4">
+                    {detail.parameters.length > 0 && (
+                      <div className="space-y-1 py-2">
+                        {detail.parameters.map((item: any, index) => (
+                          <div key={index} className="py-1">
+                            <div className="flex items-center gap-2">
+                              <div className="code-sm-semibold text-text-secondary">{getValueFromI18nObject(item.label)}</div>
+                              <div className="system-xs-regular text-text-tertiary">
+                                {getType(item.type)}
+                              </div>
+                              {item.required && (
+                                <div className="system-xs-medium text-text-warning-secondary">{t('setBuiltInTools.required', { ns: 'tools' })}</div>
+                              )}
+                            </div>
+                            {item.human_description && (
+                              <div className="mt-0.5 system-xs-regular text-text-tertiary">
+                                {getValueFromI18nObject(item.human_description)}
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                      {item.human_description && (
-                        <div className='mt-0.5 text-text-tertiary system-xs-regular'>
-                          {getValueFromI18nObject(item.human_description)}
+                    )}
+                  </div>
+                  {detail.output_schema && (
+                    <>
+                      <div className="px-4">
+                        <Divider className="mt-2!" />
+                      </div>
+                      <div className="p-4 pb-1 system-sm-semibold-uppercase text-text-primary">OUTPUT</div>
+                      {outputSchema.length > 0 && (
+                        <div className="space-y-1 px-4 py-2">
+                          {outputSchema.map((outputItem, index) => (
+                            <div key={index} className="py-1">
+                              <div className="flex items-center gap-2">
+                                <div className="code-sm-semibold text-text-secondary">{outputItem.name}</div>
+                                <div className="system-xs-regular text-text-tertiary">{outputItem.type}</div>
+                              </div>
+                              {outputItem.description && (
+                                <div className="mt-0.5 system-xs-regular text-text-tertiary">
+                                  {outputItem.description}
+                                </div>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       )}
-                    </div>
-                  ))}
+                    </>
+                  )}
                 </div>
-              )}
-            </div>
-            {detail.output_schema && (
-              <>
-                <div className='px-4'>
-                  <Divider className="!mt-2" />
-                </div>
-                <div className='p-4 pb-1 text-text-primary system-sm-semibold-uppercase'>OUTPUT</div>
-                {outputSchema.length > 0 && (
-                  <div className='px-4 py-2 space-y-1'>
-                    {outputSchema.map((outputItem, index) => (
-                      <div key={index} className='py-1'>
-                        <div className='flex items-center gap-2'>
-                          <div className='text-text-secondary code-sm-semibold'>{outputItem.name}</div>
-                          <div className='text-text-tertiary system-xs-regular'>{outputItem.type}</div>
-                        </div>
-                        {outputItem.description && (
-                          <div className='mt-0.5 text-text-tertiary system-xs-regular'>
-                            {outputItem.description}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      </>
+              </div>
+            </DrawerContent>
+          </DrawerPopup>
+        </DrawerViewport>
+      </DrawerPortal>
     </Drawer>
   )
 }
