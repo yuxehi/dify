@@ -1,10 +1,10 @@
 import logging
 
+from dify_vdb_milvus.collection_lifecycle import RUN_LOCK_KEY, MilvusIdleCollectionReleaser
 from pymilvus import MilvusClient  # type: ignore
 
 import app
 from configs import dify_config
-from dify_vdb_milvus.collection_lifecycle import MilvusIdleCollectionReleaser, RUN_LOCK_KEY
 from extensions.ext_redis import redis_client
 
 logger = logging.getLogger(__name__)

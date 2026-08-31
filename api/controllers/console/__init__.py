@@ -206,6 +206,7 @@ __all__ = [
     "spec",
     "statistic",
     "tags",
+    "teaching_file_list",
     "tool_providers",
     "trial",
     "trigger_providers",

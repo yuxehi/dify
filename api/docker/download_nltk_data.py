@@ -1,10 +1,13 @@
+import logging
 import shutil
+import sys
 import time
 import zipfile
 from pathlib import Path
 
 import nltk
 
+logger = logging.getLogger(__name__)
 
 DOWNLOAD_DIR = Path("/usr/local/share/nltk_data")
 MAX_ATTEMPTS = 3
@@ -53,13 +56,13 @@ def download_with_retry(package: str, package_path: str) -> None:
             if not downloaded:
                 raise RuntimeError(f"nltk.download returned false for {package}")
             verify_download(package_path)
-            print(f"Verified NLTK package: {package}")
+            logger.info("Verified NLTK package: %s", package)
             return
         except Exception:
             remove_download(package_path)
             if attempt == MAX_ATTEMPTS:
                 raise
-            print(f"NLTK package {package} failed attempt {attempt}; retrying")
+            logger.warning("NLTK package %s failed attempt %s; retrying", package, attempt)
             time.sleep(attempt * 2)
 
 
@@ -70,4 +73,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
     main()

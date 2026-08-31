@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock
 
 import pytest
-
 from dify_vdb_milvus import collection_lifecycle
 
 
