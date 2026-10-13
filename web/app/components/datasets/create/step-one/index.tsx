@@ -18,8 +18,6 @@ import { useProviderContext } from '@/context/provider-context'
 import { DataSourceType } from '@/models/datasets'
 import EmptyDatasetCreationModal from '../empty-dataset-creation-modal'
 import FileUploader from '../file-uploader'
-import StudentFileSource from '../student-file-source'
-import TeachingFileChooser from '../teaching-file-chooser'
 import Website from '../website'
 import { DataSourceTypeSelector, NextStepButton, PreviewPanel } from './components'
 import { usePreviewState } from './hooks'
@@ -92,7 +90,8 @@ const StepOne = ({
   const { t } = useTranslation()
   const dataset = useDatasetDetailContextWithSelector(state => state.dataset)
   const { plan, enableBilling } = useProviderContext()
-  const { isCurrentWorkspaceManager } = useAppContext()
+  const { isCurrentWorkspaceManager, isCurrentWorkspaceEditor, isCurrentWorkspaceDatasetOperator } = useAppContext()
+  const canUploadFiles = isCurrentWorkspaceEditor || isCurrentWorkspaceDatasetOperator
 
   // Preview state management
   const {
@@ -109,7 +108,6 @@ const StepOne = ({
 
   // Empty dataset modal state
   const [showModal, { setTrue: openModal, setFalse: closeModal }] = useBoolean(false)
-  const [showTeachingFileChooser, { setTrue: openTeachingFileChooser, setFalse: closeTeachingFileChooser }] = useBoolean(false)
 
   // Plan upgrade modal state
   const [isShowPlanUpgradeModal, { setTrue: showPlanUpgradeModal, setFalse: hidePlanUpgradeModal }] = useBoolean(false)
@@ -117,8 +115,7 @@ const StepOne = ({
   // Computed values
   const shouldShowDataSourceTypeList = !datasetId || (datasetId && !dataset?.data_source_type)
   const isInCreatePage = shouldShowDataSourceTypeList
-  // Teaching students use the course-platform file source exclusively. This
-  // also guards direct URLs carrying a Notion/Web source query parameter.
+  // Keep the focused file flow for non-managers, including direct source URLs.
   const dataSourceType = !isCurrentWorkspaceManager
     ? DataSourceType.FILE
     : isInCreatePage
@@ -190,7 +187,7 @@ const StepOne = ({
               {/* File Data Source */}
               {dataSourceType === DataSourceType.FILE && (
                 <>
-                  {isCurrentWorkspaceManager && (
+                  {canUploadFiles && (
                     <FileUploader
                       fileList={files}
                       titleClassName={!shouldShowDataSourceTypeList ? 'mt-[30px] mb-[44px]! text-lg!' : undefined}
@@ -201,35 +198,17 @@ const StepOne = ({
                       supportBatchUpload={supportBatchUpload}
                     />
                   )}
-                  {/* The teaching-platform source is available beside Dify's
-                      original uploader for administrators, while it remains
-                      the only source shown in the focused student interface. */}
-                  <StudentFileSource
-                    files={files}
-                    showSelectedFiles={!isCurrentWorkspaceManager}
-                    onBrowse={openTeachingFileChooser}
-                    onFilesChange={updateFileList}
-                    onPreview={showFilePreview}
-                  />
                   {isShowVectorSpaceFull && (
                     <div className="mb-4 max-w-[640px]">
                       <VectorSpaceFull />
                     </div>
                   )}
-                  <NextStepButton disabled={fileNextDisabled} onClick={onStepChange} />
+                  <NextStepButton disabled={!canUploadFiles || fileNextDisabled} onClick={onStepChange} />
                   {isCurrentWorkspaceManager && enableBilling && plan.type === Plan.sandbox && files.length > 0 && (
                     <div className="mt-5">
                       <div className="mb-4 h-px bg-divider-subtle" />
                       <UpgradeCard />
                     </div>
-                  )}
-                  {showTeachingFileChooser && (
-                    <TeachingFileChooser
-                      fileList={files}
-                      isShow
-                      onClose={closeTeachingFileChooser}
-                      onFileListUpdate={updateFileList}
-                    />
                   )}
                 </>
               )}

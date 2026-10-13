@@ -37,9 +37,13 @@ vi.mock('@/context/provider-context', () => ({
 }))
 
 let mockIsCurrentWorkspaceManager = true
+let mockIsCurrentWorkspaceEditor = true
+let mockIsCurrentWorkspaceDatasetOperator = false
 vi.mock('@/context/app-context', () => ({
   useAppContext: () => ({
     isCurrentWorkspaceManager: mockIsCurrentWorkspaceManager,
+    isCurrentWorkspaceEditor: mockIsCurrentWorkspaceEditor,
+    isCurrentWorkspaceDatasetOperator: mockIsCurrentWorkspaceDatasetOperator,
     userProfile: { email: 'student@example.com' },
   }),
 }))
@@ -215,6 +219,8 @@ describe('StepOne', () => {
     }
     mockEnableBilling = false
     mockIsCurrentWorkspaceManager = true
+    mockIsCurrentWorkspaceEditor = true
+    mockIsCurrentWorkspaceDatasetOperator = false
   })
 
   describe('Rendering', () => {
@@ -234,8 +240,7 @@ describe('StepOne', () => {
       render(<StepOne {...defaultProps} dataSourceType={DataSourceType.FILE} />)
 
       expect(screen.getByTestId('file-uploader')).toBeInTheDocument()
-      expect(screen.getByText('datasetCreation.stepOne.teachingSource.title')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'datasetCreation.stepOne.teachingSource.selectButton' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /teachingSource.selectButton/ })).not.toBeInTheDocument()
     })
 
     it('should render NotionConnector when dataSourceType is NOTION and not authenticated', () => {
@@ -272,26 +277,45 @@ describe('StepOne', () => {
       expect(screen.queryByText('datasetCreation.stepOne.emptyDatasetCreation')).not.toBeInTheDocument()
     })
 
-    it('should render the focused teaching-platform file flow for a student', () => {
+    it('should render local file upload when an editor opens a non-file source URL', () => {
       mockIsCurrentWorkspaceManager = false
 
       render(<StepOne {...defaultProps} dataSourceType={DataSourceType.NOTION} />)
 
-      expect(screen.getByText('datasetCreation.stepOne.teachingSource.title')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'datasetCreation.stepOne.teachingSource.selectButton' })).toBeInTheDocument()
-      expect(screen.queryByTestId('file-uploader')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Preview' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /teachingSource.selectButton/ })).not.toBeInTheDocument()
       expect(screen.queryByText('datasetCreation.stepOne.notionSyncTitle')).not.toBeInTheDocument()
     })
 
-    it('should keep the official split layout and preview selected files for a student', () => {
+    it('should preview local files when an editor uses the uploader', () => {
       mockIsCurrentWorkspaceManager = false
       const file = createMockFileItem({ file: createMockCustomFile({ id: 'student-file', name: 'student-lesson.txt' }) })
 
       render(<StepOne {...defaultProps} files={[file]} />)
-      fireEvent.click(screen.getByRole('button', { name: /datasetCreation\.stepOne\.filePreview.*student-lesson\.txt/i }))
+      fireEvent.click(screen.getByRole('button', { name: 'Preview' }))
 
       expect(screen.getByTestId('file-preview')).toBeInTheDocument()
-      expect(screen.getByTestId('file-preview')).toHaveTextContent('student-lesson.txt')
+      expect(screen.getByTestId('file-preview')).toHaveTextContent('test.txt')
+    })
+
+    it('should hide upload when the user has a read-only role', () => {
+      mockIsCurrentWorkspaceManager = false
+      mockIsCurrentWorkspaceEditor = false
+
+      render(<StepOne {...defaultProps} />)
+
+      expect(screen.queryByRole('button', { name: 'Preview' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /stepOne.button/ })).toBeDisabled()
+    })
+
+    it('should allow local upload when the user is a dataset operator', () => {
+      mockIsCurrentWorkspaceManager = false
+      mockIsCurrentWorkspaceEditor = false
+      mockIsCurrentWorkspaceDatasetOperator = true
+
+      render(<StepOne {...defaultProps} />)
+
+      expect(screen.getByRole('button', { name: 'Preview' })).toBeInTheDocument()
     })
   })
 

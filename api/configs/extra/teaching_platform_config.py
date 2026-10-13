@@ -13,10 +13,9 @@ class TeachingPlatformConfig(BaseSettings):
     """
 
     TEACHING_TOKEN_REPORT_PATH: ClassVar[str] = "/api/setAgentTokens"
-    TEACHING_FILE_API_PATH: ClassVar[str] = "/api/ai_general_education/unifiedUtilFunction_PPT"
 
     TEACHING_MODE_ENABLED: bool = Field(
-        description="Enable teaching-platform account, usage, file, and UI compatibility features.",
+        description="Enable teaching-platform account, usage, and UI compatibility features.",
         default=True,
     )
     TEACHING_DEFAULT_PASSWORD: str = Field(
@@ -67,7 +66,3 @@ class TeachingPlatformConfig(BaseSettings):
     @property
     def teaching_token_report_url(self) -> str:
         return f"{self.TEACHING_PLATFORM_BASE_URL}{self.TEACHING_TOKEN_REPORT_PATH}"
-
-    @property
-    def teaching_file_api_url(self) -> str:
-        return f"{self.TEACHING_PLATFORM_BASE_URL}{self.TEACHING_FILE_API_PATH}"

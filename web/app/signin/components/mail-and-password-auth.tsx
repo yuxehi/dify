@@ -36,14 +36,17 @@ export default function MailAndPasswordAuth({ isInvite, isEmailSetup, allowRegis
   const hasTriggeredTeachingLoginRef = useRef(false)
 
   const [isLoading, setIsLoading] = useState(false)
+  const isPhoneAccount = /^1[3-9]\d{9}$/.test(email.trim())
+  const canResetPassword = isEmailSetup && !isPhoneAccount
 
   const handleEmailPasswordLogin = useCallback(async () => {
-    if (!email) {
-      toast.error(t('error.emailEmpty', { ns: 'login' }))
+    const identifier = email.trim()
+    if (!identifier) {
+      toast.error(t('error.accountEmpty', { ns: 'login' }))
       return
     }
-    if (!emailRegex.test(email)) {
-      toast.error(t('error.emailInValid', { ns: 'login' }))
+    if (!emailRegex.test(identifier) && !/^1[3-9]\d{9}$/.test(identifier)) {
+      toast.error(t('error.accountInValid', { ns: 'login' }))
       return
     }
     if (!password?.trim()) {
@@ -56,8 +59,14 @@ export default function MailAndPasswordAuth({ isInvite, isEmailSetup, allowRegis
       // A direct administrator login in the same tab must not inherit a prior
       // student Bearer session, otherwise subsequent requests would omit cookies.
       clearTeachingTokens()
-      const loginData: Record<string, any> = {
-        email,
+      const loginData: {
+        email: string
+        password: string
+        language: string
+        remember_me: boolean
+        invite_token?: string
+      } = {
+        email: identifier,
         password: encryptPassword(password),
         language: locale,
         remember_me: true,
@@ -70,7 +79,7 @@ export default function MailAndPasswordAuth({ isInvite, isEmailSetup, allowRegis
       })
       if (res.result === 'success') {
         trackEvent('user_login_success', {
-          method: 'email_password',
+          method: /^1[3-9]\d{9}$/.test(identifier) ? 'phone_password' : 'email_password',
           is_invite: isInvite,
         })
 
@@ -88,7 +97,7 @@ export default function MailAndPasswordAuth({ isInvite, isEmailSetup, allowRegis
     }
     catch (error) {
       if ((error as ResponseError).code === 'authentication_failed') {
-        toast.error(t('error.invalidEmailOrPassword', { ns: 'login' }))
+        toast.error(t('error.invalidAccountOrPassword', { ns: 'login' }))
       }
     }
     finally {
@@ -143,7 +152,7 @@ export default function MailAndPasswordAuth({ isInvite, isEmailSetup, allowRegis
     <form onSubmit={noop}>
       <div className="mb-3">
         <label htmlFor="email" className="my-2 system-md-semibold text-text-secondary">
-          {t('email', { ns: 'login' })}
+          {t(isInvite ? 'email' : 'loginIdentifier', { ns: 'login' })}
         </label>
         <div className="mt-1">
           <Input
@@ -151,26 +160,26 @@ export default function MailAndPasswordAuth({ isInvite, isEmailSetup, allowRegis
             onChange={e => setEmail(e.target.value)}
             disabled={isInvite}
             id="email"
-            type="email"
-            autoComplete="email"
-            placeholder={t('emailPlaceholder', { ns: 'login' }) || ''}
+            type="text"
+            autoComplete="username"
+            placeholder={t(isInvite ? 'emailPlaceholder' : 'loginIdentifierPlaceholder', { ns: 'login' }) || ''}
             tabIndex={1}
           />
         </div>
       </div>
 
       <div className="mb-3">
-        <label htmlFor="password" className="my-2 flex items-center justify-between">
-          <span className="system-md-semibold text-text-secondary">{t('password', { ns: 'login' })}</span>
+        <div className="my-2 flex items-center justify-between">
+          <label htmlFor="password" className="system-md-semibold text-text-secondary">{t('password', { ns: 'login' })}</label>
           <Link
             href={`/reset-password?${searchParams.toString()}`}
-            className={`system-xs-regular ${isEmailSetup ? 'text-components-button-secondary-accent-text' : 'pointer-events-none text-components-button-secondary-accent-text-disabled'}`}
-            tabIndex={isEmailSetup ? 0 : -1}
-            aria-disabled={!isEmailSetup}
+            className={`system-xs-regular ${canResetPassword ? 'text-components-button-secondary-accent-text' : 'pointer-events-none text-components-button-secondary-accent-text-disabled'}`}
+            tabIndex={canResetPassword ? 0 : -1}
+            aria-disabled={!canResetPassword}
           >
             {t('forget', { ns: 'login' })}
           </Link>
-        </label>
+        </div>
         <div className="relative mt-1">
           <Input
             id="password"
@@ -197,12 +206,18 @@ export default function MailAndPasswordAuth({ isInvite, isEmailSetup, allowRegis
         </div>
       </div>
 
+      {isPhoneAccount && (
+        <p className="mb-3 system-xs-regular text-text-tertiary">
+          {t('phonePasswordResetHint', { ns: 'login' })}
+        </p>
+      )}
+
       <div className="mb-2">
         <Button
           tabIndex={2}
           variant="primary"
           onClick={handleEmailPasswordLogin}
-          disabled={isLoading || !email || !password}
+          disabled={isLoading || !email.trim() || !password}
           className="w-full"
         >
           {t('signBtn', { ns: 'login' })}

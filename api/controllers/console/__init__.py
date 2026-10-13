@@ -95,7 +95,6 @@ from .datasets import (
     external,
     hit_testing,
     metadata,
-    teaching_file_list,
     website,
 )
 from .datasets.rag_pipeline import (
@@ -206,7 +205,6 @@ __all__ = [
     "spec",
     "statistic",
     "tags",
-    "teaching_file_list",
     "tool_providers",
     "trial",
     "trigger_providers",

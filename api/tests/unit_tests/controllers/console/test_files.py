@@ -151,7 +151,18 @@ class TestFileApiPost:
                 with pytest.raises(Forbidden):
                     post_method(api)
 
-    def test_successful_upload(self, app: Flask, mock_account_context, mock_file_service):
+    def test_dataset_query_upload_without_permission(self, app: Flask, mock_current_user):
+        mock_current_user.is_dataset_editor = False
+        api = FileApi()
+        with patch("controllers.console.files.current_account_with_tenant", return_value=(mock_current_user, None)):
+            with app.test_request_context(
+                "/files/upload?source=datasets", method="POST", data={"file": (io.BytesIO(b"abc"), "test.txt")}
+            ):
+                with pytest.raises(Forbidden):
+                    unwrap(api.post)(api)
+
+    @pytest.mark.parametrize("path", ["/files/upload", "/files/upload?source=datasets"])
+    def test_successful_upload(self, app: Flask, mock_account_context, mock_file_service, path: str):
         api = FileApi()
         post_method = unwrap(api.post)
 
@@ -178,12 +189,15 @@ class TestFileApiPost:
             "file": (io.BytesIO(b"hello"), "test.txt"),
         }
 
-        with app.test_request_context(method="POST", data=data):
+        with app.test_request_context(path, method="POST", data=data):
             response, status = post_method(api)
 
         assert status == 201
         assert response["id"] == "file-id-123"
         assert response["name"] == "test.txt"
+        assert mock_file_service.upload_file.call_args.kwargs["source"] == (
+            "datasets" if "source=datasets" in path else None
+        )
 
     def test_upload_with_invalid_source(self, app: Flask, mock_account_context, mock_file_service):
         """Test that invalid source parameter gets normalized to None"""

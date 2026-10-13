@@ -197,6 +197,17 @@ class _EstimateArgs(BaseModel):
     info_list: dict[str, Any]
     process_rule: _EstimateProcessRule
 
+    @field_validator("process_rule", mode="before")
+    @classmethod
+    def _normalize_unconfigured_summary_index(cls, value: Any) -> Any:
+        # Older dataset responses expand an absent summary setting into null
+        # fields. Treat its unset toggle as disabled, as the upload UI does.
+        if isinstance(value, dict):
+            setting = value.get("summary_index_setting")
+            if isinstance(setting, dict) and setting.get("enable") is None:
+                return {**value, "summary_index_setting": {**setting, "enable": False}}
+        return value
+
 
 class DatasetService:
     @staticmethod

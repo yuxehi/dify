@@ -1,4 +1,5 @@
 import logging
+import re
 
 import flask_login
 from flask import make_response, request
@@ -34,6 +35,7 @@ from controllers.console.wraps import (
 )
 from events.tenant_event import tenant_was_created
 from libs.helper import EmailStr, extract_remote_ip
+from libs.helper import email as validate_email
 from libs.helper import timezone as validate_timezone_string
 from libs.login import current_account_with_tenant
 from libs.token import (
@@ -57,8 +59,23 @@ logger = logging.getLogger(__name__)
 
 
 class LoginPayload(LoginPayloadBase):
+    """Password login accepts email or a pre-provisioned mainland China phone identifier.
+
+    The legacy email field remains the account identifier in the API and database.
+    Email-code, registration and password-recovery payloads retain EmailStr.
+    """
+
+    email: str = Field(description="Email address or 11-digit mainland China mobile number")
     remember_me: bool = Field(default=False, description="Remember me flag")
     invite_token: str | None = Field(default=None, description="Invitation token")
+
+    @field_validator("email")
+    @classmethod
+    def validate_login_identifier(cls, value: str) -> str:
+        normalized = value.strip()
+        if re.fullmatch(r"1[3-9][0-9]{9}", normalized):
+            return normalized
+        return validate_email(normalized)
 
 
 class EmailPayload(BaseModel):

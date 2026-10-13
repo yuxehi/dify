@@ -1296,6 +1296,57 @@ class TestDocumentServiceSaveWithoutDatasetBilling:
 class TestDocumentServiceEstimateValidation:
     """Unit tests for estimate_args_validate branches."""
 
+    @pytest.mark.parametrize("mode", ["automatic", "custom", "hierarchical"])
+    @pytest.mark.parametrize("setting", [{}, {"enable": None}, {"enable": False}])
+    def test_estimate_args_validate_accepts_unconfigured_summary_index(self, mode, setting):
+        args = {
+            "info_list": {"data_source_type": "upload_file"},
+            "process_rule": {
+                "mode": mode,
+                "rules": {
+                    "pre_processing_rules": [],
+                    "segmentation": {"separator": "\n", "max_tokens": 128},
+                },
+                "summary_index_setting": setting,
+            },
+        }
+
+        DocumentService.estimate_args_validate(args)
+
+        assert args["process_rule"]["summary_index_setting"] == {"enable": False}
+
+    def test_estimate_args_validate_preserves_enabled_summary_index(self):
+        setting = {"enable": True, "model_name": "summary-model", "model_provider_name": "provider"}
+        args = {
+            "info_list": {"data_source_type": "upload_file"},
+            "process_rule": {"mode": "automatic", "summary_index_setting": setting},
+        }
+
+        DocumentService.estimate_args_validate(args)
+
+        assert args["process_rule"]["summary_index_setting"] == setting
+
+    def test_estimate_args_validate_rejects_invalid_summary_toggle(self):
+        args = {
+            "info_list": {"data_source_type": "upload_file"},
+            "process_rule": {"mode": "automatic", "summary_index_setting": {"enable": "invalid"}},
+        }
+
+        with pytest.raises(ValueError, match="does not match any of the expected tags"):
+            DocumentService.estimate_args_validate(args)
+
+    def test_dataset_summary_index_field_preserves_null_setting(self):
+        from flask_restx import marshal
+
+        from fields.dataset_fields import dataset_detail_fields
+
+        response = marshal(
+            {"summary_index_setting": None},
+            {"summary_index_setting": dataset_detail_fields["summary_index_setting"]},
+        )
+
+        assert response["summary_index_setting"] is None
+
     def test_estimate_args_validate_rejects_missing_info_list(self):
         with pytest.raises(ValueError, match="Field required"):
             DocumentService.estimate_args_validate({})

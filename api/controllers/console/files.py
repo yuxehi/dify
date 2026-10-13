@@ -60,8 +60,9 @@ class FileApi(Resource):
     @cloud_edition_billing_resource_check("documents")
     @console_ns.response(201, "File uploaded successfully", console_ns.models[FileResponse.__name__])
     def post(self):
+        """Accept dataset uploads from both multipart forms and the console uploader's query parameter."""
         current_user, _ = current_account_with_tenant()
-        source_str = request.form.get("source")
+        source_str = request.form.get("source") or request.args.get("source")
         source: Literal["datasets"] | None = "datasets" if source_str == "datasets" else None
 
         if "file" not in request.files:
