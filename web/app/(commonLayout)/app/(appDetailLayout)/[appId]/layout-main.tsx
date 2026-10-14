@@ -73,7 +73,7 @@ const AppDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
           }]
         : []
       ),
-      ...(isCurrentWorkspaceManager
+      ...(isCurrentWorkspaceManager || isCurrentWorkspaceEditor
         ? [{
             name: t('appMenus.apiAccess', { ns: 'common' }),
             href: `/app/${appId}/develop`,
@@ -136,7 +136,10 @@ const AppDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
     const res = appDetailRes
     // redirection
     const canIEditApp = isCurrentWorkspaceEditor
-    if (!isCurrentWorkspaceManager && (pathname.endsWith('develop') || pathname.endsWith('logs') || pathname.endsWith('overview'))) {
+    if (!isCurrentWorkspaceManager && (
+      (!isCurrentWorkspaceEditor && pathname.endsWith('develop'))
+      || pathname.endsWith('logs') || pathname.endsWith('overview')
+    )) {
       const editingPath = res.mode === AppModeEnum.WORKFLOW || res.mode === AppModeEnum.ADVANCED_CHAT
         ? 'workflow'
         : 'configuration'
@@ -155,8 +158,8 @@ const AppDetailLayout: FC<IAppDetailLayoutProps> = (props) => {
     }
     else {
       setAppDetail({ ...res, enable_sso: false })
-      // Teaching editors only need the configuration/workflow entry. API,
-      // logs, and overview remain visible to workspace managers for operations.
+      // Editors can configure apps and access API documentation. Logs and
+      // overview remain workspace manager entries.
       setNavigation(getNavigationConfig(appId, isCurrentWorkspaceEditor, isCurrentWorkspaceManager, res.mode))
     }
   }, [appDetailRes, isCurrentWorkspaceEditor, isCurrentWorkspaceManager, isLoadingAppDetail, isLoadingCurrentWorkspace])
