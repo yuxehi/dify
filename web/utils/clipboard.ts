@@ -1,6 +1,15 @@
 export async function writeTextToClipboard(text: string): Promise<void> {
-  if (navigator.clipboard && navigator.clipboard.writeText)
-    return navigator.clipboard.writeText(text)
+  if (window.isSecureContext && navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return
+    }
+    catch {
+      // Cross-origin iframes can expose the Clipboard API while rejecting writes
+      // when the embedding page does not grant the clipboard-write permission.
+      // Keep the legacy path as a best-effort fallback for those environments.
+    }
+  }
 
   return fallbackCopyTextToClipboard(text)
 }

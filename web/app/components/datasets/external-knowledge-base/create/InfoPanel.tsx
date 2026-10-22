@@ -1,28 +1,35 @@
 import { RiBookOpenLine } from '@remixicon/react'
 import { useTranslation } from 'react-i18next'
+import { useDocLink } from '@/context/i18n'
 
 const InfoPanel = () => {
   const { t } = useTranslation()
+  const docLink = useDocLink()
 
   return (
-    <div className='flex w-[360px] pt-[108px] pb-2 pr-8 flex-col items-start'>
-      <div className='flex min-w-[240px] w-full p-6 flex-col items-start gap-3 self-stretch rounded-xl bg-background-section'>
-        <div className='flex p-1 w-10 h-10 justify-center items-center gap-2 flex-grow self-stretch rounded-lg border-[0.5px] border-components-card-border bg-components-card-bg'>
-          <RiBookOpenLine className='w-5 h-5 text-text-accent' />
+    <div className="flex w-[360px] flex-col items-start pt-[108px] pr-8 pb-2">
+      <div className="flex w-full min-w-[240px] flex-col items-start gap-3 self-stretch rounded-xl bg-background-section p-6">
+        <div className="flex h-10 w-10 grow items-center justify-center gap-2 self-stretch rounded-lg border-[0.5px] border-components-card-border bg-components-card-bg p-1">
+          <RiBookOpenLine className="h-5 w-5 text-text-accent" />
         </div>
-        <p className='flex flex-col items-start gap-2 self-stretch'>
-          <span className='self-stretch text-text-secondary system-xl-semibold'>
-            {t('dataset.connectDatasetIntro.title')}
+        <p className="flex flex-col items-start gap-2 self-stretch">
+          <span className="self-stretch system-xl-semibold text-text-secondary">
+            {t('connectDatasetIntro.title', { ns: 'dataset' })}
           </span>
-          <span className='text-text-tertiary system-sm-regular'>
-            {t('dataset.connectDatasetIntro.content.front')}
-            <a className='text-text-accent system-sm-regular ml-1' href='https://docs.dify.ai/guides/knowledge-base/external-knowledge-api-documentation' target='_blank' rel="noopener noreferrer">
-              {t('dataset.connectDatasetIntro.content.link')}
+          <span className="system-sm-regular text-text-tertiary">
+            {t('connectDatasetIntro.content.front', { ns: 'dataset' })}
+            <a className="ml-1 system-sm-regular text-text-accent" href={docLink('/use-dify/knowledge/external-knowledge-api')} target="_blank" rel="noopener noreferrer">
+              {t('connectDatasetIntro.content.link', { ns: 'dataset' })}
             </a>
-            {t('dataset.connectDatasetIntro.content.end')}
+            {t('connectDatasetIntro.content.end', { ns: 'dataset' })}
           </span>
-          <a className='self-stretch text-text-accent system-sm-regular' href='https://docs.dify.ai/guides/knowledge-base/connect-external-knowledge' target='_blank' rel="noopener noreferrer">
-            {t('dataset.connectDatasetIntro.learnMore')}
+          <a
+            className="self-stretch system-sm-regular text-text-accent"
+            href={docLink('/use-dify/knowledge/connect-external-knowledge-base')}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t('connectDatasetIntro.learnMore', { ns: 'dataset' })}
           </a>
         </p>
       </div>

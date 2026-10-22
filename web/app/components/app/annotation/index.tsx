@@ -1,172 +1,163 @@
 'use client'
 import type { FC } from 'react'
-import React, { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { useDebounce } from 'ahooks'
-import { RiEqualizer2Line } from '@remixicon/react'
-import Toast from '../../base/toast'
-import Filter from './filter'
 import type { QueryParam } from './filter'
-import List from './list'
-import EmptyElement from './empty-element'
-import HeaderOpts from './header-opts'
-import { AnnotationEnableStatus, type AnnotationItem, type AnnotationItemBasic, JobStatus } from './type'
-import ViewAnnotationModal from './view-annotation-modal'
-import { MessageFast } from '@/app/components/base/icons/src/vender/solid/communication'
-import ActionButton from '@/app/components/base/action-button'
-import Pagination from '@/app/components/base/pagination'
-import Switch from '@/app/components/base/switch'
-import { addAnnotation, delAnnotation, fetchAnnotationConfig as doFetchAnnotationConfig, editAnnotation, fetchAnnotationList, queryAnnotationJobStatus, updateAnnotationScore, updateAnnotationStatus } from '@/service/annotation'
-import Loading from '@/app/components/base/loading'
-import { APP_PAGE_LIMIT } from '@/config'
-import ConfigParamModal from '@/app/components/base/features/new-feature-panel/annotation-reply/config-param-modal'
+import type { AnnotationItem, AnnotationItemBasic } from './type'
 import type { AnnotationReplyConfig } from '@/models/debug'
-import { sleep } from '@/utils'
-import { useProviderContext } from '@/context/provider-context'
-import AnnotationFullModal from '@/app/components/billing/annotation-full/modal'
 import type { App } from '@/types/app'
-import cn from '@/utils/classnames'
+import { cn } from '@langgenius/dify-ui/cn'
+import { Switch } from '@langgenius/dify-ui/switch'
+import { toast } from '@langgenius/dify-ui/toast'
+import { RiEqualizer2Line } from '@remixicon/react'
+import { useDebounce } from 'ahooks'
+import * as React from 'react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import ActionButton from '@/app/components/base/action-button'
+import ConfigParamModal from '@/app/components/base/features/new-feature-panel/annotation-reply/config-param-modal'
+import { MessageFast } from '@/app/components/base/icons/src/vender/solid/communication'
+import Loading from '@/app/components/base/loading'
+import Pagination from '@/app/components/base/pagination'
+import AnnotationFullModal from '@/app/components/billing/annotation-full/modal'
+import { APP_PAGE_LIMIT } from '@/config'
+import { useProviderContext } from '@/context/provider-context'
+import { addAnnotation, delAnnotation, delAnnotations, fetchAnnotationConfig as doFetchAnnotationConfig, editAnnotation, fetchAnnotationList, queryAnnotationJobStatus, updateAnnotationScore, updateAnnotationStatus } from '@/service/annotation'
+import { AppModeEnum } from '@/types/app'
+import { sleep } from '@/utils'
+import EmptyElement from './empty-element'
+import Filter from './filter'
+import HeaderOpts from './header-opts'
+import List from './list'
+import { AnnotationEnableStatus, JobStatus } from './type'
+import ViewAnnotationModal from './view-annotation-modal'
 
 type Props = {
   appDetail: App
 }
 
-const Annotation: FC<Props> = ({
-  appDetail,
-}) => {
+const Annotation: FC<Props> = (props) => {
+  const { appDetail } = props
   const { t } = useTranslation()
-  const [isShowEdit, setIsShowEdit] = React.useState(false)
+  const [isShowEdit, setIsShowEdit] = useState(false)
   const [annotationConfig, setAnnotationConfig] = useState<AnnotationReplyConfig | null>(null)
-  const [isChatApp, setIsChatApp] = useState(false)
+  const [isChatApp] = useState(appDetail.mode !== AppModeEnum.COMPLETION)
+  const [controlRefreshSwitch, setControlRefreshSwitch] = useState(() => Date.now())
+  const { plan, enableBilling } = useProviderContext()
+  const isAnnotationFull = enableBilling && plan.usage.annotatedResponse >= plan.total.annotatedResponse
+  const [isShowAnnotationFullModal, setIsShowAnnotationFullModal] = useState(false)
+  const [queryParams, setQueryParams] = useState<QueryParam>({})
+  const [currPage, setCurrPage] = useState(0)
+  const [limit, setLimit] = useState(APP_PAGE_LIMIT)
+  const [list, setList] = useState<AnnotationItem[]>([])
+  const [total, setTotal] = useState(0)
+  const [isLoading, setIsLoading] = useState(false)
+  const [controlUpdateList, setControlUpdateList] = useState(() => Date.now())
+  const [currItem, setCurrItem] = useState<AnnotationItem | null>(null)
+  const [isShowViewModal, setIsShowViewModal] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const debouncedQueryParams = useDebounce(queryParams, { wait: 500 })
 
   const fetchAnnotationConfig = async () => {
     const res = await doFetchAnnotationConfig(appDetail.id)
     setAnnotationConfig(res as AnnotationReplyConfig)
     return (res as AnnotationReplyConfig).id
   }
+
   useEffect(() => {
-    const isChatApp = appDetail.mode !== 'completion'
-    setIsChatApp(isChatApp)
     if (isChatApp)
       fetchAnnotationConfig()
   }, [])
-  const [controlRefreshSwitch, setControlRefreshSwitch] = useState(Date.now())
-  const { plan, enableBilling } = useProviderContext()
-  const isAnnotationFull = (enableBilling && plan.usage.annotatedResponse >= plan.total.annotatedResponse)
-  const [isShowAnnotationFullModal, setIsShowAnnotationFullModal] = useState(false)
-  const ensureJobCompleted = async (jobId: string, status: AnnotationEnableStatus) => {
-    let isCompleted = false
-    while (!isCompleted) {
-      const res: any = await queryAnnotationJobStatus(appDetail.id, status, jobId)
-      isCompleted = res.job_status === JobStatus.completed
-      if (isCompleted)
-        break
 
+  const ensureJobCompleted = async (jobId: string, status: AnnotationEnableStatus) => {
+    while (true) {
+      const res: any = await queryAnnotationJobStatus(appDetail.id, status, jobId)
+      if (res.job_status === JobStatus.completed)
+        break
       await sleep(2000)
     }
   }
 
-  const [queryParams, setQueryParams] = useState<QueryParam>({})
-  const [currPage, setCurrPage] = React.useState<number>(0)
-  const debouncedQueryParams = useDebounce(queryParams, { wait: 500 })
-  const [limit, setLimit] = React.useState<number>(APP_PAGE_LIMIT)
-  const query = {
-    page: currPage + 1,
-    limit,
-    keyword: debouncedQueryParams.keyword || '',
-  }
-
-  const [controlUpdateList, setControlUpdateList] = useState(Date.now())
-  const [list, setList] = useState<AnnotationItem[]>([])
-  const [total, setTotal] = useState(10)
-  const [isLoading, setIsLoading] = useState(false)
   const fetchList = async (page = 1) => {
     setIsLoading(true)
     try {
       const { data, total }: any = await fetchAnnotationList(appDetail.id, {
-        ...query,
         page,
+        limit,
+        keyword: debouncedQueryParams.keyword || '',
       })
       setList(data as AnnotationItem[])
       setTotal(total)
     }
-    catch (e) {
-
+    finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }
 
   useEffect(() => {
     fetchList(currPage + 1)
-  }, [currPage])
-
-  useEffect(() => {
-    fetchList(1)
-    setControlUpdateList(Date.now())
-  }, [queryParams])
+  }, [currPage, limit, debouncedQueryParams])
 
   const handleAdd = async (payload: AnnotationItemBasic) => {
-    await addAnnotation(appDetail.id, {
-      ...payload,
-    })
-    Toast.notify({
-      message: t('common.api.actionSuccess'),
-      type: 'success',
-    })
+    await addAnnotation(appDetail.id, payload)
+    toast.success(t('api.actionSuccess', { ns: 'common' }))
     fetchList()
     setControlUpdateList(Date.now())
   }
 
   const handleRemove = async (id: string) => {
     await delAnnotation(appDetail.id, id)
-    Toast.notify({
-      message: t('common.api.actionSuccess'),
-      type: 'success',
-    })
+    toast.success(t('api.actionSuccess', { ns: 'common' }))
     fetchList()
     setControlUpdateList(Date.now())
   }
 
-  const [currItem, setCurrItem] = useState<AnnotationItem | null>(list[0])
-  const [isShowViewModal, setIsShowViewModal] = useState(false)
-  useEffect(() => {
-    if (!isShowEdit)
-      setControlRefreshSwitch(Date.now())
-  }, [isShowEdit])
+  const handleBatchDelete = async () => {
+    try {
+      await delAnnotations(appDetail.id, selectedIds)
+      toast.success(t('api.actionSuccess', { ns: 'common' }))
+      fetchList()
+      setControlUpdateList(Date.now())
+      setSelectedIds([])
+    }
+    catch (e: any) {
+      toast.error(e.message || t('api.actionFailed', { ns: 'common' }))
+    }
+  }
+
   const handleView = (item: AnnotationItem) => {
     setCurrItem(item)
     setIsShowViewModal(true)
   }
 
   const handleSave = async (question: string, answer: string) => {
-    await editAnnotation(appDetail.id, (currItem as AnnotationItem).id, {
-      question,
-      answer,
-    })
-    Toast.notify({
-      message: t('common.api.actionSuccess'),
-      type: 'success',
-    })
+    if (!currItem)
+      return
+    await editAnnotation(appDetail.id, currItem.id, { question, answer })
+    toast.success(t('api.actionSuccess', { ns: 'common' }))
     fetchList()
     setControlUpdateList(Date.now())
   }
 
+  useEffect(() => {
+    if (!isShowEdit)
+      setControlRefreshSwitch(Date.now())
+  }, [isShowEdit])
+
   return (
-    <div className='flex flex-col h-full'>
-      <p className='text-text-tertiary system-sm-regular'>{t('appLog.description')}</p>
-      <div className='flex flex-col py-4 flex-1'>
+    <div className="flex h-full flex-col">
+      <p className="system-sm-regular text-text-tertiary">{t('description', { ns: 'appLog' })}</p>
+      <div className="relative flex h-full flex-1 flex-col py-4">
         <Filter appId={appDetail.id} queryParams={queryParams} setQueryParams={setQueryParams}>
-          <div className='flex items-center space-x-2'>
+          <div className="flex items-center space-x-2">
             {isChatApp && (
               <>
-                <div className={cn(!annotationConfig?.enabled && 'pr-2', 'flex items-center h-7 rounded-lg bg-components-panel-bg-blur border border-components-panel-border pl-2 space-x-1')}>
-                  <MessageFast className='w-4 h-4 text-util-colors-indigo-indigo-600' />
-                  <div className='system-sm-medium text-text-primary'>{t('appAnnotation.name')}</div>
+                <div className={cn(!annotationConfig?.enabled && 'pr-2', 'flex h-7 items-center space-x-1 rounded-lg border border-components-panel-border bg-components-panel-bg-blur pl-2')}>
+                  <MessageFast className="h-4 w-4 text-util-colors-indigo-indigo-600" />
+                  <div className="system-sm-medium text-text-primary">{t('name', { ns: 'appAnnotation' })}</div>
                   <Switch
                     key={controlRefreshSwitch}
-                    defaultValue={annotationConfig?.enabled}
-                    size='md'
-                    onChange={async (value) => {
+                    checked={annotationConfig?.enabled ?? false}
+                    size="md"
+                    onCheckedChange={async (value) => {
                       if (value) {
                         if (isAnnotationFull) {
                           setIsShowAnnotationFullModal(true)
@@ -179,23 +170,21 @@ const Annotation: FC<Props> = ({
                         const { job_id: jobId }: any = await updateAnnotationStatus(appDetail.id, AnnotationEnableStatus.disable, annotationConfig?.embedding_model, annotationConfig?.score_threshold)
                         await ensureJobCompleted(jobId, AnnotationEnableStatus.disable)
                         await fetchAnnotationConfig()
-                        Toast.notify({
-                          message: t('common.api.actionSuccess'),
-                          type: 'success',
-                        })
+                        toast.success(t('api.actionSuccess', { ns: 'common' }))
                       }
                     }}
-                  ></Switch>
+                  >
+                  </Switch>
                   {annotationConfig?.enabled && (
-                    <div className='flex items-center pl-1.5'>
-                      <div className='shrink-0 mr-1 w-[1px] h-3.5 bg-divider-subtle'></div>
+                    <div className="flex items-center pl-1.5">
+                      <div className="mr-1 h-3.5 w-px shrink-0 bg-divider-subtle"></div>
                       <ActionButton onClick={() => setIsShowEdit(true)}>
-                        <RiEqualizer2Line className='w-4 h-4 text-text-tertiary' />
+                        <RiEqualizer2Line className="h-4 w-4 text-text-tertiary" />
                       </ActionButton>
                     </div>
                   )}
                 </div>
-                <div className='shrink-0 mx-3 w-[1px] h-3.5 bg-divider-regular'></div>
+                <div className="mx-3 h-3.5 w-px shrink-0 bg-divider-regular"></div>
               </>
             )}
 
@@ -210,24 +199,32 @@ const Annotation: FC<Props> = ({
           </div>
         </Filter>
         {isLoading
-          ? <Loading type='app' />
+          ? <Loading type="app" />
+
           : total > 0
-            ? <List
-              list={list}
-              onRemove={handleRemove}
-              onView={handleView}
-            />
-            : <div className='grow flex h-full items-center justify-center'><EmptyElement /></div>
-        }
+            ? (
+                <List
+                  list={list}
+                  onRemove={handleRemove}
+                  onView={handleView}
+                  selectedIds={selectedIds}
+                  onSelectedIdsChange={setSelectedIds}
+                  onBatchDelete={handleBatchDelete}
+                  onCancel={() => setSelectedIds([])}
+                />
+              )
+            : <div className="flex h-full grow items-center justify-center"><EmptyElement /></div>}
         {/* Show Pagination only if the total is more than the limit */}
         {(total && total > APP_PAGE_LIMIT)
-          ? <Pagination
-            current={currPage}
-            onChange={setCurrPage}
-            total={total}
-            limit={limit}
-            onLimitChange={setLimit}
-          />
+          ? (
+              <Pagination
+                current={currPage}
+                onChange={setCurrPage}
+                total={total}
+                limit={limit}
+                onLimitChange={setLimit}
+              />
+            )
           : null}
 
         {isShowViewModal && (
@@ -263,10 +260,7 @@ const Annotation: FC<Props> = ({
                 await updateAnnotationScore(appDetail.id, annotationId, score)
 
               await fetchAnnotationConfig()
-              Toast.notify({
-                message: t('common.api.actionSuccess'),
-                type: 'success',
-              })
+              toast.success(t('api.actionSuccess', { ns: 'common' }))
               setIsShowEdit(false)
             }}
             annotationConfig={annotationConfig!}

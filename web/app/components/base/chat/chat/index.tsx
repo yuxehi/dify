@@ -2,16 +2,7 @@ import type {
   FC,
   ReactNode,
 } from 'react'
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
-import { useTranslation } from 'react-i18next'
-import { debounce } from 'lodash-es'
-import { useShallow } from 'zustand/react/shallow'
+import type { ThemeBuilder } from '../embedded-chatbot/theme/theme-context'
 import type {
   ChatConfig,
   ChatItem,
@@ -19,23 +10,26 @@ import type {
   OnRegenerate,
   OnSend,
 } from '../types'
-import type { ThemeBuilder } from '../embedded-chatbot/theme/theme-context'
-import Question from './question'
+import type { InputForm } from './type'
+import type { Emoji } from '@/app/components/tools/types'
+import type { AppData } from '@/models/share'
+import { Button } from '@langgenius/dify-ui/button'
+import { cn } from '@langgenius/dify-ui/cn'
+import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useShallow } from 'zustand/react/shallow'
+import { useStore as useAppStore } from '@/app/components/app/store'
 import Answer from './answer'
 import ChatInputArea from './chat-input-area'
+import ChatLogModals from './chat-log-modals'
+import { ChatContextProvider } from './context-provider'
+import Question from './question'
 import TryToAsk from './try-to-ask'
-import { ChatContextProvider } from './context'
-import type { InputForm } from './type'
-import cn from '@/utils/classnames'
-import type { Emoji } from '@/app/components/tools/types'
-import Button from '@/app/components/base/button'
-import { StopCircle } from '@/app/components/base/icons/src/vender/solid/mediaAndDevices'
-import AgentLogModal from '@/app/components/base/agent-log-modal'
-import PromptLogModal from '@/app/components/base/prompt-log-modal'
-import { useStore as useAppStore } from '@/app/components/app/store'
-import type { AppData } from '@/models/share'
+import { useChatLayout } from './use-chat-layout'
 
 export type ChatProps = {
+  isTryApp?: boolean
+  readonly?: boolean
   appData?: AppData
   chatList: ChatItem[]
   config?: ChatConfig
@@ -60,6 +54,7 @@ export type ChatProps = {
   onAnnotationAdded?: (annotationId: string, authorName: string, question: string, answer: string, index: number) => void
   onAnnotationRemoved?: (index: number) => void
   chatNode?: ReactNode
+  disableFeedback?: boolean
   onFeedback?: (messageId: string, feedback: Feedback) => void
   chatAnswerContainerInner?: string
   hideProcessDetail?: boolean
@@ -71,11 +66,16 @@ export type ChatProps = {
   onFeatureBarClick?: (state: boolean) => void
   noSpacing?: boolean
   inputDisabled?: boolean
-  isMobile?: boolean
   sidebarCollapseState?: boolean
+  hideAvatar?: boolean
+  sendOnEnter?: boolean
+  onHumanInputFormSubmit?: (formToken: string, formData: any) => Promise<void>
+  getHumanInputNodeData?: (nodeID: string) => any
 }
 
 const Chat: FC<ChatProps> = ({
+  isTryApp,
+  readonly = false,
   appData,
   config,
   onSend,
@@ -99,6 +99,7 @@ const Chat: FC<ChatProps> = ({
   onAnnotationEdited,
   onAnnotationRemoved,
   chatNode,
+  disableFeedback,
   onFeedback,
   chatAnswerContainerInner,
   hideProcessDetail,
@@ -110,8 +111,11 @@ const Chat: FC<ChatProps> = ({
   onFeatureBarClick,
   noSpacing,
   inputDisabled,
-  isMobile,
   sidebarCollapseState,
+  hideAvatar,
+  sendOnEnter,
+  onHumanInputFormSubmit,
+  getHumanInputNodeData,
 }) => {
   const { t } = useTranslation()
   const { currentLogItem, setCurrentLogItem, showPromptLogModal, setShowPromptLogModal, showAgentLogModal, setShowAgentLogModal } = useAppStore(useShallow(state => ({
@@ -122,88 +126,22 @@ const Chat: FC<ChatProps> = ({
     showAgentLogModal: state.showAgentLogModal,
     setShowAgentLogModal: state.setShowAgentLogModal,
   })))
-  const [width, setWidth] = useState(0)
-  const chatContainerRef = useRef<HTMLDivElement>(null)
-  const chatContainerInnerRef = useRef<HTMLDivElement>(null)
-  const chatFooterRef = useRef<HTMLDivElement>(null)
-  const chatFooterInnerRef = useRef<HTMLDivElement>(null)
-  const userScrolledRef = useRef(false)
-
-  const handleScrollToBottom = useCallback(() => {
-    if (chatList.length > 1 && chatContainerRef.current && !userScrolledRef.current)
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
-  }, [chatList.length])
-
-  const handleWindowResize = useCallback(() => {
-    if (chatContainerRef.current)
-      setWidth(document.body.clientWidth - (chatContainerRef.current?.clientWidth + 16) - 8)
-
-    if (chatContainerRef.current && chatFooterRef.current)
-      chatFooterRef.current.style.width = `${chatContainerRef.current.clientWidth}px`
-
-    if (chatContainerInnerRef.current && chatFooterInnerRef.current)
-      chatFooterInnerRef.current.style.width = `${chatContainerInnerRef.current.clientWidth}px`
-  }, [])
-
-  useEffect(() => {
-    handleScrollToBottom()
-    handleWindowResize()
-  }, [handleScrollToBottom, handleWindowResize])
-
-  useEffect(() => {
-    if (chatContainerRef.current) {
-      requestAnimationFrame(() => {
-        handleScrollToBottom()
-        handleWindowResize()
-      })
-    }
+  const {
+    width,
+    chatContainerRef,
+    chatContainerInnerRef,
+    chatFooterRef,
+    chatFooterInnerRef,
+  } = useChatLayout({
+    chatList,
+    sidebarCollapseState,
   })
-
-  useEffect(() => {
-    window.addEventListener('resize', debounce(handleWindowResize))
-    return () => window.removeEventListener('resize', handleWindowResize)
-  }, [handleWindowResize])
-
-  useEffect(() => {
-    if (chatFooterRef.current && chatContainerRef.current) {
-      const resizeObserver = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          const { blockSize } = entry.borderBoxSize[0]
-
-          chatContainerRef.current!.style.paddingBottom = `${blockSize}px`
-          handleScrollToBottom()
-        }
-      })
-
-      resizeObserver.observe(chatFooterRef.current)
-
-      return () => {
-        resizeObserver.disconnect()
-      }
-    }
-  }, [handleScrollToBottom])
-
-  useEffect(() => {
-    const chatContainer = chatContainerRef.current
-    if (chatContainer) {
-      const setUserScrolled = () => {
-        if (chatContainer)
-          userScrolledRef.current = chatContainer.scrollHeight - chatContainer.scrollTop > chatContainer.clientHeight
-      }
-      chatContainer.addEventListener('scroll', setUserScrolled)
-      return () => chatContainer.removeEventListener('scroll', setUserScrolled)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!sidebarCollapseState)
-      setTimeout(() => handleWindowResize(), 200)
-  }, [sidebarCollapseState])
 
   const hasTryToAsk = config?.suggested_questions_after_answer?.enabled && !!suggestedQuestions?.length && onSend
 
   return (
     <ChatContextProvider
+      readonly={readonly}
       config={config}
       chatList={chatList}
       isResponding={isResponding}
@@ -215,28 +153,31 @@ const Chat: FC<ChatProps> = ({
       onAnnotationAdded={onAnnotationAdded}
       onAnnotationEdited={onAnnotationEdited}
       onAnnotationRemoved={onAnnotationRemoved}
+      disableFeedback={disableFeedback}
       onFeedback={onFeedback}
+      getHumanInputNodeData={getHumanInputNodeData}
     >
-      <div className='relative h-full'>
+      <div data-testid="chat-root" className={cn('relative h-full', isTryApp && 'flex flex-col')}>
         <div
+          data-testid="chat-container"
           ref={chatContainerRef}
-          className={cn('relative h-full overflow-y-auto overflow-x-hidden', chatContainerClassName)}
+          className={cn('relative h-full overflow-x-hidden overflow-y-auto', isTryApp && 'h-0 grow', chatContainerClassName)}
         >
           {chatNode}
           <div
             ref={chatContainerInnerRef}
-            className={cn('w-full', !noSpacing && 'px-8', chatContainerInnerClassName)}
+            className={cn('w-full', !noSpacing && 'px-8', chatContainerInnerClassName, isTryApp && 'px-0')}
           >
             {
               chatList.map((item, index) => {
                 if (item.isAnswer) {
-                  const isLast = item.id === chatList[chatList.length - 1]?.id
+                  const isLast = item.id === chatList.at(-1)?.id
                   return (
                     <Answer
                       appData={appData}
                       key={item.id}
                       item={item}
-                      question={chatList[index - 1]?.content}
+                      question={chatList[index - 1]?.content!}
                       index={index}
                       config={config}
                       answerIcon={answerIcon}
@@ -246,6 +187,8 @@ const Chat: FC<ChatProps> = ({
                       hideProcessDetail={hideProcessDetail}
                       noChatInput={noChatInput}
                       switchSibling={switchSibling}
+                      hideAvatar={hideAvatar}
+                      onHumanInputFormSubmit={onHumanInputFormSubmit}
                     />
                   )
                 }
@@ -255,6 +198,9 @@ const Chat: FC<ChatProps> = ({
                     item={item}
                     questionIcon={questionIcon}
                     theme={themeBuilder?.theme}
+                    enableEdit={config?.questionEditEnable}
+                    switchSibling={switchSibling}
+                    hideAvatar={hideAvatar}
                   />
                 )
               })
@@ -262,19 +208,20 @@ const Chat: FC<ChatProps> = ({
           </div>
         </div>
         <div
-          className={`absolute bottom-0 bg-chat-input-mask flex justify-center ${(hasTryToAsk || !noChatInput || !noStopResponding) && chatFooterClassName}`}
+          data-testid="chat-footer"
+          className={`absolute bottom-0 z-10 flex justify-center bg-chat-input-mask ${(hasTryToAsk || !noChatInput || !noStopResponding) && chatFooterClassName}`}
           ref={chatFooterRef}
         >
           <div
             ref={chatFooterInnerRef}
-            className={cn('relative', chatFooterInnerClassName)}
+            className={cn('relative', chatFooterInnerClassName, isTryApp && 'px-0')}
           >
             {
               !noStopResponding && isResponding && (
-                <div className='flex justify-center mb-2'>
-                  <Button onClick={onStopResponding}>
-                    <StopCircle className='mr-[5px] w-3.5 h-3.5 text-gray-500' />
-                    <span className='text-xs text-gray-500 font-normal'>{t('appDebug.operation.stopResponding')}</span>
+                <div data-testid="stop-responding-container" className="mb-2 flex justify-center">
+                  <Button className="border-components-panel-border bg-components-panel-bg text-components-button-secondary-text" onClick={onStopResponding}>
+                    <div className="mr-[5px] i-custom-vender-solid-mediaAndDevices-stop-circle h-3.5 w-3.5" />
+                    <span className="text-xs font-normal">{t('operation.stopResponding', { ns: 'appDebug' })}</span>
                   </Button>
                 </div>
               )
@@ -284,13 +231,13 @@ const Chat: FC<ChatProps> = ({
                 <TryToAsk
                   suggestedQuestions={suggestedQuestions}
                   onSend={onSend}
-                  isMobile={isMobile}
                 />
               )
             }
             {
               !noChatInput && (
                 <ChatInputArea
+                  botName={appData?.site?.title || 'Bot'}
                   disabled={inputDisabled}
                   showFeatureBar={showFeatureBar}
                   showFileUpload={showFileUpload}
@@ -303,31 +250,23 @@ const Chat: FC<ChatProps> = ({
                   inputsForm={inputsForm}
                   theme={themeBuilder?.theme}
                   isResponding={isResponding}
+                  readonly={readonly}
+                  sendOnEnter={sendOnEnter}
                 />
               )
             }
           </div>
         </div>
-        {showPromptLogModal && !hideLogModal && (
-          <PromptLogModal
-            width={width}
-            currentLogItem={currentLogItem}
-            onCancel={() => {
-              setCurrentLogItem()
-              setShowPromptLogModal(false)
-            }}
-          />
-        )}
-        {showAgentLogModal && !hideLogModal && (
-          <AgentLogModal
-            width={width}
-            currentLogItem={currentLogItem}
-            onCancel={() => {
-              setCurrentLogItem()
-              setShowAgentLogModal(false)
-            }}
-          />
-        )}
+        <ChatLogModals
+          width={width}
+          currentLogItem={currentLogItem}
+          showPromptLogModal={showPromptLogModal}
+          showAgentLogModal={showAgentLogModal}
+          hideLogModal={hideLogModal}
+          setCurrentLogItem={setCurrentLogItem}
+          setShowPromptLogModal={setShowPromptLogModal}
+          setShowAgentLogModal={setShowAgentLogModal}
+        />
       </div>
     </ChatContextProvider>
   )

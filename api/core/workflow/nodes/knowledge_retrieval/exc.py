@@ -16,3 +16,11 @@ class ModelNotSupportedError(KnowledgeRetrievalNodeError):
 
 class ModelQuotaExceededError(KnowledgeRetrievalNodeError):
     """Raised when the model provider quota is exceeded."""
+
+
+class InvalidModelTypeError(KnowledgeRetrievalNodeError):
+    """Raised when the model is not a Large Language Model."""
+
+
+class RateLimitExceededError(KnowledgeRetrievalNodeError):
+    """Raised when the rate limit is exceeded."""

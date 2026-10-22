@@ -1,6 +1,6 @@
 from core.app.app_config.features.file_upload.manager import FileUploadConfigManager
-from core.file.models import FileTransferMethod, FileUploadConfig, ImageConfig
-from core.model_runtime.entities.message_entities import ImagePromptMessageContent
+from graphon.file import FileTransferMethod, FileUploadConfig, ImageConfig
+from graphon.model_runtime.entities.message_entities import ImagePromptMessageContent
 
 
 def test_convert_with_vision():
@@ -18,7 +18,9 @@ def test_convert_with_vision():
             number_limits=5,
             transfer_methods=[FileTransferMethod.REMOTE_URL],
             detail=ImagePromptMessageContent.DETAIL.HIGH,
-        )
+        ),
+        allowed_file_upload_methods=[FileTransferMethod.REMOTE_URL],
+        number_limits=5,
     )
     assert result == expected
 
@@ -33,7 +35,9 @@ def test_convert_without_vision():
     }
     result = FileUploadConfigManager.convert(config, is_vision=False)
     expected = FileUploadConfig(
-        image_config=ImageConfig(number_limits=5, transfer_methods=[FileTransferMethod.REMOTE_URL])
+        image_config=ImageConfig(number_limits=5, transfer_methods=[FileTransferMethod.REMOTE_URL]),
+        allowed_file_upload_methods=[FileTransferMethod.REMOTE_URL],
+        number_limits=5,
     )
     assert result == expected
 

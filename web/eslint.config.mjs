@@ -1,183 +1,166 @@
-import {
-  GLOB_TESTS, combine, javascript, node,
-  stylistic, typescript, unicorn,
-} from '@antfu/eslint-config'
+// @ts-check
+
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import js from '@eslint/js'
-import { FlatCompat } from '@eslint/eslintrc'
-import globals from 'globals'
+import antfu, { GLOB_MARKDOWN, GLOB_MARKDOWN_CODE, GLOB_TESTS, GLOB_TS, GLOB_TSX } from '@antfu/eslint-config'
+import pluginQuery from '@tanstack/eslint-plugin-query'
+import md from 'eslint-markdown'
+import tailwindcss from 'eslint-plugin-better-tailwindcss'
+import hyoban from 'eslint-plugin-hyoban'
+import markdownPreferences from 'eslint-plugin-markdown-preferences'
+import noBarrelFiles from 'eslint-plugin-no-barrel-files'
+import sonar from 'eslint-plugin-sonarjs'
 import storybook from 'eslint-plugin-storybook'
-import { fixupConfigRules } from '@eslint/compat'
-import tailwind from 'eslint-plugin-tailwindcss'
+import {
+  GENERATED_IGNORES,
+  HYOBAN_PREFER_TAILWIND_ICONS_OPTIONS,
+  NEXT_PLATFORM_RESTRICTED_IMPORT_PATHS,
+  WEB_RESTRICTED_IMPORT_PATTERNS,
+} from './eslint.constants.mjs'
+import dify from './plugins/eslint/index.js'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-  recommendedConfig: js.configs.recommended,
-  allConfig: js.configs.all,
-})
-
-export default combine(
-  stylistic({
-    lessOpinionated: true,
-    // original @antfu/eslint-config does not support jsx
-    jsx: false,
-    semi: false,
-    quotes: 'single',
-    overrides: {
-      // original config
-      'style/indent': ['error', 2],
-      'style/quotes': ['error', 'single'],
-      'curly': ['error', 'multi-or-nest', 'consistent'],
-      'style/comma-spacing': ['error', { before: false, after: true }],
-      'style/quote-props': ['warn', 'consistent-as-needed'],
-
-      // these options does not exist in old version
-      // maybe useless
-      'style/indent-binary-ops': 'off',
-      'style/multiline-ternary': 'off',
-      'antfu/top-level-function': 'off',
-      'antfu/curly': 'off',
-      'antfu/consistent-chaining': 'off',
-
-      // copy from eslint-config-antfu 0.36.0
-      'style/brace-style': ['error', 'stroustrup', { allowSingleLine: true }],
-      'style/dot-location': ['error', 'property'],
-      'style/object-curly-newline': ['error', { consistent: true, multiline: true }],
-      'style/object-property-newline': ['error', { allowMultiplePropertiesPerLine: true }],
-      'style/template-curly-spacing': ['error', 'never'],
-      'style/keyword-spacing': 'off',
-
-      // not exist in old version, and big change
-      'style/member-delimiter-style': 'off',
-    },
-  }),
-  javascript({
-    overrides: {
-      // handled by unused-imports/no-unused-vars
-      'no-unused-vars': 'off',
-    },
-  }),
-  typescript({
-    overrides: {
-      // original config
-      'ts/consistent-type-definitions': ['warn', 'type'],
-
-      // useful, but big change
-      'ts/no-empty-object-type': 'off',
-    },
-  }),
-  unicorn(),
-  node(),
-  // use nextjs config will break @eslint/config-inspector
-  // use `ESLINT_CONFIG_INSPECTOR=true pnpx @eslint/config-inspector` to check the config
-  ...process.env.ESLINT_CONFIG_INSPECTOR
-    ? []
-    // TODO: remove this when upgrade to nextjs 15
-    : fixupConfigRules(compat.extends('next')),
+export default antfu(
   {
+    react: {
+      overrides: {
+        'react/set-state-in-effect': 'error',
+        'react/no-unnecessary-use-prefix': 'error',
+      },
+    },
+    ignores: ['public', 'types/doc-paths.ts', 'eslint-suppressions.json', ...GENERATED_IGNORES],
+    typescript: {
+      overrides: {
+        'ts/consistent-type-definitions': ['error', 'type'],
+        'ts/no-explicit-any': 'error',
+        'ts/no-redeclare': 'off',
+      },
+      erasableOnly: true,
+    },
+    test: {
+      overrides: {
+        'test/prefer-lowercase-title': 'off',
+      },
+    },
+    stylistic: {
+      overrides: {
+        'antfu/top-level-function': 'off',
+      },
+    },
+    e18e: false,
+    pnpm: false,
+  },
+  {
+    files: [...GLOB_TESTS, GLOB_MARKDOWN_CODE, 'vitest.setup.ts', 'test/i18n-mock.ts'],
     rules: {
-      // performance issue, and not used.
-      '@next/next/no-html-link-for-pages': 'off',
+      'react/no-unnecessary-use-prefix': 'off',
     },
   },
   {
-    ignores: [
-      '**/node_modules/*',
-      '**/node_modules/',
-      '**/dist/',
-      '**/build/',
-      '**/out/',
-      '**/.next/',
-      '**/public/*',
-      '**/*.json',
-    ],
-  },
-  {
-    // orignal config
+    plugins: {
+      'no-barrel-files': noBarrelFiles,
+    },
+    ignores: ['next/**'],
     rules: {
-      // orignal ts/no-var-requires
-      'ts/no-require-imports': 'off',
-      'no-console': 'off',
-      'react-hooks/exhaustive-deps': 'warn',
-      'react/display-name': 'off',
-      'array-callback-return': ['error', {
-        allowImplicit: false,
-        checkForEach: false,
-      }],
-
-      // copy from eslint-config-antfu 0.36.0
-      'camelcase': 'off',
-      'default-case-last': 'error',
-
-      // antfu use eslint-plugin-perfectionist to replace this
-      // will cause big change, so keep the original sort-imports
-      'sort-imports': [
+      'no-barrel-files/no-barrel-files': 'error',
+    },
+  },
+  markdownPreferences.configs.standard,
+  {
+    files: [GLOB_MARKDOWN],
+    plugins: { md },
+    rules: {
+      'md/no-url-trailing-slash': 'error',
+      'markdown-preferences/prefer-link-reference-definitions': [
         'error',
         {
-          ignoreCase: false,
-          ignoreDeclarationSort: true,
-          ignoreMemberSort: false,
-          memberSyntaxSortOrder: ['none', 'all', 'multiple', 'single'],
-          allowSeparatedGroups: false,
+          minLinks: 1,
         },
       ],
-
-      // antfu migrate to eslint-plugin-unused-imports
-      'unused-imports/no-unused-vars': 'warn',
-      'unused-imports/no-unused-imports': 'warn',
+      'markdown-preferences/ordered-list-marker-sequence': [
+        'error',
+        { increment: 'never' },
+      ],
+      'markdown-preferences/definitions-last': 'error',
+      'markdown-preferences/sort-definitions': 'error',
     },
-
-    languageOptions: {
-      globals: {
-        ...globals.browser,
-        ...globals.es2025,
-        ...globals.node,
-        React: 'readable',
-        JSX: 'readable',
+  },
+  {
+    rules: {
+      'node/prefer-global/process': 'off',
+    },
+  },
+  {
+    files: ['**/*.ts', '**/*.tsx'],
+    settings: {
+      'react-x': {
+        additionalStateHooks: '/^use\\w*State(?:s)?|useAtom$/u',
       },
     },
   },
   storybook.configs['flat/recommended'],
-  // need futher research
+  ...pluginQuery.configs['flat/recommended'],
+  // sonar
   {
     rules: {
-      // not exist in old version
-      'antfu/consistent-list-newline': 'off',
-      'node/prefer-global/process': 'off',
-      'node/prefer-global/buffer': 'off',
-      'node/no-callback-literal': 'off',
-
-      // useful, but big change
-      'unicorn/prefer-number-properties': 'warn',
-      'unicorn/no-new-array': 'warn',
+      // Manually pick rules that are actually useful and not slow.
+      // Or we can just drop the plugin entirely.
+    },
+    plugins: {
+      sonarjs: sonar,
     },
   },
-  // suppress error for `no-undef` rule
   {
-    files: GLOB_TESTS,
-    languageOptions: {
-      globals: {
-        ...globals.browser,
-        ...globals.es2021,
-        ...globals.node,
-        ...globals.jest,
+    files: [GLOB_TS, GLOB_TSX],
+    ignores: GLOB_TESTS,
+    plugins: {
+      tailwindcss,
+    },
+    rules: {
+      'tailwindcss/enforce-consistent-class-order': 'error',
+      'tailwindcss/no-duplicate-classes': 'error',
+      'tailwindcss/no-unnecessary-whitespace': 'error',
+      'tailwindcss/no-unknown-classes': 'warn',
+    },
+    settings: {
+      'better-tailwindcss': {
+        cwd: import.meta.dirname,
+        entryPoint: path.resolve(import.meta.dirname, './app/styles/globals.css'),
       },
     },
   },
-  tailwind.configs['flat/recommended'],
   {
+    name: 'dify/custom/setup',
+    plugins: {
+      dify,
+      hyoban,
+    },
+  },
+  {
+    files: ['**/*.tsx'],
     rules: {
-      // due to 1k lines of tailwind config, these rule have performance issue
-      'tailwindcss/no-contradicting-classname': 'off',
-      'tailwindcss/no-unnecessary-arbitrary-value': 'off',
-      'tailwindcss/enforces-shorthand': 'off',
-      'tailwindcss/no-custom-classname': 'off',
+      'hyoban/prefer-tailwind-icons': ['warn', HYOBAN_PREFER_TAILWIND_ICONS_OPTIONS],
+    },
+  },
+  {
+    files: ['i18n/**/*.json'],
+    rules: {
+      'sonarjs/max-lines': 'off',
+      'max-lines': 'off',
+      'jsonc/sort-keys': 'error',
 
-      // in the future
-      'tailwindcss/classnames-order': 'off',
+      'hyoban/i18n-flat-key': 'error',
+      'dify/no-extra-keys': 'error',
+      'dify/consistent-placeholders': 'error',
+    },
+  },
+  {
+    name: 'dify/restricted-imports',
+    files: [GLOB_TS, GLOB_TSX],
+    ignores: ['next/**'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: NEXT_PLATFORM_RESTRICTED_IMPORT_PATHS,
+        patterns: WEB_RESTRICTED_IMPORT_PATTERNS,
+      }],
     },
   },
 )

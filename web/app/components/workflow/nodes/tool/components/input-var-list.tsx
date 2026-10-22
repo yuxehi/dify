@@ -1,21 +1,24 @@
 'use client'
 import type { FC } from 'react'
-import React, { useCallback, useState } from 'react'
-import produce from 'immer'
-import { useTranslation } from 'react-i18next'
 import type { ToolVarInputs } from '../types'
-import { VarType as VarKindType } from '../types'
-import cn from '@/utils/classnames'
-import type { ValueSelector, Var } from '@/app/components/workflow/types'
 import type { CredentialFormSchema } from '@/app/components/header/account-setting/model-provider-page/declarations'
+import type { Tool } from '@/app/components/tools/types'
+import type { ToolWithProvider, ValueSelector, Var } from '@/app/components/workflow/types'
+import { cn } from '@langgenius/dify-ui/cn'
+import { noop } from 'es-toolkit/function'
+import { produce } from 'immer'
+import * as React from 'react'
+import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { FormTypeEnum } from '@/app/components/header/account-setting/model-provider-page/declarations'
 import { useLanguage } from '@/app/components/header/account-setting/model-provider-page/hooks'
-import VarReferencePicker from '@/app/components/workflow/nodes/_base/components/variable/var-reference-picker'
+import { AppSelector } from '@/app/components/plugins/plugin-detail-panel/app-selector'
+import ModelParameterModal from '@/app/components/plugins/plugin-detail-panel/model-selector'
 import Input from '@/app/components/workflow/nodes/_base/components/input-support-select-var'
+import VarReferencePicker from '@/app/components/workflow/nodes/_base/components/variable/var-reference-picker'
 import useAvailableVarList from '@/app/components/workflow/nodes/_base/hooks/use-available-var-list'
 import { VarType } from '@/app/components/workflow/types'
-import AppSelector from '@/app/components/plugins/plugin-detail-panel/app-selector'
-import ModelParameterModal from '@/app/components/plugins/plugin-detail-panel/model-selector'
+import { VarType as VarKindType } from '../types'
 
 type Props = {
   readOnly: boolean
@@ -26,6 +29,8 @@ type Props = {
   onOpen?: (index: number) => void
   isSupportConstantValue?: boolean
   filterVar?: (payload: Var, valueSelector: ValueSelector) => boolean
+  currentTool?: Tool
+  currentProvider?: ToolWithProvider
 }
 
 const InputVarList: FC<Props> = ({
@@ -34,9 +39,11 @@ const InputVarList: FC<Props> = ({
   schema,
   value,
   onChange,
-  onOpen = () => { },
+  onOpen = noop,
   isSupportConstantValue,
   filterVar,
+  currentTool,
+  currentProvider,
 }) => {
   const language = useLanguage()
   const { t } = useTranslation()
@@ -57,6 +64,8 @@ const InputVarList: FC<Props> = ({
       return 'ModelSelector'
     else if (type === FormTypeEnum.toolSelector)
       return 'ToolSelector'
+    else if (type === FormTypeEnum.dynamicSelect || type === FormTypeEnum.select)
+      return 'Select'
     else
       return 'String'
   }
@@ -148,8 +157,9 @@ const InputVarList: FC<Props> = ({
   const handleOpen = useCallback((index: number) => {
     return () => onOpen(index)
   }, [onOpen])
+
   return (
-    <div className='space-y-3'>
+    <div className="space-y-3">
       {
         schema.map((schema, index) => {
           const {
@@ -162,7 +172,8 @@ const InputVarList: FC<Props> = ({
           } = schema
           const varInput = value[variable]
           const isNumber = type === FormTypeEnum.textNumber
-          const isSelect = type === FormTypeEnum.select
+          const isDynamicSelect = type === FormTypeEnum.dynamicSelect
+          const isSelect = type === FormTypeEnum.select || type === FormTypeEnum.dynamicSelect
           const isFile = type === FormTypeEnum.file || type === FormTypeEnum.files
           const isAppSelector = type === FormTypeEnum.appSelector
           const isModelSelector = type === FormTypeEnum.modelSelector
@@ -170,23 +181,23 @@ const InputVarList: FC<Props> = ({
           const isString = !isNumber && !isSelect && !isFile && !isAppSelector && !isModelSelector
 
           return (
-            <div key={variable} className='space-y-1'>
-              <div className='flex items-center h-[18px] space-x-2'>
-                <span className='text-text-secondary code-sm-semibold'>{label[language] || label.en_US}</span>
-                <span className='text-text-tertiary system-xs-regular'>{paramType(type)}</span>
-                {required && <span className='text-util-colors-orange-dark-orange-dark-600 system-xs-regular'>Required</span>}
+            <div key={variable} className="space-y-1">
+              <div className="flex items-center space-x-2 leading-[18px]">
+                <span className="code-sm-semibold text-text-secondary">{label[language] || label.en_US}</span>
+                <span className="system-xs-regular text-text-tertiary">{paramType(type)}</span>
+                {required && <span className="system-xs-regular text-util-colors-orange-dark-orange-dark-600">Required</span>}
               </div>
               {isString && (
                 <Input
-                  className={cn(inputsIsFocus[variable] ? 'shadow-xs bg-gray-50 border-gray-300' : 'bg-gray-100 border-gray-100', 'rounded-lg px-3 py-[6px] border')}
+                  className={cn(inputsIsFocus[variable] ? 'border-components-input-border-active bg-components-input-bg-active shadow-xs' : 'border-components-input-border-hover bg-components-input-bg-normal', 'rounded-lg border px-3 py-[6px]')}
                   value={varInput?.value as string || ''}
                   onChange={handleMixedTypeChange(variable)}
                   readOnly={readOnly}
                   nodesOutputVars={availableVars}
                   availableNodes={availableNodesWithParent}
                   onFocusChange={handleInputFocus(variable)}
-                  placeholder={t('workflow.nodes.http.insertVarPlaceholder')!}
-                  placeholderClassName='!leading-[21px]'
+                  placeholder={t('nodes.http.insertVarPlaceholder', { ns: 'workflow' })!}
+                  placeholderClassName="leading-[21px]!"
                 />
               )}
               {(isNumber || isSelect) && (
@@ -197,11 +208,13 @@ const InputVarList: FC<Props> = ({
                   value={varInput?.type === VarKindType.constant ? (varInput?.value ?? '') : (varInput?.value ?? [])}
                   onChange={handleNotMixedTypeChange(variable)}
                   onOpen={handleOpen(index)}
-                  defaultVarKindType={varInput?.type || (isNumber ? VarKindType.constant : VarKindType.variable)}
+                  defaultVarKindType={varInput?.type || ((isNumber || isDynamicSelect) ? VarKindType.constant : VarKindType.variable)}
                   isSupportConstantValue={isSupportConstantValue}
                   filterVar={isNumber ? filterVar : undefined}
                   availableVars={isSelect ? availableVars : undefined}
                   schema={schema}
+                  currentTool={currentTool}
+                  currentProvider={currentProvider}
                 />
               )}
               {isFile && (
@@ -226,7 +239,7 @@ const InputVarList: FC<Props> = ({
               )}
               {isModelSelector && (
                 <ModelParameterModal
-                  popupClassName='!w-[387px]'
+                  popupClassName="w-[387px]!"
                   isAdvancedMode
                   isInWorkflow
                   value={varInput as any}
@@ -235,7 +248,7 @@ const InputVarList: FC<Props> = ({
                   scope={scope}
                 />
               )}
-              {tooltip && <div className='text-text-tertiary body-xs-regular'>{tooltip[language] || tooltip.en_US}</div>}
+              {tooltip && <div className="body-xs-regular text-text-tertiary">{tooltip[language] || tooltip.en_US}</div>}
             </div>
           )
         })

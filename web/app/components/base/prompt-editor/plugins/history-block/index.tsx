@@ -1,15 +1,16 @@
-import {
-  memo,
-  useEffect,
-} from 'react'
+import type { HistoryBlockType } from '../../types'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { mergeRegister } from '@lexical/utils'
+import { noop } from 'es-toolkit/function'
 import {
   $insertNodes,
   COMMAND_PRIORITY_EDITOR,
   createCommand,
 } from 'lexical'
-import { mergeRegister } from '@lexical/utils'
-import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
-import type { HistoryBlockType } from '../../types'
+import {
+  memo,
+  useEffect,
+} from 'react'
 import {
   $createHistoryBlockNode,
   HistoryBlockNode,
@@ -23,16 +24,9 @@ export type RoleName = {
   assistant: string
 }
 
-export type HistoryBlockProps = {
-  roleName: RoleName
-  onEditRole: () => void
-  onInsert?: () => void
-  onDelete?: () => void
-}
-
 const HistoryBlock = memo(({
   history = { user: '', assistant: '' },
-  onEditRole = () => {},
+  onEditRole = noop,
   onInsert,
   onDelete,
 }: HistoryBlockType) => {
@@ -75,5 +69,5 @@ const HistoryBlock = memo(({
 HistoryBlock.displayName = 'HistoryBlock'
 
 export { HistoryBlock }
-export { HistoryBlockNode } from './node'
 export { default as HistoryBlockReplacementBlock } from './history-block-replacement-block'
+export { HistoryBlockNode } from './node'

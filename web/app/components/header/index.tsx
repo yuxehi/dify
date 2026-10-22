@@ -1,118 +1,128 @@
 'use client'
-import {useCallback, useEffect, useState} from 'react'
-import Link from 'next/link'
-import {useBoolean} from 'ahooks'
-import {useSelectedLayoutSegment} from 'next/navigation'
-import {Bars3Icon} from '@heroicons/react/20/solid'
+import { useSuspenseQuery } from '@tanstack/react-query'
+import { useCallback } from 'react'
+import DifyLogo from '@/app/components/base/logo/dify-logo'
+import WorkplaceSelector from '@/app/components/header/account-dropdown/workplace-selector'
+import { ACCOUNT_SETTING_TAB } from '@/app/components/header/account-setting/constants'
+import { useAppContext } from '@/context/app-context'
+import { useModalContext } from '@/context/modal-context'
+import { useProviderContext } from '@/context/provider-context'
+import { WorkspaceProvider } from '@/context/workspace-context-provider'
+import useBreakpoints, { MediaType } from '@/hooks/use-breakpoints'
+import Link from '@/next/link'
+import { systemFeaturesQueryOptions } from '@/service/system-features'
+import { Plan } from '../billing/type'
 import AccountDropdown from './account-dropdown'
 import AppNav from './app-nav'
 import DatasetNav from './dataset-nav'
 import EnvNav from './env-nav'
-import PluginsNav from './plugins-nav'
 import ExploreNav from './explore-nav'
-import ToolsNav from './tools-nav'
-import {WorkspaceProvider} from '@/context/workspace-context'
-import {useAppContext} from '@/context/app-context'
-import LogoSite from '@/app/components/base/logo/logo-site'
-import WorkplaceSelector from '@/app/components/header/account-dropdown/workplace-selector'
-import useBreakpoints, {MediaType} from '@/hooks/use-breakpoints'
-import {useProviderContext} from '@/context/provider-context'
-import {useModalContext} from '@/context/modal-context'
-import PlanBadge from './plan-badge'
 import LicenseNav from './license-env'
-import {Plan} from '../billing/type'
-import {fetchMembers} from '@/service/common'
+import { PlanBadge } from './plan-badge'
+import PluginsNav from './plugins-nav'
+import StudentIdentity from './student-identity'
+import ToolsNav from './tools-nav'
 
 const navClassName = `
-  flex items-center relative mr-0 sm:mr-3 px-3 h-8 rounded-xl
+  flex items-center relative px-3 h-8 rounded-xl
   font-medium text-sm
   cursor-pointer
 `
 
 const Header = () => {
-  const {isCurrentWorkspaceOwner, isCurrentWorkspaceEditor, isCurrentWorkspaceDatasetOperator} = useAppContext()
-  const selectedSegment = useSelectedLayoutSegment()
+  const { isCurrentWorkspaceEditor, isCurrentWorkspaceDatasetOperator, isCurrentWorkspaceManager } = useAppContext()
   const media = useBreakpoints()
   const isMobile = media === MediaType.mobile
-  const [isShowNavMenu, {toggle, setFalse: hideNavMenu}] = useBoolean(false)
-  const {enableBilling, plan} = useProviderContext()
-  const {setShowPricingModal, setShowAccountSettingModal} = useModalContext()
+  const { enableBilling, plan } = useProviderContext()
+  const { setShowPricingModal, setShowAccountSettingModal } = useModalContext()
+  const { data: systemFeatures } = useSuspenseQuery(systemFeaturesQueryOptions())
   const isFreePlan = plan.type === Plan.sandbox
+  const isBrandingEnabled = systemFeatures.branding.enabled
   const handlePlanClick = useCallback(() => {
     if (isFreePlan)
       setShowPricingModal()
     else
-      setShowAccountSettingModal({payload: 'billing'})
+      setShowAccountSettingModal({ payload: ACCOUNT_SETTING_TAB.BILLING })
   }, [isFreePlan, setShowAccountSettingModal, setShowPricingModal])
 
-  useEffect(() => {
-    hideNavMenu()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSegment])
+  const renderLogo = () => (
+    <h1>
+      <Link href="/apps" className="flex h-8 shrink-0 items-center justify-center overflow-hidden px-0.5 indent-[-9999px] whitespace-nowrap">
+        {isBrandingEnabled && systemFeatures.branding.application_title ? systemFeatures.branding.application_title : 'Dify'}
+        {systemFeatures.branding.enabled && systemFeatures.branding.workspace_logo
+          ? (
+              <img
+                src={systemFeatures.branding.workspace_logo}
+                className="block h-[22px] w-auto object-contain"
+                alt="logo"
+              />
+            )
+          : <DifyLogo />}
+      </Link>
+    </h1>
+  )
+
+  if (isMobile) {
+    return (
+      <div className="">
+        <div className="flex items-center justify-between px-2">
+          <div className="flex items-center">
+            {/* Teaching students are editors in one fixed workspace. Hiding the
+                branding/workspace switcher keeps them inside the course scope;
+                owners/admins retain the complete official administration header. */}
+            {isCurrentWorkspaceManager && renderLogo()}
+            {isCurrentWorkspaceManager && <div className="mx-1.5 shrink-0 font-light text-divider-deep">/</div>}
+            {isCurrentWorkspaceManager && (
+              <WorkspaceProvider>
+                <WorkplaceSelector />
+              </WorkspaceProvider>
+            )}
+            {isCurrentWorkspaceManager && (enableBilling ? <PlanBadge allowHover sandboxAsUpgrade plan={plan.type} onClick={handlePlanClick} /> : <LicenseNav />)}
+          </div>
+          <div className="flex items-center">
+            <div className="mr-2">
+              {isCurrentWorkspaceManager && <PluginsNav />}
+            </div>
+            {isCurrentWorkspaceManager ? <AccountDropdown /> : <StudentIdentity isMobile />}
+          </div>
+        </div>
+        <div className="my-1 flex items-center justify-center space-x-1">
+          {isCurrentWorkspaceManager && !isCurrentWorkspaceDatasetOperator && <ExploreNav className={navClassName} />}
+          {!isCurrentWorkspaceDatasetOperator && <AppNav />}
+          {(isCurrentWorkspaceEditor || isCurrentWorkspaceDatasetOperator) && <DatasetNav />}
+          {isCurrentWorkspaceManager && !isCurrentWorkspaceDatasetOperator && <ToolsNav className={navClassName} />}
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className='flex flex-1 items-center justify-between px-4 bg-background-body'>
-      <div className='flex items-center'>
-        {isMobile && <div
-          className='flex items-center justify-center h-8 w-8 cursor-pointer'
-          onClick={toggle}
-        >
-          <Bars3Icon className="h-4 w-4 text-gray-500"/>
-        </div>}
-        {
-          isCurrentWorkspaceOwner && !isMobile
-          && <div className='flex w-64 p-2 pl-3 gap-1.5 items-center shrink-0 self-stretch'>
-            <Link href="/apps" className='flex w-8 h-8 items-center justify-center gap-2 shrink-0'>
-              <LogoSite className='object-contain'/>
-            </Link>
-            <div className='font-light text-divider-deep'>/</div>
-            <div className='flex items-center gap-0.5'>
-              <WorkspaceProvider>
-                <WorkplaceSelector/>
-              </WorkspaceProvider>
-              {enableBilling ? <PlanBadge allowHover sandboxAsUpgrade plan={plan.type} onClick={handlePlanClick}/> :
-                <LicenseNav/>}
-            </div>
-          </div>
-        }
+    <div className="flex h-[56px] items-center max-[1024px]:h-auto max-[1024px]:flex-wrap max-[1024px]:py-1">
+      <div className="flex min-w-0 flex-1 items-center pr-2 pl-3 min-[1280px]:pr-3 max-[1024px]:order-1">
+        {isCurrentWorkspaceManager && renderLogo()}
+        {isCurrentWorkspaceManager && <div className="mx-1.5 shrink-0 font-light text-divider-deep">/</div>}
+        {isCurrentWorkspaceManager && (
+          <WorkspaceProvider>
+            <WorkplaceSelector />
+          </WorkspaceProvider>
+        )}
+        {isCurrentWorkspaceManager && (enableBilling ? <PlanBadge allowHover sandboxAsUpgrade plan={plan.type} onClick={handlePlanClick} /> : <LicenseNav />)}
       </div>
-      {isMobile && (
-        <div className='flex'>
-          <Link href="/apps" className='flex items-center mr-4'>
-            <LogoSite/>
-          </Link>
-          <div className='font-light text-divider-deep'>/</div>
-          {enableBilling ? <PlanBadge allowHover sandboxAsUpgrade plan={plan.type} onClick={handlePlanClick}/> :
-            <LicenseNav/>}
+      {/* Preserve complete navigation labels on narrow desktop/tablet widths
+          by giving navigation its own row instead of falling back to icons. */}
+      <div className="flex items-center space-x-2 max-[1024px]:order-3 max-[1024px]:w-full max-[1024px]:justify-center">
+        {isCurrentWorkspaceManager && !isCurrentWorkspaceDatasetOperator && <ExploreNav className={navClassName} />}
+        {!isCurrentWorkspaceDatasetOperator && <AppNav />}
+        {(isCurrentWorkspaceEditor || isCurrentWorkspaceDatasetOperator) && <DatasetNav />}
+        {isCurrentWorkspaceManager && !isCurrentWorkspaceDatasetOperator && <ToolsNav className={navClassName} />}
+      </div>
+      <div className="flex min-w-0 flex-1 items-center justify-end pr-3 pl-2 min-[1280px]:pl-3 max-[1024px]:order-2">
+        {isCurrentWorkspaceManager && <EnvNav />}
+        <div className="mr-2">
+          {isCurrentWorkspaceManager && <PluginsNav />}
         </div>
-      )}
-      {
-        !isMobile && (
-          <div className='flex items-center'>
-            {isCurrentWorkspaceOwner && !isCurrentWorkspaceDatasetOperator && <ExploreNav className={navClassName}/>}
-            {!isCurrentWorkspaceDatasetOperator && <AppNav/>}
-            {(isCurrentWorkspaceEditor || isCurrentWorkspaceDatasetOperator) && <DatasetNav/>}
-            {isCurrentWorkspaceOwner && !isCurrentWorkspaceDatasetOperator && <ToolsNav className={navClassName}/>}
-          </div>
-        )
-      }
-      <div className='flex items-center shrink-0'>
-        {isCurrentWorkspaceOwner && <EnvNav/>}
-        {isCurrentWorkspaceOwner && <div className='mr-3'>
-          <PluginsNav/>
-        </div>}
-        <AccountDropdown isMobile={isMobile}/>
+        {isCurrentWorkspaceManager ? <AccountDropdown /> : <StudentIdentity />}
       </div>
-      {
-        (isMobile && isShowNavMenu) && (
-          <div className='w-full flex flex-col p-2 gap-y-1'>
-            {isCurrentWorkspaceOwner && !isCurrentWorkspaceDatasetOperator && <ExploreNav className={navClassName}/>}
-            {!isCurrentWorkspaceDatasetOperator && <AppNav/>}
-            {(isCurrentWorkspaceEditor || isCurrentWorkspaceDatasetOperator) && <DatasetNav/>}
-            {isCurrentWorkspaceOwner && !isCurrentWorkspaceDatasetOperator && <ToolsNav className={navClassName}/>}
-          </div>
-        )
-      }
     </div>
   )
 }

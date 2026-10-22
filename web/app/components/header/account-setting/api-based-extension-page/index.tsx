@@ -1,27 +1,41 @@
+import type { ApiBasedExtensionResponse } from '@dify/contracts/api/console/api-based-extension/types.gen'
+import { Button } from '@langgenius/dify-ui/button'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import useSWR from 'swr'
-import {
-  RiAddLine,
-} from '@remixicon/react'
-import Item from './item'
+import { useApiBasedExtensions } from '@/service/use-common'
 import Empty from './empty'
-import Button from '@/app/components/base/button'
-import { useModalContext } from '@/context/modal-context'
-import { fetchApiBasedExtensionList } from '@/service/common'
+import Item from './item'
+import ApiBasedExtensionModal from './modal'
+
+type ApiBasedExtensionDialogState = {
+  extension: Partial<ApiBasedExtensionResponse>
+  onSave: () => void
+} | null
 
 const ApiBasedExtensionPage = () => {
   const { t } = useTranslation()
-  const { setShowApiBasedExtensionModal } = useModalContext()
-  const { data, mutate, isLoading } = useSWR(
-    '/api-based-extension',
-    fetchApiBasedExtensionList,
-  )
+  const { data, refetch: mutate, isPending: isLoading } = useApiBasedExtensions()
+  const [dialogState, setDialogState] = useState<ApiBasedExtensionDialogState>(null)
 
   const handleOpenApiBasedExtensionModal = () => {
-    setShowApiBasedExtensionModal({
-      payload: {},
-      onSaveCallback: () => mutate(),
+    setDialogState({
+      extension: {},
+      onSave: () => mutate(),
     })
+  }
+  const handleEditApiBasedExtension = (extension: ApiBasedExtensionResponse) => {
+    setDialogState({
+      extension,
+      onSave: () => mutate(),
+    })
+  }
+  const handleSaveApiBasedExtension = () => {
+    dialogState?.onSave()
+    setDialogState(null)
+  }
+  const handleApiBasedExtensionModalOpenChange = (open: boolean) => {
+    if (!open)
+      setDialogState(null)
   }
 
   return (
@@ -37,19 +51,30 @@ const ApiBasedExtensionPage = () => {
             <Item
               key={item.id}
               data={item}
+              onEdit={handleEditApiBasedExtension}
               onUpdate={() => mutate()}
             />
           ))
         )
       }
       <Button
-        variant='secondary'
-        className='w-full'
+        variant="secondary"
+        className="w-full"
         onClick={handleOpenApiBasedExtensionModal}
       >
-        <RiAddLine className='mr-1 w-4 h-4' />
-        {t('common.apiBasedExtension.add')}
+        <span className="mr-1 i-ri-add-line h-4 w-4" aria-hidden="true" />
+        {t('apiBasedExtension.add', { ns: 'common' })}
       </Button>
+      {
+        dialogState && (
+          <ApiBasedExtensionModal
+            open
+            extension={dialogState.extension}
+            onOpenChange={handleApiBasedExtensionModalOpenChange}
+            onSave={handleSaveApiBasedExtension}
+          />
+        )
+      }
     </div>
   )
 }

@@ -1,126 +1,192 @@
 'use client'
+import type { InvitationResult, Member } from '@/models/common'
+import { Avatar } from '@langgenius/dify-ui/avatar'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@langgenius/dify-ui/tooltip'
+import { useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import useSWR from 'swr'
-import dayjs from 'dayjs'
-import 'dayjs/locale/zh-cn'
-import relativeTime from 'dayjs/plugin/relativeTime'
-import { useContext } from 'use-context-selector'
-import { RiUserAddLine } from '@remixicon/react'
 import { useTranslation } from 'react-i18next'
+import Pagination from '@/app/components/base/pagination'
+import { NUM_INFINITE } from '@/app/components/billing/config'
+import { Plan } from '@/app/components/billing/type'
+import UpgradeBtn from '@/app/components/billing/upgrade-btn'
+import { useAppContext } from '@/context/app-context'
+import { useLocale } from '@/context/i18n'
+import { useProviderContext } from '@/context/provider-context'
+import { useFormatTimeFromNow } from '@/hooks/use-format-time-from-now'
+import { LanguagesSupported } from '@/i18n-config/language'
+import { systemFeaturesQueryOptions } from '@/service/system-features'
+import { useMembers } from '@/service/use-common'
+import EditWorkspaceModal from './edit-workspace-modal'
+import InviteButton from './invite-button'
 import InviteModal from './invite-modal'
 import InvitedModal from './invited-modal'
 import Operation from './operation'
-import { fetchMembers } from '@/service/common'
-import I18n from '@/context/i18n'
-import { useAppContext } from '@/context/app-context'
-import Avatar from '@/app/components/base/avatar'
-import type { InvitationResult } from '@/models/common'
-import LogoEmbeddedChatHeader from '@/app/components/base/logo/logo-embedded-chat-header'
-import { useProviderContext } from '@/context/provider-context'
-import { Plan } from '@/app/components/billing/type'
-import Button from '@/app/components/base/button'
-import UpgradeBtn from '@/app/components/billing/upgrade-btn'
-import { NUM_INFINITE } from '@/app/components/billing/config'
-import { LanguagesSupported } from '@/i18n/language'
-import cn from '@/utils/classnames'
-dayjs.extend(relativeTime)
+import TransferOwnership from './operation/transfer-ownership'
+import TransferOwnershipModal from './transfer-ownership-modal'
+
+// Keep the existing members API contract intact. Pagination is intentionally
+// local to this administration page so other member selectors still receive
+// the complete workspace member list.
+const MEMBERS_PER_PAGE = 20
 
 const MembersPage = () => {
   const { t } = useTranslation()
   const RoleMap = {
-    owner: t('common.members.owner'),
-    admin: t('common.members.admin'),
-    editor: t('common.members.editor'),
-    dataset_operator: t('common.members.datasetOperator'),
-    normal: t('common.members.normal'),
+    owner: t('members.owner', { ns: 'common' }),
+    admin: t('members.admin', { ns: 'common' }),
+    editor: t('members.editor', { ns: 'common' }),
+    dataset_operator: t('members.datasetOperator', { ns: 'common' }),
+    normal: t('members.normal', { ns: 'common' }),
   }
-  const { locale } = useContext(I18n)
+  const locale = useLocale()
 
-  const { userProfile, currentWorkspace, isCurrentWorkspaceOwner, isCurrentWorkspaceManager, systemFeatures } = useAppContext()
-  const { data, mutate } = useSWR(
-    {
-      url: '/workspaces/current/members',
-      params: {},
-    },
-    fetchMembers,
-  )
+  const { userProfile, currentWorkspace, isCurrentWorkspaceOwner, isCurrentWorkspaceManager } = useAppContext()
+  const { data, refetch } = useMembers()
+  const { data: systemFeatures } = useSuspenseQuery(systemFeaturesQueryOptions())
+  const { formatTimeFromNow } = useFormatTimeFromNow()
   const [inviteModalVisible, setInviteModalVisible] = useState(false)
   const [invitationResults, setInvitationResults] = useState<InvitationResult[]>([])
   const [invitedModalVisible, setInvitedModalVisible] = useState(false)
   const accounts = data?.accounts || []
-  const { plan, enableBilling } = useProviderContext()
+  const [currentPage, setCurrentPage] = useState(0)
+  const totalPages = Math.max(1, Math.ceil(accounts.length / MEMBERS_PER_PAGE))
+  // A deletion on the last page can reduce the page count after refetching.
+  // Clamp for rendering without adding a state-setting effect.
+  const visiblePage = Math.min(currentPage, totalPages - 1)
+  const visibleAccounts = accounts.slice(
+    visiblePage * MEMBERS_PER_PAGE,
+    (visiblePage + 1) * MEMBERS_PER_PAGE,
+  )
+  const { plan, enableBilling, isAllowTransferWorkspace } = useProviderContext()
   const isNotUnlimitedMemberPlan = enableBilling && plan.type !== Plan.team && plan.type !== Plan.enterprise
   const isMemberFull = enableBilling && isNotUnlimitedMemberPlan && accounts.length >= plan.total.teamMembers
+  const [editWorkspaceModalVisible, setEditWorkspaceModalVisible] = useState(false)
+  const [showTransferOwnershipModal, setShowTransferOwnershipModal] = useState(false)
+  const canOperateMember = (account: Member) => {
+    if (isCurrentWorkspaceOwner)
+      return account.role !== 'owner'
+
+    return currentWorkspace.role === 'admin' && account.role !== 'owner' && account.email !== userProfile.email
+  }
 
   return (
     <>
-      <div className='flex flex-col'>
-        <div className='flex items-center mb-4 p-3 pr-5 gap-3 bg-gradient-to-r from-background-gradient-bg-fill-chat-bg-2 to-background-gradient-bg-fill-chat-bg-1 rounded-xl border-t-[0.5px] border-l-[0.5px] border-divider-subtle'>
-          <LogoEmbeddedChatHeader className='!w-12 !h-12' />
-          <div className='grow'>
-            <div className='system-md-semibold text-text-secondary'>{currentWorkspace?.name}</div>
-            {enableBilling && (
-              <div className='mt-1 system-xs-medium text-text-tertiary'>
-                {isNotUnlimitedMemberPlan
-                  ? (
-                    <div className='flex space-x-1'>
-                      <div>{t('billing.plansCommon.member')}{locale !== LanguagesSupported[1] && accounts.length > 1 && 's'}</div>
-                      <div className=''>{accounts.length}</div>
+      <div className="flex flex-col">
+        <div className="mb-4 flex items-center gap-3 rounded-xl border-t-[0.5px] border-l-[0.5px] border-divider-subtle bg-linear-to-r from-background-gradient-bg-fill-chat-bg-2 to-background-gradient-bg-fill-chat-bg-1 p-3 pr-5">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-components-icon-bg-blue-solid text-[20px]">
+            <span className="bg-linear-to-r from-components-avatar-shape-fill-stop-0 to-components-avatar-shape-fill-stop-100 bg-clip-text font-semibold text-shadow-shadow-1 uppercase opacity-90">{currentWorkspace?.name[0]?.toLocaleUpperCase()}</span>
+          </div>
+          <div className="grow">
+            <div className="flex items-center gap-1 system-md-semibold text-text-secondary">
+              <span>{currentWorkspace?.name}</span>
+              {isCurrentWorkspaceOwner && (
+                <span>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={(
+                        <button
+                          type="button"
+                          aria-label={t('account.editWorkspaceInfo', { ns: 'common' })}
+                          className="cursor-pointer rounded-md border-none bg-transparent p-1 hover:bg-black/5"
+                          onClick={() => {
+                            setEditWorkspaceModalVisible(true)
+                          }}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="i-ri-pencil-line h-4 w-4 text-text-tertiary"
+                          />
+                        </button>
+                      )}
+                    />
+                    <TooltipContent>
+                      {t('account.editWorkspaceInfo', { ns: 'common' })}
+                    </TooltipContent>
+                  </Tooltip>
+                </span>
+              )}
+            </div>
+            <div className="mt-1 system-xs-medium text-text-tertiary">
+              {enableBilling && isNotUnlimitedMemberPlan
+                ? (
+                    <div className="flex space-x-1">
+                      <div>
+                        {t('plansCommon.member', { ns: 'billing' })}
+                        {locale !== LanguagesSupported[1] && accounts.length > 1 && 's'}
+                      </div>
+                      <div className="">{accounts.length}</div>
                       <div>/</div>
-                      <div>{plan.total.teamMembers === NUM_INFINITE ? t('billing.plansCommon.unlimited') : plan.total.teamMembers}</div>
+                      <div>{plan.total.teamMembers === NUM_INFINITE ? t('plansCommon.unlimited', { ns: 'billing' }) : plan.total.teamMembers}</div>
                     </div>
                   )
-                  : (
-                    <div className='flex space-x-1'>
+                : (
+                    <div className="flex space-x-1">
                       <div>{accounts.length}</div>
-                      <div>{t('billing.plansCommon.memberAfter')}{locale !== LanguagesSupported[1] && accounts.length > 1 && 's'}</div>
+                      <div>
+                        {t('plansCommon.memberAfter', { ns: 'billing' })}
+                        {locale !== LanguagesSupported[1] && accounts.length > 1 && 's'}
+                      </div>
                     </div>
                   )}
-              </div>
-            )}
+            </div>
 
           </div>
           {isMemberFull && (
-            <UpgradeBtn className='mr-2' loc='member-invite' />
+            <UpgradeBtn className="mr-2" loc="member-invite" />
           )}
-          <Button variant='primary' className={cn('shrink-0')} disabled={!isCurrentWorkspaceManager || isMemberFull} onClick={() => setInviteModalVisible(true)}>
-            <RiUserAddLine className='w-4 h-4 mr-1' />
-            {t('common.members.invite')}
-          </Button>
-        </div>
-        <div className='overflow-visible lg:overflow-visible'>
-          <div className='flex items-center py-[7px] border-b border-divider-regular min-w-[480px]'>
-            <div className='grow px-3 system-xs-medium-uppercase text-text-tertiary'>{t('common.members.name')}</div>
-            <div className='shrink-0 w-[104px] system-xs-medium-uppercase text-text-tertiary'>{t('common.members.lastActive')}</div>
-            <div className='shrink-0 w-[96px] px-3 system-xs-medium-uppercase text-text-tertiary'>{t('common.members.role')}</div>
+          <div className="shrink-0">
+            {isCurrentWorkspaceManager && <InviteButton disabled={isMemberFull} onClick={() => setInviteModalVisible(true)} />}
           </div>
-          <div className='min-w-[480px] relative'>
+        </div>
+        <div className="overflow-visible lg:overflow-visible">
+          <div className="flex min-w-[480px] items-center border-b border-divider-regular py-[7px]">
+            <div className="grow px-3 system-xs-medium-uppercase text-text-tertiary">{t('members.name', { ns: 'common' })}</div>
+            <div className="w-[104px] shrink-0 system-xs-medium-uppercase text-text-tertiary">{t('members.lastActive', { ns: 'common' })}</div>
+            <div className="w-[96px] shrink-0 px-3 system-xs-medium-uppercase text-text-tertiary">{t('members.role', { ns: 'common' })}</div>
+          </div>
+          <div className="relative min-w-[480px]">
             {
-              accounts.map(account => (
-                <div key={account.id} className='flex border-b border-divider-subtle'>
-                  <div className='grow flex items-center py-2 px-3'>
-                    <Avatar avatar={account.avatar_url} size={24} className='mr-2' name={account.name} />
-                    <div className=''>
-                      <div className='text-text-secondary system-sm-medium'>
+              visibleAccounts.map(account => (
+                <div key={account.id} className="flex border-b border-divider-subtle">
+                  <div className="flex grow items-center px-3 py-2">
+                    <Avatar avatar={account.avatar_url} size="sm" className="mr-2" name={account.name} />
+                    <div className="">
+                      <div className="system-sm-medium text-text-secondary">
                         {account.name}
-                        {account.status === 'pending' && <span className='ml-1 system-xs-medium text-text-warning'>{t('common.members.pending')}</span>}
-                        {userProfile.email === account.email && <span className='system-xs-regular text-text-tertiary'>{t('common.members.you')}</span>}
+                        {account.status === 'pending' && <span className="ml-1 system-xs-medium text-text-warning">{t('members.pending', { ns: 'common' })}</span>}
+                        {userProfile.email === account.email && <span className="system-xs-regular text-text-tertiary">{t('members.you', { ns: 'common' })}</span>}
                       </div>
-                      <div className='text-text-tertiary system-xs-regular'>{account.email}</div>
+                      <div className="system-xs-regular text-text-tertiary">{account.email}</div>
                     </div>
                   </div>
-                  <div className='shrink-0 flex items-center w-[104px] py-2 system-sm-regular text-text-secondary'>{dayjs(Number((account.last_active_at || account.created_at)) * 1000).locale(locale === 'zh-Hans' ? 'zh-cn' : 'en').fromNow()}</div>
-                  <div className='shrink-0 w-[96px] flex items-center'>
-                    {
-                      ((isCurrentWorkspaceOwner && account.role !== 'owner') || (isCurrentWorkspaceManager && !['owner', 'admin'].includes(account.role)))
-                        ? <Operation member={account} operatorRole={currentWorkspace.role} onOperate={mutate} />
-                        : <div className='px-3 system-sm-regular text-text-secondary'>{RoleMap[account.role] || RoleMap.normal}</div>
-                    }
+                  <div className="flex w-[104px] shrink-0 items-center py-2 system-sm-regular text-text-secondary">{formatTimeFromNow(Number((account.last_active_at || account.created_at)) * 1000)}</div>
+                  <div className="flex w-[96px] shrink-0 items-center">
+                    {isCurrentWorkspaceOwner && account.role === 'owner' && isAllowTransferWorkspace && (
+                      <TransferOwnership onOperate={() => setShowTransferOwnershipModal(true)}></TransferOwnership>
+                    )}
+                    {isCurrentWorkspaceOwner && account.role === 'owner' && !isAllowTransferWorkspace && (
+                      <div className="px-3 system-sm-regular text-text-secondary">{RoleMap[account.role] || RoleMap.normal}</div>
+                    )}
+                    {account.role !== 'owner' && canOperateMember(account) && (
+                      <Operation member={account} operatorRole={currentWorkspace.role} onOperate={refetch} />
+                    )}
+                    {account.role !== 'owner' && !canOperateMember(account) && (
+                      <div className="px-3 system-sm-regular text-text-secondary">{RoleMap[account.role] || RoleMap.normal}</div>
+                    )}
                   </div>
                 </div>
               ))
             }
           </div>
+          {accounts.length > MEMBERS_PER_PAGE && (
+            <Pagination
+              className="px-0 pt-4 pb-0"
+              current={visiblePage}
+              limit={MEMBERS_PER_PAGE}
+              total={accounts.length}
+              onChange={setCurrentPage}
+            />
+          )}
         </div>
       </div>
       {
@@ -131,7 +197,7 @@ const MembersPage = () => {
             onSend={(invitationResults) => {
               setInvitedModalVisible(true)
               setInvitationResults(invitationResults)
-              mutate()
+              refetch()
             }}
           />
         )
@@ -144,6 +210,19 @@ const MembersPage = () => {
           />
         )
       }
+      {
+        editWorkspaceModalVisible && (
+          <EditWorkspaceModal
+            onCancel={() => setEditWorkspaceModalVisible(false)}
+          />
+        )
+      }
+      {showTransferOwnershipModal && (
+        <TransferOwnershipModal
+          show={showTransferOwnershipModal}
+          onClose={() => setShowTransferOwnershipModal(false)}
+        />
+      )}
     </>
   )
 }

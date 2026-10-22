@@ -1,109 +1,164 @@
 import type { FC } from 'react'
-import { memo } from 'react'
-import { useNodes } from 'reactflow'
+import type { VersionHistoryPanelProps } from '@/app/components/workflow/panel/version-history-panel'
+import { cn } from '@langgenius/dify-ui/cn'
+import { memo, useEffect, useRef } from 'react'
+import { useStore as useReactflow } from 'reactflow'
 import { useShallow } from 'zustand/react/shallow'
-import type { CommonNodeType } from '../types'
+import dynamic from '@/next/dynamic'
 import { Panel as NodePanel } from '../nodes'
 import { useStore } from '../store'
-import {
-  useIsChatMode,
-} from '../hooks'
-import DebugAndPreview from './debug-and-preview'
-import Record from './record'
-import WorkflowPreview from './workflow-preview'
-import ChatRecord from './chat-record'
-import ChatVariablePanel from './chat-variable-panel'
 import EnvPanel from './env-panel'
-import GlobalVariablePanel from './global-variable-panel'
-import VersionHistoryPanel from './version-history-panel'
-import cn from '@/utils/classnames'
-import { useStore as useAppStore } from '@/app/components/app/store'
-import MessageLogModal from '@/app/components/base/message-log-modal'
 
-const Panel: FC = () => {
-  const nodes = useNodes<CommonNodeType>()
-  const isChatMode = useIsChatMode()
-  const selectedNode = nodes.find(node => node.data.selected)
-  const historyWorkflowData = useStore(s => s.historyWorkflowData)
-  const showDebugAndPreviewPanel = useStore(s => s.showDebugAndPreviewPanel)
+const VersionHistoryPanel = dynamic(() => import('@/app/components/workflow/panel/version-history-panel'), {
+  ssr: false,
+})
+
+export type PanelProps = {
+  components?: {
+    left?: React.ReactNode
+    right?: React.ReactNode
+  }
+  versionHistoryPanelProps?: VersionHistoryPanelProps
+}
+
+/**
+ * Reference MDN standard implementation：https://developer.mozilla.org/zh-CN/docs/Web/API/ResizeObserverEntry/borderBoxSize
+ */
+const getEntryWidth = (entry: ResizeObserverEntry, element: HTMLElement): number => {
+  if (entry.borderBoxSize?.length > 0)
+    return entry.borderBoxSize[0]!.inlineSize
+
+  if (entry.contentRect.width > 0)
+    return entry.contentRect.width
+
+  return element.getBoundingClientRect().width
+}
+
+const useResizeObserver = (callback: (width: number) => void) => {
+  const elementRef = useRef<HTMLDivElement>(null)
+  const widthRef = useRef<number | undefined>(undefined)
+  const animationFrameRef = useRef<number | undefined>(undefined)
+
+  useEffect(() => {
+    const element = elementRef.current
+    if (!element)
+      return
+
+    widthRef.current = undefined
+
+    const updateWidth = (width: number) => {
+      if (widthRef.current === width)
+        return
+
+      widthRef.current = width
+      if (animationFrameRef.current)
+        cancelAnimationFrame(animationFrameRef.current)
+
+      animationFrameRef.current = requestAnimationFrame(() => {
+        animationFrameRef.current = undefined
+        callback(width)
+      })
+    }
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries)
+        updateWidth(getEntryWidth(entry, element))
+    })
+
+    resizeObserver.observe(element)
+
+    const initialWidth = element.getBoundingClientRect().width
+    updateWidth(initialWidth)
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = undefined
+      }
+      resizeObserver.disconnect()
+    }
+  }, [callback])
+  return elementRef
+}
+
+const Panel: FC<PanelProps> = ({
+  components,
+  versionHistoryPanelProps,
+}) => {
+  const selectedNode = useReactflow(useShallow((s) => {
+    const nodes = s.getNodes()
+    const currentNode = nodes.find(node => node.data.selected)
+
+    if (currentNode) {
+      return {
+        id: currentNode.id,
+        type: currentNode.type,
+        data: currentNode.data,
+      }
+    }
+  }))
   const showEnvPanel = useStore(s => s.showEnvPanel)
-  const showChatVariablePanel = useStore(s => s.showChatVariablePanel)
-  const showGlobalVariablePanel = useStore(s => s.showGlobalVariablePanel)
-  const showWorkflowVersionHistoryPanel = useStore(s => s.showWorkflowVersionHistoryPanel)
   const isRestoring = useStore(s => s.isRestoring)
-  const { currentLogItem, setCurrentLogItem, showMessageLogModal, setShowMessageLogModal, currentLogModalActiveTab } = useAppStore(useShallow(state => ({
-    currentLogItem: state.currentLogItem,
-    setCurrentLogItem: state.setCurrentLogItem,
-    showMessageLogModal: state.showMessageLogModal,
-    setShowMessageLogModal: state.setShowMessageLogModal,
-    currentLogModalActiveTab: state.currentLogModalActiveTab,
-  })))
+  const showWorkflowVersionHistoryPanel = useStore(s => s.showWorkflowVersionHistoryPanel)
+
+  // widths used for adaptive layout
+  const workflowCanvasWidth = useStore(s => s.workflowCanvasWidth)
+  const previewPanelWidth = useStore(s => s.previewPanelWidth)
+  const setPreviewPanelWidth = useStore(s => s.setPreviewPanelWidth)
+
+  // When a node is selected and the NodePanel appears, if the current width
+  // of preview/otherPanel is too large, it may result in the total width of
+  // the two panels exceeding the workflowCanvasWidth, causing the NodePanel
+  // to be pushed out. Here we check and, if necessary, reduce the previewPanelWidth
+  // to "workflowCanvasWidth - 400 (minimum NodePanel width) - 400 (minimum canvas space)",
+  // while still ensuring that previewPanelWidth ≥ 400.
+
+  useEffect(() => {
+    if (!selectedNode || !workflowCanvasWidth)
+      return
+
+    const reservedCanvasWidth = 400 // Reserve the minimum visible width for the canvas
+    const minNodePanelWidth = 400
+    const maxAllowed = Math.max(workflowCanvasWidth - reservedCanvasWidth - minNodePanelWidth, 400)
+
+    if (previewPanelWidth > maxAllowed)
+      setPreviewPanelWidth(maxAllowed)
+  }, [selectedNode, workflowCanvasWidth, previewPanelWidth, setPreviewPanelWidth])
+
+  const setRightPanelWidth = useStore(s => s.setRightPanelWidth)
+  const setOtherPanelWidth = useStore(s => s.setOtherPanelWidth)
+
+  const rightPanelRef = useResizeObserver(setRightPanelWidth)
+
+  const otherPanelRef = useResizeObserver(setOtherPanelWidth)
 
   return (
     <div
+      ref={rightPanelRef}
       tabIndex={-1}
-      className={cn('absolute top-14 right-0 bottom-2 flex z-10 outline-none')}
+      className={cn('absolute top-14 right-0 bottom-1 z-10 flex outline-hidden')}
       key={`${isRestoring}`}
     >
-      {
-        showMessageLogModal && (
-          <MessageLogModal
-            fixedWidth
-            width={400}
-            currentLogItem={currentLogItem}
-            onCancel={() => {
-              setCurrentLogItem()
-              setShowMessageLogModal(false)
-            }}
-            defaultTab={currentLogModalActiveTab}
-          />
-        )
-      }
-      {
-        !!selectedNode && (
-          <NodePanel {...selectedNode!} />
-        )
-      }
-      {
-        historyWorkflowData && !isChatMode && (
-          <Record />
-        )
-      }
-      {
-        historyWorkflowData && isChatMode && (
-          <ChatRecord />
-        )
-      }
-      {
-        showDebugAndPreviewPanel && isChatMode && (
-          <DebugAndPreview />
-        )
-      }
-      {
-        showDebugAndPreviewPanel && !isChatMode && (
-          <WorkflowPreview />
-        )
-      }
-      {
-        showEnvPanel && (
-          <EnvPanel />
-        )
-      }
-      {
-        showChatVariablePanel && (
-          <ChatVariablePanel />
-        )
-      }
-      {
-        showGlobalVariablePanel && (
-          <GlobalVariablePanel />
-        )
-      }
-      {
-        showWorkflowVersionHistoryPanel && (
-          <VersionHistoryPanel/>
-        )
-      }
+      {components?.left}
+      {!!selectedNode && <NodePanel {...selectedNode} />}
+      <div
+        className="relative"
+        ref={otherPanelRef}
+      >
+        {
+          components?.right
+        }
+        {
+          showWorkflowVersionHistoryPanel && versionHistoryPanelProps && (
+            <VersionHistoryPanel {...versionHistoryPanelProps} />
+          )
+        }
+        {
+          showEnvPanel && (
+            <EnvPanel />
+          )
+        }
+      </div>
     </div>
   )
 }

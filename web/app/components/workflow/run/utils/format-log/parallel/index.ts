@@ -1,5 +1,14 @@
-import { BlockEnum } from '@/app/components/workflow/types'
 import type { NodeTracing } from '@/types/workflow'
+import { BlockEnum } from '@/app/components/workflow/types'
+
+function findLastIndex<T>(list: T[], predicate: (item: T) => boolean): number {
+  for (let index = list.length - 1; index >= 0; index--) {
+    if (predicate(list[index]!))
+      return index
+  }
+
+  return -1
+}
 
 function printNodeStructure(node: NodeTracing, depth: number) {
   const indent = '  '.repeat(depth)
@@ -12,11 +21,13 @@ function printNodeStructure(node: NodeTracing, depth: number) {
 }
 
 function addTitle({
-  list, depth, belongParallelIndexInfo,
+  list,
+  depth,
+  belongParallelIndexInfo,
 }: {
-  list: NodeTracing[],
-  depth: number,
-  belongParallelIndexInfo?: string,
+  list: NodeTracing[]
+  depth: number
+  belongParallelIndexInfo?: string
 }, t: any) {
   let branchIndex = 0
   const hasMoreThanOneParallel = list.filter(node => node.parallelDetail?.isParallelStartNode).length > 1
@@ -42,7 +53,7 @@ function addTitle({
 
     if (isParallelStartNode) {
       node.parallelDetail!.isParallelStartNode = true
-      node.parallelDetail!.parallelTitle = `${t('workflow.common.parallel')}-${parallelIndexInfo}`
+      node.parallelDetail!.parallelTitle = `${t('common.parallel', { ns: 'workflow' })}-${parallelIndexInfo}`
     }
 
     const isBrachStartNode = parallel_start_node_id === node.node_id
@@ -55,7 +66,7 @@ function addTitle({
         }
       }
 
-      node.parallelDetail!.branchTitle = `${t('workflow.common.branch')}-${belongParallelIndexInfo}-${branchLetter}`
+      node.parallelDetail!.branchTitle = `${t('common.branch', { ns: 'workflow' })}-${belongParallelIndexInfo}-${branchLetter}`
     }
 
     if (node.parallelDetail?.children && node.parallelDetail.children.length > 0) {
@@ -74,10 +85,10 @@ const format = (list: NodeTracing[], t: any, isPrint?: boolean): NodeTracing[] =
     console.log(list)
 
   const result: NodeTracing[] = [...list]
-  const parallelFirstNodeMap: Record<string, string> = {}
   // list to tree by parent_parallel_start_node_id and branch by parallel_start_node_id. Each parallel may has more than one branch.
   result.forEach((node) => {
     const parallel_id = node.parallel_id ?? node.execution_metadata?.parallel_id ?? null
+    const parallel_start_node_id = node.parallel_start_node_id ?? node.execution_metadata?.parallel_start_node_id ?? null
     const parent_parallel_id = node.parent_parallel_id ?? node.execution_metadata?.parent_parallel_id ?? null
     const branchStartNodeId = node.parallel_start_node_id ?? node.execution_metadata?.parallel_start_node_id ?? null
     const parentParallelBranchStartNodeId = node.parent_parallel_start_node_id ?? node.execution_metadata?.parent_parallel_start_node_id ?? null
@@ -85,14 +96,13 @@ const format = (list: NodeTracing[], t: any, isPrint?: boolean): NodeTracing[] =
     if (isNotInParallel)
       return
 
-    const isParallelStartNode = !parallelFirstNodeMap[parallel_id]
+    const isParallelStartNode = parallel_start_node_id === node.node_id // in the same parallel has more than one start node
     if (isParallelStartNode) {
       const selfNode = { ...node, parallelDetail: undefined }
       node.parallelDetail = {
         isParallelStartNode: true,
         children: [selfNode],
       }
-      parallelFirstNodeMap[parallel_id] = node.node_id
       const isRootLevel = !parent_parallel_id
       if (isRootLevel)
         return
@@ -106,7 +116,7 @@ const format = (list: NodeTracing[], t: any, isPrint?: boolean): NodeTracing[] =
           }
         }
         if (parentParallelStartNode!.parallelDetail.children) {
-          const sameBranchNodesLastIndex = parentParallelStartNode.parallelDetail.children.findLastIndex((node) => {
+          const sameBranchNodesLastIndex = findLastIndex(parentParallelStartNode.parallelDetail.children, (node) => {
             const currStartNodeId = node.parallel_start_node_id ?? node.execution_metadata?.parallel_start_node_id ?? null
             return currStartNodeId === parentParallelBranchStartNodeId
           })
@@ -120,10 +130,10 @@ const format = (list: NodeTracing[], t: any, isPrint?: boolean): NodeTracing[] =
     }
 
     // append to parallel start node and after the same branch
-    const parallelStartNode = result.find(item => item.node_id === parallelFirstNodeMap[parallel_id])
+    const parallelStartNode = result.find(item => parallel_start_node_id === item.node_id)
 
     if (parallelStartNode && parallelStartNode.parallelDetail && parallelStartNode!.parallelDetail!.children) {
-      const sameBranchNodesLastIndex = parallelStartNode.parallelDetail.children.findLastIndex((node) => {
+      const sameBranchNodesLastIndex = findLastIndex(parallelStartNode.parallelDetail.children, (node) => {
         const currStartNodeId = node.parallel_start_node_id ?? node.execution_metadata?.parallel_start_node_id ?? null
         return currStartNodeId === branchStartNodeId
       })
@@ -149,6 +159,7 @@ const format = (list: NodeTracing[], t: any, isPrint?: boolean): NodeTracing[] =
       return false
 
     const isParallelStartNode = node.parallelDetail?.isParallelStartNode
+
     if (!isParallelStartNode)
       return false
 

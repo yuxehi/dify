@@ -1,42 +1,57 @@
 'use client'
 import type { FC } from 'react'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { HoverPopup } from './var-reference-picker.trigger'
+import type { CredentialFormSchema, CredentialFormSchemaSelect, FormOption } from '@/app/components/header/account-setting/model-provider-page/declarations'
+import type { Tool } from '@/app/components/tools/types'
+import type { TriggerWithProvider } from '@/app/components/workflow/block-selector/types'
+import type { CommonNodeType, Node, NodeOutPutVar, ToolWithProvider, ValueSelector, Var } from '@/app/components/workflow/types'
+import { cn } from '@langgenius/dify-ui/cn'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@langgenius/dify-ui/popover'
+import { noop } from 'es-toolkit/function'
+import { produce } from 'immer'
+import * as React from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  RiArrowDownSLine,
-  RiCloseLine,
-  RiErrorWarningFill,
-} from '@remixicon/react'
-import produce from 'immer'
-import { useStoreApi } from 'reactflow'
-import RemoveButton from '../remove-button'
-import useAvailableVarList from '../../hooks/use-available-var-list'
-import VarReferencePopup from './var-reference-popup'
-import { getNodeInfoById, isConversationVar, isENV, isSystemVar } from './utils'
-import ConstantField from './constant-field'
-import cn from '@/utils/classnames'
-import type { Node, NodeOutPutVar, ValueSelector, Var } from '@/app/components/workflow/types'
-import type { CredentialFormSchema } from '@/app/components/header/account-setting/model-provider-page/declarations'
-import { BlockEnum } from '@/app/components/workflow/types'
-import { VarBlockIcon } from '@/app/components/workflow/block-icon'
-import { Line3 } from '@/app/components/base/icons/src/public/common'
-import { BubbleX, Env } from '@/app/components/base/icons/src/vender/line/others'
-import { Variable02 } from '@/app/components/base/icons/src/vender/solid/development'
-import {
-  PortalToFollowElem,
-  PortalToFollowElemContent,
-  PortalToFollowElemTrigger,
-} from '@/app/components/base/portal-to-follow-elem'
+  useNodes,
+  useReactFlow,
+  useStoreApi,
+} from 'reactflow'
+import { FormTypeEnum } from '@/app/components/header/account-setting/model-provider-page/declarations'
 import {
   useIsChatMode,
   useWorkflowVariables,
 } from '@/app/components/workflow/hooks'
+// import type { BaseResource, BaseResourceProvider } from '@/app/components/workflow/nodes/_base/types'
 import { VarType as VarKindType } from '@/app/components/workflow/nodes/tool/types'
-import TypeSelector from '@/app/components/workflow/nodes/_base/components/selector'
-import AddButton from '@/app/components/base/button/add-button'
-import Badge from '@/app/components/base/badge'
-import Tooltip from '@/app/components/base/tooltip'
+import { useStore as useWorkflowStore } from '@/app/components/workflow/store'
+import { BlockEnum } from '@/app/components/workflow/types'
 import { isExceptionVariable } from '@/app/components/workflow/utils'
+import { useFetchDynamicOptions } from '@/service/use-plugins'
+import useAvailableVarList from '../../hooks/use-available-var-list'
+import { removeFileVars, varTypeToStructType } from './utils'
+import VarFullPathPanel from './var-full-path-panel'
+import {
+  getDynamicSelectSchema,
+  getHasValue,
+  getIsIterationVar,
+  getIsLoopVar,
+  getOutputVarNode,
+  getOutputVarNodeId,
+  getTooltipContent,
+  getVarDisplayName,
+  getVariableCategory,
+  getVariableMeta,
+  getVarKindOptions,
+  getWidthAllocations,
+  isShowAPartSelector,
+} from './var-reference-picker.helpers'
+import VarReferencePickerTrigger from './var-reference-picker.trigger'
+import VarReferencePopup from './var-reference-popup'
 
 const TRIGGER_DEFAULT_WIDTH = 227
 
@@ -52,9 +67,12 @@ type Props = {
   defaultVarKindType?: VarKindType
   onlyLeafNodeVar?: boolean
   filterVar?: (payload: Var, valueSelector: ValueSelector) => boolean
+  isFilterFileVar?: boolean
   availableNodes?: Node[]
   availableVars?: NodeOutPutVar[]
   isAddBtnTrigger?: boolean
+  trigger?: React.ReactNode
+  isJustShowValue?: boolean
   schema?: Partial<CredentialFormSchema>
   valueTypePlaceHolder?: string
   isInTable?: boolean
@@ -64,23 +82,30 @@ type Props = {
   placeholder?: string
   minWidth?: number
   popupFor?: 'assigned' | 'toAssigned'
-  zIndex?: number
+  currentTool?: Tool
+  currentProvider?: ToolWithProvider | TriggerWithProvider
+  preferSchemaType?: boolean
 }
+
+const DEFAULT_VALUE_SELECTOR: Props['value'] = []
 
 const VarReferencePicker: FC<Props> = ({
   nodeId,
   readonly,
   className,
   isShowNodeName = true,
-  value = [],
-  onOpen = () => { },
+  value = DEFAULT_VALUE_SELECTOR,
+  onOpen = noop,
   onChange,
   isSupportConstantValue,
   defaultVarKindType = VarKindType.constant,
   onlyLeafNodeVar,
   filterVar = () => true,
+  isFilterFileVar,
   availableNodes: passedInAvailableNodes,
   availableVars: passedInAvailableVars,
+  trigger,
+  isJustShowValue,
   isAddBtnTrigger,
   schema,
   valueTypePlaceHolder,
@@ -91,107 +116,88 @@ const VarReferencePicker: FC<Props> = ({
   placeholder,
   minWidth,
   popupFor,
-  zIndex,
+  currentTool,
+  currentProvider,
+  preferSchemaType,
 }) => {
   const { t } = useTranslation()
   const store = useStoreApi()
-  const {
-    getNodes,
-  } = store.getState()
+  const nodes = useNodes<CommonNodeType>()
   const isChatMode = useIsChatMode()
-
+  const isWorkflowDataLoaded = useWorkflowStore(s => s.isWorkflowDataLoaded)
   const { getCurrentVariableType } = useWorkflowVariables()
-  const { availableNodes, availableVars } = useAvailableVarList(nodeId, {
+  const { availableVars, availableNodesWithParent: availableNodes } = useAvailableVarList(nodeId, {
     onlyLeafNodeVar,
     passedInAvailableNodes,
     filterVar,
   })
-  const startNode = availableNodes.find((node: any) => {
+
+  const reactflow = useReactFlow()
+
+  const startNode = availableNodes.find((node: Node) => {
     return node.data.type === BlockEnum.Start
   })
 
-  const node = getNodes().find(n => n.id === nodeId)
+  const node = nodes.find(n => n.id === nodeId)
   const isInIteration = !!node?.data.isInIteration
-  const iterationNode = isInIteration ? getNodes().find(n => n.id === node.parentId) : null
+  const iterationNode = isInIteration ? (nodes.find(n => n.id === node?.parentId) ?? null) : null
 
   const isInLoop = !!node?.data.isInLoop
-  const loopNode = isInLoop ? getNodes().find(n => n.id === node.parentId) : null
+  const loopNode = isInLoop ? (nodes.find(n => n.id === node?.parentId) ?? null) : null
 
   const triggerRef = useRef<HTMLDivElement>(null)
   const [triggerWidth, setTriggerWidth] = useState(TRIGGER_DEFAULT_WIDTH)
   useEffect(() => {
     if (triggerRef.current)
       setTriggerWidth(triggerRef.current.clientWidth)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [triggerRef.current])
+  }, [])
 
   const [varKindType, setVarKindType] = useState<VarKindType>(defaultVarKindType)
   const isConstant = isSupportConstantValue && varKindType === VarKindType.constant
 
-  const outputVars = useMemo(() => (passedInAvailableVars || availableVars), [passedInAvailableVars, availableVars])
+  const outputVars = useMemo(() => {
+    const results = passedInAvailableVars || availableVars
+    return isFilterFileVar ? removeFileVars(results) : results
+  }, [passedInAvailableVars, availableVars, isFilterFileVar])
 
   const [open, setOpen] = useState(false)
   useEffect(() => {
     onOpen()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
-  const hasValue = !isConstant && value.length > 0
+  }, [open, onOpen])
+  const hasValue = getHasValue(!!isConstant, value)
 
-  const isIterationVar = useMemo(() => {
-    if (!isInIteration)
-      return false
-    if (value[0] === node?.parentId && ['item', 'index'].includes(value[1]))
-      return true
-    return false
-  }, [isInIteration, value, node])
+  const isIterationVar = useMemo(
+    () => getIsIterationVar(isInIteration, value, node?.parentId),
+    [isInIteration, node?.parentId, value],
+  )
 
-  const isLoopVar = useMemo(() => {
-    if (!isInLoop)
-      return false
-    if (value[0] === node?.parentId && ['item', 'index'].includes(value[1]))
-      return true
-    return false
-  }, [isInLoop, value, node])
+  const isLoopVar = useMemo(
+    () => getIsLoopVar(isInLoop, value, node?.parentId),
+    [isInLoop, node?.parentId, value],
+  )
 
-  const outputVarNodeId = hasValue ? value[0] : ''
-  const outputVarNode = useMemo(() => {
-    if (!hasValue || isConstant)
-      return null
+  const outputVarNodeId = getOutputVarNodeId(hasValue, value)
+  const outputVarNode = useMemo(() => getOutputVarNode({
+    availableNodes,
+    hasValue,
+    isConstant: !!isConstant,
+    isIterationVar,
+    isLoopVar,
+    iterationNode,
+    loopNode,
+    outputVarNodeId: outputVarNodeId!,
+    startNode,
+    value,
+  }), [availableNodes, hasValue, isConstant, isIterationVar, isLoopVar, iterationNode, loopNode, outputVarNodeId, startNode, value])
 
-    if (isIterationVar)
-      return iterationNode?.data
+  const isShowAPart = isShowAPartSelector(value)
 
-    if (isLoopVar)
-      return loopNode?.data
+  const varName = useMemo(
+    () => getVarDisplayName(hasValue, value),
+    [hasValue, value],
+  )
 
-    if (isSystemVar(value as ValueSelector))
-      return startNode?.data
-
-    return getNodeInfoById(availableNodes, outputVarNodeId)?.data
-  }, [value, hasValue, isConstant, isIterationVar, iterationNode, availableNodes, outputVarNodeId, startNode, isLoopVar, loopNode])
-
-  const varName = useMemo(() => {
-    if (hasValue) {
-      const isSystem = isSystemVar(value as ValueSelector)
-      let varName = ''
-      if (Array.isArray(value))
-        varName = value.length >= 3 ? (value as ValueSelector).slice(-2).join('.') : value[value.length - 1]
-
-      return `${isSystem ? 'sys.' : ''}${varName}`
-    }
-    return ''
-  }, [hasValue, value])
-
-  const varKindTypes = [
-    {
-      label: 'Variable',
-      value: VarKindType.variable,
-    },
-    {
-      label: 'Constant',
-      value: VarKindType.constant,
-    },
-  ]
+  const varKindTypes = getVarKindOptions()
 
   const handleVarKindTypeChange = useCallback((value: VarKindType) => {
     setVarKindType(value)
@@ -202,13 +208,11 @@ const VarReferencePicker: FC<Props> = ({
   }, [onChange])
 
   const inputRef = useRef<HTMLInputElement>(null)
-  const [isFocus, setIsFocus] = useState(false)
   const [controlFocus, setControlFocus] = useState(0)
+  const isFocus = controlFocus > 0
   useEffect(() => {
-    if (controlFocus && inputRef.current) {
+    if (controlFocus && inputRef.current)
       inputRef.current.focus()
-      setIsFocus(true)
-    }
   }, [controlFocus])
 
   const handleVarReferenceChange = useCallback((value: ValueSelector, varInfo: Var) => {
@@ -216,7 +220,7 @@ const VarReferencePicker: FC<Props> = ({
     const newValue = produce(value, (draft) => {
       if (draft[1] && draft[1].startsWith('sys.')) {
         draft.shift()
-        const paths = draft[0].split('.')
+        const paths = draft[0]!.split('.')
         paths.forEach((p, i) => {
           draft[i] = p
         })
@@ -233,177 +237,183 @@ const VarReferencePicker: FC<Props> = ({
       onChange([], varKindType)
   }, [onChange, varKindType])
 
+  const handleVariableJump = useCallback((nodeId: string) => {
+    const currentNodeIndex = availableNodes.findIndex(node => node.id === nodeId)
+    const currentNode = availableNodes[currentNodeIndex]
+
+    const workflowContainer = document.getElementById('workflow-container')
+    const {
+      clientWidth,
+      clientHeight,
+    } = workflowContainer!
+    const {
+      setViewport,
+    } = reactflow
+    const { transform } = store.getState()
+    const zoom = transform[2]
+    const position = currentNode!.position
+    setViewport({
+      x: (clientWidth - 400 - currentNode!.width! * zoom) / 2 - position.x * zoom,
+      y: (clientHeight - currentNode!.height! * zoom) / 2 - position.y * zoom,
+      zoom: transform[2],
+    })
+  }, [availableNodes, reactflow, store])
+
   const type = getCurrentVariableType({
     parentNode: isInIteration ? iterationNode : loopNode,
     valueSelector: value as ValueSelector,
     availableNodes,
     isChatMode,
     isConstant: !!isConstant,
+    preferSchemaType,
   })
 
-  const { isEnv, isChatVar, isValidVar, isException } = useMemo(() => {
-    const isEnv = isENV(value as ValueSelector)
-    const isChatVar = isConversationVar(value as ValueSelector)
-    const isValidVar = Boolean(outputVarNode) || isEnv || isChatVar
-    const isException = isExceptionVariable(varName, outputVarNode?.type)
-    return {
-      isEnv,
-      isChatVar,
-      isValidVar,
-      isException,
-    }
-  }, [value, outputVarNode, varName])
+  const { isEnv, isChatVar, isGlobal, isRagVar, isValidVar } = useMemo(
+    () => getVariableMeta(outputVarNode, value, varName, outputVars, isWorkflowDataLoaded),
+    [isWorkflowDataLoaded, outputVarNode, outputVars, value, varName],
+  )
+  const isException = useMemo(
+    () => isExceptionVariable(varName, outputVarNode?.type),
+    [outputVarNode?.type, varName],
+  )
+  const showErrorIcon = hasValue && !isValidVar
+  const shouldShowNodeName = isShowNodeName && !isEnv && !isChatVar && !isGlobal && !isRagVar
+  const visibleNodeTitle = shouldShowNodeName ? outputVarNode?.title || '' : ''
 
   // 8(left/right-padding) + 14(icon) + 4 + 14 + 2 = 42 + 17 buff
-  const availableWidth = triggerWidth - 56
-  const [maxNodeNameWidth, maxVarNameWidth, maxTypeWidth] = (() => {
-    const totalTextLength = ((outputVarNode?.title || '') + (varName || '') + (type || '')).length
-    const PRIORITY_WIDTH = 15
-    const maxNodeNameWidth = PRIORITY_WIDTH + Math.floor((outputVarNode?.title?.length || 0) / totalTextLength * availableWidth)
-    const maxVarNameWidth = -PRIORITY_WIDTH + Math.floor((varName?.length || 0) / totalTextLength * availableWidth)
-    const maxTypeWidth = Math.floor((type?.length || 0) / totalTextLength * availableWidth)
-    return [maxNodeNameWidth, maxVarNameWidth, maxTypeWidth]
-  })()
+  const {
+    maxNodeNameWidth,
+    maxTypeWidth,
+    maxVarNameWidth,
+  } = getWidthAllocations(triggerWidth, visibleNodeTitle, varName || '', type || '')
 
-  const WrapElem = isSupportConstantValue ? 'div' : PortalToFollowElemTrigger
-  const VarPickerWrap = !isSupportConstantValue ? 'div' : PortalToFollowElemTrigger
+  const hoverPopup = useMemo<HoverPopup | null>(() => {
+    const tooltipType = getTooltipContent(hasValue, isShowAPart, isValidVar)
+    if (tooltipType === 'full-path') {
+      return {
+        kind: 'full-path',
+        panel: (
+          <VarFullPathPanel
+            nodeName={outputVarNode?.title}
+            path={(value as ValueSelector).slice(1)}
+            varType={varTypeToStructType(type)}
+            nodeType={outputVarNode?.type}
+          />
+        ),
+      }
+    }
+    if (tooltipType === 'invalid-variable')
+      return { kind: 'invalid-variable', message: t('errorMsg.invalidVariable', { ns: 'workflow' }) }
+
+    return null
+  }, [isValidVar, isShowAPart, hasValue, t, outputVarNode?.title, outputVarNode?.type, value, type])
+
+  const [dynamicOptions, setDynamicOptions] = useState<FormOption[] | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const { mutateAsync: fetchDynamicOptions } = useFetchDynamicOptions(
+    currentProvider?.plugin_id || '',
+    currentProvider?.name || '',
+    currentTool?.name || '',
+    (schema as CredentialFormSchemaSelect)?.variable || '',
+    'tool',
+  )
+  const handleFetchDynamicOptions = useCallback(async () => {
+    if (schema?.type !== FormTypeEnum.dynamicSelect || !currentTool || !currentProvider)
+      return
+    setIsLoading(true)
+    try {
+      const data = await fetchDynamicOptions()
+      setDynamicOptions(data?.options || [])
+    }
+    finally {
+      setIsLoading(false)
+    }
+  }, [currentProvider, currentTool, fetchDynamicOptions, schema?.type])
+  useEffect(() => {
+    handleFetchDynamicOptions()
+  }, [handleFetchDynamicOptions])
+
+  const schemaWithDynamicSelect = useMemo(
+    () => getDynamicSelectSchema({ dynamicOptions, isLoading, schema, value }),
+    [dynamicOptions, isLoading, schema, value],
+  )
+
+  const variableCategory = useMemo(
+    () => getVariableCategory({ isChatVar, isEnv, isGlobal, isLoopVar, isRagVar }),
+    [isChatVar, isEnv, isGlobal, isLoopVar, isRagVar],
+  )
+
+  const triggerPlaceholder = placeholder ?? t('common.setVarValuePlaceholder', { ns: 'workflow' })
+  const resolvedTrigger = React.isValidElement(trigger) ? trigger : <div>{trigger}</div>
+
   return (
-    <div className={cn(className, !readonly && 'cursor-pointer')}>
-      <PortalToFollowElem
+    <div className={cn(className)}>
+      <Popover
         open={open}
         onOpenChange={setOpen}
-        placement={isAddBtnTrigger ? 'bottom-end' : 'bottom-start'}
       >
-        <WrapElem onClick={() => {
-          if (readonly)
-            return
-          !isConstant ? setOpen(!open) : setControlFocus(Date.now())
-        }} className='!flex group/picker-trigger-wrap relative'>
-          <>
-            {isAddBtnTrigger
-              ? (
-                <div>
-                  <AddButton onClick={() => { }}></AddButton>
-                </div>
-              )
-              : (<div ref={!isSupportConstantValue ? triggerRef : null} className={cn((open || isFocus) ? 'border-gray-300' : 'border-gray-100', 'relative group/wrap flex items-center w-full h-8', !isSupportConstantValue && 'p-1 rounded-lg bg-components-input-bg-normal', isInTable && 'bg-transparent border-none', readonly && 'bg-components-input-bg-disabled')}>
-                {isSupportConstantValue
-                  ? <div onClick={(e) => {
-                    e.stopPropagation()
-                    setOpen(false)
-                    setControlFocus(Date.now())
-                  }} className='h-full mr-1 flex items-center space-x-1'>
-                    <TypeSelector
-                      noLeft
-                      trigger={
-                        <div className='flex items-center h-8 px-2 radius-md bg-components-input-bg-normal'>
-                          <div className='mr-1 system-sm-regular text-components-input-text-filled'>{varKindTypes.find(item => item.value === varKindType)?.label}</div>
-                          <RiArrowDownSLine className='w-4 h-4 text-text-quaternary' />
-                        </div>
-                      }
-                      popupClassName='top-8'
-                      readonly={readonly}
-                      value={varKindType}
-                      options={varKindTypes}
-                      onChange={handleVarKindTypeChange}
-                      showChecked
-                    />
-                  </div>
-                  : (!hasValue && <div className='ml-1.5 mr-1'>
-                    <Variable02 className={`w-4 h-4 ${readonly ? 'text-components-input-text-disabled' : 'text-components-input-text-placeholder'}`} />
-                  </div>)}
-                {isConstant
-                  ? (
-                    <ConstantField
-                      value={value as string}
-                      onChange={onChange as ((value: string | number, varKindType: VarKindType, varInfo?: Var) => void)}
-                      schema={schema as CredentialFormSchema}
-                      readonly={readonly}
-                    />
-                  )
-                  : (
-                    <VarPickerWrap
-                      onClick={() => {
-                        if (readonly)
-                          return
-                        !isConstant ? setOpen(!open) : setControlFocus(Date.now())
-                      }}
-                      className='grow h-full'
-                    >
-                      <div ref={isSupportConstantValue ? triggerRef : null} className={cn('h-full', isSupportConstantValue && 'flex items-center pl-1 py-1 rounded-lg bg-gray-100')}>
-                        <Tooltip popupContent={!isValidVar && hasValue && t('workflow.errorMsg.invalidVariable')}>
-                          <div className={cn('h-full items-center px-1.5 rounded-[5px]', hasValue ? 'bg-white inline-flex' : 'flex')}>
-                            {hasValue
-                              ? (
-                                <>
-                                  {isShowNodeName && !isEnv && !isChatVar && (
-                                    <div className='flex items-center'>
-                                      <div className='px-[1px] h-3'>
-                                        {outputVarNode?.type && <VarBlockIcon
-                                          className='!text-gray-900'
-                                          type={outputVarNode.type}
-                                        />}
-                                      </div>
-                                      <div className='mx-0.5 text-xs font-medium text-gray-700 truncate' title={outputVarNode?.title} style={{
-                                        maxWidth: maxNodeNameWidth,
-                                      }}>{outputVarNode?.title}</div>
-                                      <Line3 className='mr-0.5'></Line3>
-                                    </div>
-                                  )}
-                                  <div className='flex items-center text-primary-600'>
-                                    {!hasValue && <Variable02 className='w-3.5 h-3.5' />}
-                                    {isEnv && <Env className='w-3.5 h-3.5 text-util-colors-violet-violet-600' />}
-                                    {isChatVar && <BubbleX className='w-3.5 h-3.5 text-util-colors-teal-teal-700' />}
-                                    <div className={cn('ml-0.5 text-xs font-medium truncate', isEnv && '!text-text-secondary', isChatVar && 'text-util-colors-teal-teal-700', isException && 'text-text-warning')} title={varName} style={{
-                                      maxWidth: maxVarNameWidth,
-                                    }}>{varName}</div>
-                                  </div>
-                                  <div className='ml-0.5 capitalize truncate text-text-tertiary text-center system-xs-regular' title={type} style={{
-                                    maxWidth: maxTypeWidth,
-                                  }}>{type}</div>
-                                  {!isValidVar && <RiErrorWarningFill className='ml-0.5 w-3 h-3 text-[#D92D20]' />}
-                                </>
-                              )
-                              : <div className={`overflow-hidden ${readonly ? 'text-components-input-text-disabled' : 'text-components-input-text-placeholder'} text-ellipsis system-sm-regular`}>{placeholder ?? t('workflow.common.setVarValuePlaceholder')}</div>}
-                          </div>
-                        </Tooltip>
-                      </div>
-
-                    </VarPickerWrap>
-                  )}
-                {(hasValue && !readonly && !isInTable) && (<div
-                  className='invisible group-hover/wrap:visible absolute h-5 right-1 top-[50%] translate-y-[-50%] group p-1 rounded-md hover:bg-black/5 cursor-pointer'
-                  onClick={handleClearVar}
-                >
-                  <RiCloseLine className='w-3.5 h-3.5 text-gray-500 group-hover:text-gray-800' />
-                </div>)}
-                {!hasValue && valueTypePlaceHolder && (
-                  <Badge
-                    className=' absolute right-1 top-[50%] translate-y-[-50%] capitalize'
-                    text={valueTypePlaceHolder}
-                    uppercase={false}
-                  />
-                )}
-              </div>)}
-            {!readonly && isInTable && (
-              <RemoveButton
-                className='group-hover/picker-trigger-wrap:block hidden absolute right-1 top-0.5'
-                onClick={() => onRemove?.()}
-              />
-            )}
-
-            {!hasValue && typePlaceHolder && (
-              <Badge
-                className='absolute right-2 top-1.5'
-                text={typePlaceHolder}
-                uppercase={false}
-              />
-            )}
-          </>
-        </WrapElem>
-        <PortalToFollowElemContent style={{
-          zIndex: zIndex || 100,
-        }} className='mt-1'>
+        {!!trigger && (
+          <PopoverTrigger
+            render={resolvedTrigger}
+            onClick={(e) => {
+              if (readonly)
+                e.preventDefault()
+            }}
+          />
+        )}
+        {!trigger && (
+          <VarReferencePickerTrigger
+            className={className}
+            controlFocus={controlFocus}
+            currentProvider={currentProvider}
+            currentTool={currentTool}
+            handleClearVar={handleClearVar}
+            handleVarKindTypeChange={handleVarKindTypeChange}
+            handleVariableJump={handleVariableJump}
+            hasValue={hasValue}
+            inputRef={inputRef}
+            isAddBtnTrigger={isAddBtnTrigger}
+            isConstant={!!isConstant}
+            isException={isException}
+            isFocus={isFocus}
+            isInTable={isInTable}
+            isJustShowValue={isJustShowValue}
+            isLoading={isLoading}
+            isShowAPart={isShowAPart}
+            isShowNodeName={shouldShowNodeName}
+            isSupportConstantValue={isSupportConstantValue}
+            maxNodeNameWidth={maxNodeNameWidth}
+            maxTypeWidth={maxTypeWidth}
+            maxVarNameWidth={maxVarNameWidth}
+            onChange={onChange}
+            onRemove={onRemove}
+            open={open}
+            outputVarNode={outputVarNode as Node['data'] | null}
+            outputVarNodeId={outputVarNodeId}
+            placeholder={triggerPlaceholder}
+            readonly={readonly}
+            schemaWithDynamicSelect={schemaWithDynamicSelect}
+            setControlFocus={setControlFocus}
+            setOpen={setOpen}
+            showErrorIcon={showErrorIcon}
+            hoverPopup={hoverPopup}
+            triggerRef={triggerRef}
+            type={type}
+            typePlaceHolder={typePlaceHolder}
+            value={value}
+            valueTypePlaceHolder={valueTypePlaceHolder}
+            varKindType={varKindType}
+            varKindTypes={varKindTypes}
+            varName={varName}
+            variableCategory={variableCategory}
+          />
+        )}
+        <PopoverContent
+          placement={isAddBtnTrigger ? 'bottom-end' : 'bottom-start'}
+          sideOffset={0}
+          className="mt-1"
+          popupClassName="border-none bg-transparent p-0 shadow-none backdrop-blur-none"
+        >
           {!isConstant && (
             <VarReferencePopup
               vars={outputVars}
@@ -411,11 +421,12 @@ const VarReferencePicker: FC<Props> = ({
               onChange={handleVarReferenceChange}
               itemWidth={isAddBtnTrigger ? 260 : (minWidth || triggerWidth)}
               isSupportFileVar={isSupportFileVar}
+              preferSchemaType={preferSchemaType}
             />
           )}
-        </PortalToFollowElemContent>
-      </PortalToFollowElem>
-    </div >
+        </PopoverContent>
+      </Popover>
+    </div>
   )
 }
 export default React.memo(VarReferencePicker)

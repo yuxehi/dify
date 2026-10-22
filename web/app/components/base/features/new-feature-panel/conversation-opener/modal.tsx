@@ -1,19 +1,21 @@
-import React, { useCallback, useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { useBoolean } from 'ahooks'
-import produce from 'immer'
-import { ReactSortable } from 'react-sortablejs'
-import { RiAddLine, RiAsterisk, RiCloseLine, RiDeleteBinLine, RiDraggable } from '@remixicon/react'
-import Modal from '@/app/components/base/modal'
-import Button from '@/app/components/base/button'
-import Divider from '@/app/components/base/divider'
-import ConfirmAddVar from '@/app/components/app/configuration/config-prompt/confirm-add-var'
 import type { OpeningStatement } from '@/app/components/base/features/types'
-import { getInputKeys } from '@/app/components/base/block-input'
-import type { PromptVariable } from '@/models/debug'
 import type { InputVar } from '@/app/components/workflow/types'
-import { getNewVar } from '@/utils/var'
-import cn from '@/utils/classnames'
+import type { PromptVariable } from '@/models/debug'
+import { Button } from '@langgenius/dify-ui/button'
+import { cn } from '@langgenius/dify-ui/cn'
+import { Dialog, DialogContent } from '@langgenius/dify-ui/dialog'
+import { useBoolean } from 'ahooks'
+import { produce } from 'immer'
+import * as React from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { ReactSortable } from 'react-sortablejs'
+import ConfirmAddVar from '@/app/components/app/configuration/config-prompt/confirm-add-var'
+import { getInputKeys } from '@/app/components/base/block-input'
+import Divider from '@/app/components/base/divider'
+import { Infotip } from '@/app/components/base/infotip'
+import PromptEditor from '@/app/components/base/prompt-editor'
+import { checkKeys, getNewVar } from '@/utils/var'
 
 type OpeningSettingModalProps = {
   data: OpeningStatement
@@ -37,15 +39,25 @@ const OpeningSettingModal = ({
   const { t } = useTranslation()
   const [tempValue, setTempValue] = useState(data?.opening_statement || '')
   useEffect(() => {
+    // eslint-disable-next-line react/set-state-in-effect
     setTempValue(data.opening_statement || '')
   }, [data.opening_statement])
   const [tempSuggestedQuestions, setTempSuggestedQuestions] = useState(data.suggested_questions || [])
   const [isShowConfirmAddVar, { setTrue: showConfirmAddVar, setFalse: hideConfirmAddVar }] = useBoolean(false)
   const [notIncludeKeys, setNotIncludeKeys] = useState<string[]>([])
 
+  const isSaveDisabled = useMemo(() => !tempValue.trim(), [tempValue])
+
   const handleSave = useCallback((ignoreVariablesCheck?: boolean) => {
+    // Prevent saving if opening statement is empty
+    if (isSaveDisabled)
+      return
+
     if (!ignoreVariablesCheck) {
-      const keys = getInputKeys(tempValue)
+      const keys = getInputKeys(tempValue)?.filter((key) => {
+        const { isValid } = checkKeys([key], true)
+        return isValid
+      })
       const promptKeys = promptVariables.map(item => item.key)
       const workflowVariableKeys = workflowVariables.map(item => item.variable)
       let notIncludeKeys: string[] = []
@@ -73,7 +85,7 @@ const OpeningSettingModal = ({
       }
     })
     onSave(newOpening)
-  }, [data, onSave, promptVariables, workflowVariables, showConfirmAddVar, tempSuggestedQuestions, tempValue])
+  }, [data, onSave, promptVariables, workflowVariables, showConfirmAddVar, tempSuggestedQuestions, tempValue, isSaveDisabled])
 
   const cancelAutoAddVar = useCallback(() => {
     hideConfirmAddVar()
@@ -81,27 +93,46 @@ const OpeningSettingModal = ({
   }, [handleSave, hideConfirmAddVar])
 
   const autoAddVar = useCallback(() => {
-    onAutoAddPromptVariable?.([
-      ...notIncludeKeys.map(key => getNewVar(key, 'string')),
-    ])
+    onAutoAddPromptVariable?.(notIncludeKeys.map(key => getNewVar(key, 'string')))
     hideConfirmAddVar()
     handleSave(true)
   }, [handleSave, hideConfirmAddVar, notIncludeKeys, onAutoAddPromptVariable])
 
   const [focusID, setFocusID] = useState<number | null>(null)
   const [deletingID, setDeletingID] = useState<number | null>(null)
+  const [autoFocusQuestionID, setAutoFocusQuestionID] = useState<number | null>(null)
+  const openerPlaceholder = (
+    <span className="block break-words whitespace-pre-wrap">
+      {t('openingStatement.placeholderLine1', { ns: 'appDebug' })}
+      <br />
+      {t('openingStatement.placeholderLine2', { ns: 'appDebug' })}
+    </span>
+  )
 
   const renderQuestions = () => {
     return (
       <div>
-        <div className='flex items-center py-2'>
-          <div className='shrink-0 flex space-x-0.5 leading-[18px] text-xs font-medium text-text-tertiary'>
-            <div className='uppercase'>{t('appDebug.openingStatement.openingQuestion')}</div>
-            <div>·</div>
-            <div>{tempSuggestedQuestions.length}/{MAX_QUESTION_NUM}</div>
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            <div className="text-sm font-medium text-text-primary">
+              {t('openingStatement.openingQuestion', { ns: 'appDebug' })}
+            </div>
+            <Infotip
+              aria-label={t('openingStatement.openingQuestionDescription', { ns: 'appDebug' })}
+              className="h-3.5 w-3.5"
+              popupClassName="max-w-[220px] system-sm-regular text-text-secondary"
+              delay={0}
+            >
+              {t('openingStatement.openingQuestionDescription', { ns: 'appDebug' })}
+            </Infotip>
           </div>
-          <Divider bgStyle='gradient' className='ml-3 grow w-0 h-px'/>
+          <div className="text-xs leading-[18px] font-medium text-text-tertiary">
+            {tempSuggestedQuestions.length}
+            /
+            {MAX_QUESTION_NUM}
+          </div>
         </div>
+        <Divider bgStyle="gradient" className="mb-3 h-px" />
         <ReactSortable
           className="space-y-1"
           list={tempSuggestedQuestions.map((name, index) => {
@@ -111,7 +142,7 @@ const OpeningSettingModal = ({
             }
           })}
           setList={list => setTempSuggestedQuestions(list.map(item => item.name))}
-          handle='.handle'
+          handle=".handle"
           ghostClass="opacity-50"
           animation={150}
         >
@@ -119,16 +150,17 @@ const OpeningSettingModal = ({
             return (
               <div
                 className={cn(
-                  'group relative rounded-lg border border-components-panel-border-subtle bg-components-panel-on-panel-item-bg flex items-center pl-2.5 hover:bg-components-panel-on-panel-item-bg-hover',
-                  focusID === index && 'border-components-input-border-active hover:border-components-input-border-active bg-components-input-bg-active hover:bg-components-input-bg-active',
-                  deletingID === index && 'border-components-input-border-destructive hover:border-components-input-border-destructive bg-state-destructive-hover hover:bg-state-destructive-hover',
+                  'group relative flex items-center rounded-lg border border-components-panel-border-subtle bg-components-panel-on-panel-item-bg pl-2.5 hover:bg-components-panel-on-panel-item-bg-hover',
+                  deletingID === index && 'border-components-input-border-destructive bg-state-destructive-hover hover:border-components-input-border-destructive hover:bg-state-destructive-hover',
+                  focusID === index && 'border-components-input-border-active bg-components-input-bg-active hover:border-components-input-border-active hover:bg-components-input-bg-active',
                 )}
                 key={index}
               >
-                <RiDraggable className='handle w-4 h-4 text-text-quaternary cursor-grab' />
+                <span className="handle i-ri-draggable h-4 w-4 cursor-grab text-text-quaternary" />
                 <input
                   type="input"
                   value={question || ''}
+                  placeholder={t('openingStatement.openingQuestionPlaceholder', { ns: 'appDebug' }) as string}
                   onChange={(e) => {
                     const value = e.target.value
                     setTempSuggestedQuestions(tempSuggestedQuestions.map((item, i) => {
@@ -138,30 +170,42 @@ const OpeningSettingModal = ({
                       return item
                     }))
                   }}
-                  className={'w-full overflow-x-auto pl-1.5 pr-8 text-sm leading-9 text-text-secondary border-0 grow h-9 bg-transparent focus:outline-none cursor-pointer rounded-lg'}
-                  onFocus={() => setFocusID(index)}
+                  autoFocus={autoFocusQuestionID === index}
+                  className="h-9 w-full grow cursor-pointer overflow-x-auto rounded-lg border-0 bg-transparent pr-8 pl-1.5 text-sm leading-9 text-text-secondary focus:outline-hidden"
+                  onFocus={() => {
+                    setFocusID(index)
+                    if (autoFocusQuestionID === index)
+                      setAutoFocusQuestionID(null)
+                  }}
                   onBlur={() => setFocusID(null)}
                 />
 
                 <div
-                  className='block absolute top-1/2 translate-y-[-50%] right-1.5 p-1 rounded-md cursor-pointer text-text-tertiary hover:bg-state-destructive-hover hover:text-text-destructive'
+                  className="absolute top-1/2 right-1.5 block translate-y-[-50%] cursor-pointer rounded-md p-1 text-text-tertiary hover:bg-state-destructive-hover hover:text-text-destructive"
                   onClick={() => {
                     setTempSuggestedQuestions(tempSuggestedQuestions.filter((_, i) => index !== i))
                   }}
                   onMouseEnter={() => setDeletingID(index)}
                   onMouseLeave={() => setDeletingID(null)}
                 >
-                  <RiDeleteBinLine className='w-3.5 h-3.5' />
+                  <span className="i-ri-delete-bin-line h-3.5 w-3.5" data-testid={`delete-question-${question}`} />
                 </div>
               </div>
             )
-          })}</ReactSortable>
+          })}
+        </ReactSortable>
         {tempSuggestedQuestions.length < MAX_QUESTION_NUM && (
           <div
-            onClick={() => { setTempSuggestedQuestions([...tempSuggestedQuestions, '']) }}
-            className='mt-1 flex items-center h-9 px-3 gap-2 rounded-lg cursor-pointer text-components-button-tertiary-text  bg-components-button-tertiary-bg hover:bg-components-button-tertiary-bg-hover'>
-            <RiAddLine className='w-4 h-4' />
-            <div className='system-sm-medium text-[13px]'>{t('appDebug.variableConfig.addOption')}</div>
+            onClick={() => {
+              const nextIndex = tempSuggestedQuestions.length
+              setDeletingID(null)
+              setAutoFocusQuestionID(nextIndex)
+              setTempSuggestedQuestions([...tempSuggestedQuestions, ''])
+            }}
+            className="mt-1 flex h-9 cursor-pointer items-center gap-2 rounded-lg bg-components-button-tertiary-bg px-3 text-components-button-tertiary-text hover:bg-components-button-tertiary-bg-hover"
+          >
+            <span className="i-ri-add-line h-4 w-4" />
+            <div className="system-sm-medium text-[13px]">{t('variableConfig.addOption', { ns: 'appDebug' })}</div>
           </div>
         )}
       </div>
@@ -169,53 +213,83 @@ const OpeningSettingModal = ({
   }
 
   return (
-    <Modal
-      isShow
-      onClose={() => { }}
-      className='!p-6 !mt-14 !max-w-none !w-[640px] !bg-components-panel-bg-blur'
-    >
-      <div className='flex items-center justify-between mb-6'>
-        <div className='text-text-primary title-2xl-semi-bold'>{t('appDebug.feature.conversationOpener.title')}</div>
-        <div className='p-1 cursor-pointer' onClick={onCancel}><RiCloseLine className='w-4 h-4 text-text-tertiary'/></div>
-      </div>
-      <div className='flex gap-2 mb-8'>
-        <div className='shrink-0 mt-1.5 w-8 h-8 p-1.5 rounded-lg border-components-panel-border bg-util-colors-orange-dark-orange-dark-500'>
-          <RiAsterisk className='w-5 h-5 text-text-primary-on-surface' />
+    <Dialog open onOpenChange={open => !open && onCancel()} disablePointerDismissal>
+      <DialogContent className="mt-14 w-[640px] max-w-none rounded-2xl bg-components-panel-bg-blur p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <div className="title-2xl-semi-bold text-text-primary">{t('feature.conversationOpener.title', { ns: 'appDebug' })}</div>
+          <button
+            type="button"
+            aria-label={t('operation.close', { ns: 'common' })}
+            className="cursor-pointer border-none bg-transparent p-1 focus-visible:ring-1 focus-visible:ring-components-input-border-active focus-visible:outline-hidden"
+            onClick={onCancel}
+          >
+            <span className="i-ri-close-line h-4 w-4 text-text-tertiary" aria-hidden="true" />
+          </button>
         </div>
-        <div className='grow p-3 bg-chat-bubble-bg rounded-2xl border-t border-divider-subtle shadow-xs'>
-          <textarea
-            value={tempValue}
-            rows={3}
-            onChange={e => setTempValue(e.target.value)}
-            className="w-full px-0 text-text-secondary system-md-regular  border-0 bg-transparent focus:outline-none"
-            placeholder={t('appDebug.openingStatement.placeholder') as string}
+        <div className="mb-8 space-y-4">
+          <div
+            data-testid="opener-input-section"
+            className="py-2"
+          >
+            <div className="mb-3 text-sm font-medium text-text-primary">
+              {t('openingStatement.editorTitle', { ns: 'appDebug' })}
+            </div>
+            <div className="relative min-h-[80px] rounded-lg bg-components-input-bg-normal px-3 py-2">
+              <PromptEditor
+                value={tempValue}
+                onChange={setTempValue}
+                placeholder={openerPlaceholder}
+                placeholderClassName="!overflow-visible !whitespace-pre-wrap !text-clip break-words pr-8"
+                variableBlock={{
+                  show: true,
+                  variables: [
+                    // Prompt variables
+                    ...promptVariables.map(item => ({
+                      name: item.name || item.key,
+                      value: item.key,
+                    })),
+                    // Workflow variables
+                    ...workflowVariables.map(item => ({
+                      name: item.variable,
+                      value: item.variable,
+                    })),
+                  ],
+                }}
+              />
+            </div>
+          </div>
+          <div
+            data-testid="opener-questions-section"
+            className="py-2"
+          >
+            {renderQuestions()}
+          </div>
+        </div>
+        <div className="flex items-center justify-end">
+          <Button
+            onClick={onCancel}
+            className="mr-2"
+          >
+            {t('operation.cancel', { ns: 'common' })}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => handleSave()}
+            disabled={isSaveDisabled}
+          >
+            {t('operation.save', { ns: 'common' })}
+          </Button>
+        </div>
+        {isShowConfirmAddVar && (
+          <ConfirmAddVar
+            varNameArr={notIncludeKeys}
+            onConfirm={autoAddVar}
+            onCancel={cancelAutoAddVar}
+            onHide={hideConfirmAddVar}
           />
-          {renderQuestions()}
-        </div>
-      </div>
-      <div className='flex items-center justify-end'>
-        <Button
-          onClick={onCancel}
-          className='mr-2'
-        >
-          {t('common.operation.cancel')}
-        </Button>
-        <Button
-          variant='primary'
-          onClick={() => handleSave()}
-        >
-          {t('common.operation.save')}
-        </Button>
-      </div>
-      {isShowConfirmAddVar && (
-        <ConfirmAddVar
-          varNameArr={notIncludeKeys}
-          onConfirm={autoAddVar}
-          onCancel={cancelAutoAddVar}
-          onHide={hideConfirmAddVar}
-        />
-      )}
-    </Modal>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }
 

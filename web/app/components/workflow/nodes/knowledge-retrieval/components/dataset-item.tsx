@@ -1,21 +1,30 @@
 'use client'
 import type { FC } from 'react'
-import React, { useCallback, useState } from 'react'
-import { useBoolean } from 'ahooks'
+import type { DataSet } from '@/models/datasets'
+import { cn } from '@langgenius/dify-ui/cn'
+import {
+  Drawer,
+  DrawerBackdrop,
+  DrawerContent,
+  DrawerPopup,
+  DrawerPortal,
+  DrawerViewport,
+} from '@langgenius/dify-ui/drawer'
 import {
   RiDeleteBinLine,
   RiEditLine,
 } from '@remixicon/react'
+import { useBoolean } from 'ahooks'
+import * as React from 'react'
+import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { DataSet } from '@/models/datasets'
-import { DataSourceType } from '@/models/datasets'
-import ActionButton, { ActionButtonState } from '@/app/components/base/action-button'
-import FileIcon from '@/app/components/base/file-icon'
-import { Folder } from '@/app/components/base/icons/src/vender/solid/files'
 import SettingsModal from '@/app/components/app/configuration/dataset-config/settings-modal'
-import Drawer from '@/app/components/base/drawer'
-import useBreakpoints, { MediaType } from '@/hooks/use-breakpoints'
+import ActionButton, { ActionButtonState } from '@/app/components/base/action-button'
+import AppIcon from '@/app/components/base/app-icon'
 import Badge from '@/app/components/base/badge'
+import { ModelFeatureEnum } from '@/app/components/header/account-setting/model-provider-page/declarations'
+import FeatureIcon from '@/app/components/header/account-setting/model-provider-page/model-selector/feature-icon'
+import useBreakpoints, { MediaType } from '@/hooks/use-breakpoints'
 import { useKnowledge } from '@/hooks/use-knowledge'
 
 type Props = {
@@ -54,69 +63,103 @@ const DatasetItem: FC<Props> = ({
     onRemove()
   }, [onRemove])
 
+  const iconInfo = payload.icon_info || {
+    icon: '📙',
+    icon_type: 'emoji',
+    icon_background: '#FFF4ED',
+    icon_url: '',
+  }
+
   return (
-    <div className={`flex items-center h-10 justify-between rounded-xl px-2 border-[0.5px] 
-      border-components-panel-border-subtle cursor-pointer group/dataset-item 
+    <div className={`group/dataset-item flex h-10 cursor-pointer items-center justify-between rounded-lg
+      border-[0.5px] border-components-panel-border-subtle px-2
       ${isDeleteHovered
-      ? 'bg-state-destructive-hover border-state-destructive-border'
+      ? 'border-state-destructive-border bg-state-destructive-hover'
       : 'bg-components-panel-on-panel-item-bg hover:bg-components-panel-on-panel-item-bg-hover'
-    }`}>
-      <div className='w-0 grow flex items-center space-x-1.5'>
-        {
-          payload.data_source_type === DataSourceType.NOTION
-            ? (
-              <div className='shrink-0 flex items-center justify-center w-6 h-6 rounded-md border-[0.5px] border-[#EAECF5]'>
-                <FileIcon type='notion' className='w-4 h-4' />
-              </div>
-            )
-            : <div className='shrink-0 flex items-center justify-center w-6 h-6 bg-[#F5F8FF] rounded-md border-[0.5px] border-[#E0EAFF]'>
-              <Folder className='w-4 h-4 text-[#444CE7]' />
-            </div>
-        }
-        <div className='w-0 grow text-text-secondary system-sm-medium truncate'>{payload.name}</div>
+    }`}
+    >
+      <div className="flex w-0 grow items-center space-x-1.5">
+        <AppIcon
+          size="tiny"
+          iconType={iconInfo.icon_type}
+          icon={iconInfo.icon}
+          background={iconInfo.icon_type === 'image' ? undefined : iconInfo.icon_background}
+          imageUrl={iconInfo.icon_type === 'image' ? iconInfo.icon_url : undefined}
+        />
+        <div className="w-0 grow truncate system-sm-medium text-text-secondary">{payload.name}</div>
       </div>
       {!readonly && (
-        <div className='hidden group-hover/dataset-item:flex shrink-0 ml-2  items-center space-x-1'>
+        <div className="ml-2 hidden shrink-0 items-center space-x-1 group-hover/dataset-item:flex">
           {
-            editable && <ActionButton
-              onClick={(e) => {
-                e.stopPropagation()
-                showSettingsModal()
-              }}
-            >
-              <RiEditLine className='w-4 h-4 shrink-0 text-text-tertiary' />
-            </ActionButton>
+            editable && (
+              <ActionButton
+                aria-label={t('operation.edit', { ns: 'common' })}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  showSettingsModal()
+                }}
+              >
+                <RiEditLine className="h-4 w-4 shrink-0 text-text-tertiary" />
+              </ActionButton>
+            )
           }
           <ActionButton
+            aria-label={t('operation.remove', { ns: 'common' })}
             onClick={handleRemove}
-            state={ActionButtonState.Destructive}
+            state={isDeleteHovered ? ActionButtonState.Destructive : ActionButtonState.Default}
             onMouseEnter={() => setIsDeleteHovered(true)}
             onMouseLeave={() => setIsDeleteHovered(false)}
           >
-            <RiDeleteBinLine className={`w-4 h-4 shrink-0 ${isDeleteHovered ? 'text-text-destructive' : 'text-text-tertiary'}`} />
+            <RiDeleteBinLine className={`h-4 w-4 shrink-0 ${isDeleteHovered ? 'text-text-destructive' : 'text-text-tertiary'}`} />
           </ActionButton>
         </div>
       )}
+      {payload.is_multimodal && (
+        <div className="mr-1 shrink-0 group-hover/dataset-item:hidden">
+          <FeatureIcon feature={ModelFeatureEnum.vision} />
+        </div>
+      )}
       {
-        payload.indexing_technique && <Badge
-          className='group-hover/dataset-item:hidden shrink-0'
-          text={formatIndexingTechniqueAndMethod(payload.indexing_technique, payload.retrieval_model_dict?.search_method)}
-        />
+        !!payload.indexing_technique && (
+          <Badge
+            className="shrink-0 group-hover/dataset-item:hidden"
+            text={formatIndexingTechniqueAndMethod(payload.indexing_technique, payload.retrieval_model_dict?.search_method)}
+          />
+        )
       }
       {
-        payload.provider === 'external' && <Badge
-          className='group-hover/dataset-item:hidden shrink-0'
-          text={t('dataset.externalTag') as string}
-        />
+        payload.provider === 'external' && (
+          <Badge
+            className="shrink-0 group-hover/dataset-item:hidden"
+            text={t('externalTag', { ns: 'dataset' })}
+          />
+        )
       }
 
       {isShowSettingsModal && (
-        <Drawer isOpen={isShowSettingsModal} onClose={hideSettingsModal} footer={null} mask={isMobile} panelClassname='mt-16 mx-2 sm:mr-2 mb-3 !p-0 !max-w-[640px] rounded-xl'>
-          <SettingsModal
-            currentDataset={payload}
-            onCancel={hideSettingsModal}
-            onSave={handleSave}
-          />
+        <Drawer
+          open={isShowSettingsModal}
+          modal
+          swipeDirection="right"
+          onOpenChange={(open) => {
+            if (!open)
+              hideSettingsModal()
+          }}
+        >
+          <DrawerPortal>
+            <DrawerBackdrop className={cn(!isMobile && 'bg-transparent')} />
+            <DrawerViewport>
+              <DrawerPopup className="p-0! data-[swipe-direction=right]:top-16 data-[swipe-direction=right]:right-2 data-[swipe-direction=right]:bottom-3 data-[swipe-direction=right]:h-auto data-[swipe-direction=right]:w-full data-[swipe-direction=right]:max-w-[640px] data-[swipe-direction=right]:rounded-xl">
+                <DrawerContent className="flex min-h-0 flex-1 flex-col p-0 pb-0">
+                  <SettingsModal
+                    currentDataset={payload}
+                    onCancel={hideSettingsModal}
+                    onSave={handleSave}
+                  />
+                </DrawerContent>
+              </DrawerPopup>
+            </DrawerViewport>
+          </DrawerPortal>
         </Drawer>
       )}
     </div>

@@ -1,10 +1,10 @@
 'use client'
 import type { FC } from 'react'
-import React from 'react'
 import type { KeyValue } from '../../types'
+import * as React from 'react'
 import KeyValueEdit from './key-value-edit'
 
-interface Props {
+type Props = {
   readonly: boolean
   nodeId: string
   list: KeyValue[]
@@ -44,15 +44,17 @@ const KeyValueList: FC<Props> = ({
   //   }).join('\n')
   //   return res
   // })()
-  return <KeyValueEdit
-    readonly={readonly}
-    nodeId={nodeId}
-    list={list}
-    onChange={onChange}
-    onAdd={onAdd}
-    isSupportFile={isSupportFile}
-  // onSwitchToBulkEdit={toggleKeyValueEdit}
-  />
+  return (
+    <KeyValueEdit
+      readonly={readonly}
+      nodeId={nodeId}
+      list={list}
+      onChange={onChange}
+      onAdd={onAdd}
+      isSupportFile={isSupportFile}
+      // onSwitchToBulkEdit={toggleKeyValueEdit}
+    />
+  )
   // : <BulkEdit
   //   value={bulkList}
   //   onChange={handleBulkValueChange}

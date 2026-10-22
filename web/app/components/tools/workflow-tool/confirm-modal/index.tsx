@@ -1,10 +1,9 @@
 'use client'
 
+import { Button } from '@langgenius/dify-ui/button'
+import { cn } from '@langgenius/dify-ui/cn'
+import { Dialog, DialogContent, DialogTitle } from '@langgenius/dify-ui/dialog'
 import { useTranslation } from 'react-i18next'
-import { RiCloseLine } from '@remixicon/react'
-import cn from '@/utils/classnames'
-import Button from '@/app/components/base/button'
-import Modal from '@/app/components/base/modal'
 import { AlertTriangle } from '@/app/components/base/icons/src/vender/solid/alertsAndFeedback'
 
 type ConfirmModalProps = {
@@ -17,28 +16,34 @@ const ConfirmModal = ({ show, onConfirm, onClose }: ConfirmModalProps) => {
   const { t } = useTranslation()
 
   return (
-    <Modal
-      className={cn('p-8 max-w-[600px] w-[600px]')}
-      isShow={show}
-      onClose={() => { }}
-    >
-      <div className='absolute right-4 top-4 p-2 cursor-pointer' onClick={onClose}>
-        <RiCloseLine className='w-4 h-4 text-text-tertiary' />
-      </div>
-      <div className='w-12 h-12 p-3 bg-background-section rounded-xl border-[0.5px] border-divider-regular shadow-xl'>
-        <AlertTriangle className='w-6 h-6 text-[rgb(247,144,9)]' />
-      </div>
-      <div className='relative mt-3 text-xl font-semibold leading-[30px] text-text-primary'>{t('tools.createTool.confirmTitle')}</div>
-      <div className='my-1 text-text-tertiary text-sm leading-5'>
-        {t('tools.createTool.confirmTip')}
-      </div>
-      <div className='pt-6 flex justify-end items-center'>
-        <div className='flex items-center'>
-          <Button className='mr-2' onClick={onClose}>{t('common.operation.cancel')}</Button>
-          <Button variant="warning" onClick={onConfirm}>{t('common.operation.confirm')}</Button>
+    <Dialog open={show} disablePointerDismissal>
+      <DialogContent
+        backdropProps={{ forceRender: true }}
+        className={cn('w-[600px]! max-w-[600px]! p-8!')}
+      >
+        <button
+          type="button"
+          aria-label={t('operation.close', { ns: 'common' })}
+          className="absolute top-4 right-4 cursor-pointer border-none bg-transparent p-2"
+          onClick={onClose}
+        >
+          <span aria-hidden className="i-ri-close-line h-4 w-4 text-text-tertiary" />
+        </button>
+        <div className="h-12 w-12 rounded-xl border-[0.5px] border-divider-regular bg-background-section p-3 shadow-xl">
+          <AlertTriangle className="h-6 w-6 text-[rgb(247,144,9)]" />
         </div>
-      </div>
-    </Modal>
+        <DialogTitle className="relative mt-3 text-xl leading-[30px] font-semibold text-text-primary">{t('createTool.confirmTitle', { ns: 'tools' })}</DialogTitle>
+        <div className="my-1 text-sm leading-5 text-text-tertiary">
+          {t('createTool.confirmTip', { ns: 'tools' })}
+        </div>
+        <div className="flex items-center justify-end pt-6">
+          <div className="flex items-center">
+            <Button className="mr-2" onClick={onClose}>{t('operation.cancel', { ns: 'common' })}</Button>
+            <Button variant="primary" tone="destructive" onClick={onConfirm}>{t('operation.confirm', { ns: 'common' })}</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
