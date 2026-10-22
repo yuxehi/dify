@@ -43,6 +43,12 @@ vi.mock('@/service/debug', () => ({
   generateRule: (...args: unknown[]) => mockGenerateRule(...args),
 }))
 
+vi.mock('@/service/use-common', () => ({
+  useModelParameterRules: () => ({
+    data: { data: [{ name: 'max_completion_tokens', use_template: 'max_tokens', type: 'int', min: 1, max: 32768, default: 8192 }] },
+  }),
+}))
+
 vi.mock('@/app/components/header/account-setting/model-provider-page/model-parameter-modal', () => ({
   default: ({
     setModel,
@@ -122,6 +128,34 @@ describe('GetCodeGeneratorResModal', () => {
       },
     }
     mockInstructionTemplate = undefined
+  })
+
+  // Cover fresh defaults and the legacy auto-gen-model cache without changing valid user limits.
+  it.each<[Record<string, number> | undefined, number | undefined]>([
+    [undefined, undefined],
+    [{ max_tokens: 0 }, 8192],
+    [{ max_completion_tokens: 0 }, 8192],
+    [{ max_completion_tokens: 2048 }, 2048],
+    [{ max_tokens: 1024 }, undefined],
+  ])('should send valid token limits when cached parameters are %j', async (params, expectedCanonical) => {
+    if (params) {
+      localStorage.setItem('auto-gen-model', JSON.stringify({
+        name: 'qwen',
+        provider: 'tongyi',
+        mode: 'chat',
+        completion_params: params,
+      }))
+    }
+    mockGenerateRule.mockResolvedValue({ code: 'print(1)' })
+
+    render(<GetCodeGeneratorResModal flowId="flow-1" nodeId="node-1" currentCode="print(1)" mode={AppModeEnum.CHAT} isShow codeLanguages={CodeLanguage.python3} onClose={mockOnClose} onFinished={mockOnFinished} />)
+    fireEvent.click(screen.getByRole('button', { name: 'set-code-instruction' }))
+    fireEvent.click(screen.getByRole('button', { name: 'codegen.generate' }))
+
+    await waitFor(() => expect(mockGenerateRule).toHaveBeenCalled())
+    const sent = mockGenerateRule.mock.calls[0]![0].model_config.completion_params
+    expect(sent.max_completion_tokens).toBe(expectedCanonical)
+    expect(sent.max_tokens).toBe(params?.max_tokens === 1024 ? 1024 : undefined)
   })
 
   it('should initialize from template suggestions and persist model updates', async () => {

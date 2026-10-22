@@ -49,6 +49,11 @@ describe('VariableMenuItem', () => {
   })
 
   describe('Highlighting Logic (queryString)', () => {
+    it.each(['trailing\\', 'a[b', 'source_url})'])('should highlight %j as literal text without crashing', (query) => {
+      render(<VariableMenuItem {...defaultProps} title={query} queryString={query} />)
+      expect(screen.getByTitle(query).querySelector('.text-text-accent')?.textContent).toBe(query)
+    })
+
     it('should not highlight anything when queryString is null', () => {
       render(<VariableMenuItem {...defaultProps} queryString={null} />)
       const titleContainer = screen.getByTitle('Variable Name')

@@ -47,11 +47,13 @@ import { $splitNodeContainingQuery } from '../../utils'
 import { INSERT_CURRENT_BLOCK_COMMAND } from '../current-block'
 import { INSERT_ERROR_MESSAGE_BLOCK_COMMAND } from '../error-message-block'
 import { INSERT_LAST_RUN_BLOCK_COMMAND } from '../last-run-block'
+import { PROMPT_EDITOR_INSERT_QUICKLY } from '../update-block'
 import { INSERT_VARIABLE_VALUE_BLOCK_COMMAND } from '../variable-block'
 import { INSERT_WORKFLOW_VARIABLE_BLOCK_COMMAND } from '../workflow-variable-block'
 import { useOptions } from './hooks'
 
 type ComponentPickerProps = {
+  instanceId?: string
   triggerString: string
   contextBlock?: ContextBlockType
   queryBlock?: QueryBlockType
@@ -66,6 +68,7 @@ type ComponentPickerProps = {
   isSupportFileVar?: boolean
 }
 const ComponentPicker = ({
+  instanceId,
   triggerString,
   contextBlock,
   queryBlock,
@@ -92,15 +95,45 @@ const ComponentPicker = ({
   })
   const [editor] = useLexicalComposerContext()
   const triggerMatchRef = useRef<MenuTextMatch | null>(null)
+  const isCodeSlashPicker = triggerString === '/' && currentBlock?.generatorType === GeneratorType.code
+  const slashInputIntentRef = useRef(false)
   const baseCheckForTriggerMatch = useBasicTypeaheadTriggerMatch(triggerString, {
     minLength: 0,
     maxLength: 75,
   })
   const checkForTriggerMatch = useCallback((text: string, editor: LexicalEditor) => {
+    // Existing slashes in instructions are prose, not a new insert-context command.
+    if (isCodeSlashPicker && !slashInputIntentRef.current) {
+      triggerMatchRef.current = null
+      return null
+    }
     const match = baseCheckForTriggerMatch(text, editor)
     triggerMatchRef.current = match
     return match
-  }, [baseCheckForTriggerMatch])
+  }, [baseCheckForTriggerMatch, isCodeSlashPicker])
+
+  useEffect(() => {
+    if (!isCodeSlashPicker)
+      return
+    const handleBeforeInput = (event: InputEvent) => {
+      if (event.inputType === 'insertText' && event.data === '/')
+        slashInputIntentRef.current = true
+      else if (event.inputType === 'insertFromPaste')
+        slashInputIntentRef.current = false
+    }
+    const handlePointerDown = () => {
+      slashInputIntentRef.current = false
+      triggerMatchRef.current = null
+      editor.dispatchCommand(KEY_ESCAPE_COMMAND, new KeyboardEvent('keydown', { key: 'Escape' }))
+    }
+    // Capture before Lexical handles input; rebind when its editable root changes.
+    return editor.registerRootListener((root, previousRoot) => {
+      previousRoot?.removeEventListener('beforeinput', handleBeforeInput, true)
+      previousRoot?.removeEventListener('pointerdown', handlePointerDown, true)
+      root?.addEventListener('beforeinput', handleBeforeInput, true)
+      root?.addEventListener('pointerdown', handlePointerDown, true)
+    })
+  }, [editor, isCodeSlashPicker])
 
   const [queryString, setQueryString] = useState<string | null>(null)
   const [blurHidden, setBlurHidden] = useState(false)
@@ -147,6 +180,8 @@ const ComponentPicker = ({
   }, [editor, clearBlurTimer])
 
   eventEmitter?.useSubscription((v: EventEmitterValue) => {
+    if (isCodeSlashPicker && typeof v !== 'string' && v.type === PROMPT_EDITOR_INSERT_QUICKLY && v.instanceId === instanceId)
+      slashInputIntentRef.current = true
     if (typeof v !== 'string' && v.type === INSERT_VARIABLE_VALUE_BLOCK_COMMAND && typeof v.payload === 'string')
       editor.dispatchCommand(INSERT_VARIABLE_VALUE_BLOCK_COMMAND, `{{${v.payload}}}`)
   })

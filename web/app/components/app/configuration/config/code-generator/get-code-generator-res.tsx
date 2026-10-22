@@ -1,5 +1,5 @@
 import type { FC } from 'react'
-import type { FormValue } from '@/app/components/header/account-setting/model-provider-page/declarations'
+import type { FormValue, ModelParameterRule } from '@/app/components/header/account-setting/model-provider-page/declarations'
 import type { CodeLanguage } from '@/app/components/workflow/nodes/code/types'
 import type { GenRes } from '@/service/debug'
 import type { AppModeEnum, CompletionParams, Model, ModelModeType } from '@/types/app'
@@ -29,6 +29,7 @@ import { useModelListAndDefaultModelAndCurrentProviderAndModel } from '@/app/com
 import ModelParameterModal from '@/app/components/header/account-setting/model-provider-page/model-parameter-modal'
 import { generateRule } from '@/service/debug'
 import { useGenerateRuleTemplate } from '@/service/use-apps'
+import { useModelParameterRules } from '@/service/use-common'
 import { languageMap } from '../../../../workflow/nodes/_base/components/editor/code-editor/index'
 import IdeaOutput from '../automatic/idea-output'
 import InstructionEditor from '../automatic/instruction-editor-in-workflow'
@@ -39,6 +40,29 @@ import { GeneratorType } from '../automatic/types'
 import useGenData from '../automatic/use-gen-data'
 
 const i18nPrefix = 'generate'
+type CodeGenerationModel = Omit<Model, 'completion_params'> & { completion_params: Partial<CompletionParams> }
+
+// Scoped to code generation: older browser caches contain zero token limits.
+const normalizeCompletionParams = (params: Partial<CompletionParams>, rules: ModelParameterRule[] = []): Partial<CompletionParams> => {
+  const normalized: Record<string, unknown> = { ...params }
+  for (const rule of rules) {
+    const key = normalized[rule.name] != null ? rule.name : rule.use_template
+    if (!key)
+      continue
+    const value = normalized[key]
+    if (typeof value !== 'number' || ((rule.min == null || value >= rule.min) && (rule.max == null || value <= rule.max)))
+      continue
+    delete normalized[key]
+    if (typeof rule.default === 'number' && (rule.min == null || rule.default >= rule.min) && (rule.max == null || rule.default <= rule.max))
+      normalized[rule.name] = rule.default
+  }
+  for (const key of ['max_tokens', 'max_completion_tokens', 'max_output_tokens']) {
+    if (typeof normalized[key] === 'number' && normalized[key] <= 0)
+      delete normalized[key]
+  }
+  return normalized as Partial<CompletionParams>
+}
+
 type IGetCodeGeneratorResProps = {
   flowId: string
   nodeId: string
@@ -63,24 +87,23 @@ export const GetCodeGeneratorResModal: FC<IGetCodeGeneratorResProps> = (
   },
 ) => {
   const { t } = useTranslation()
-  const defaultCompletionParams = {
+  const defaultCompletionParams: Partial<CompletionParams> = {
     temperature: 0.7,
-    max_tokens: 0,
-    top_p: 0,
     echo: false,
     stop: [],
     presence_penalty: 0,
     frequency_penalty: 0,
   }
   const localModel = localStorage.getItem('auto-gen-model')
-    ? JSON.parse(localStorage.getItem('auto-gen-model') as string) as Model
+    ? JSON.parse(localStorage.getItem('auto-gen-model') as string) as CodeGenerationModel
     : null
-  const [model, setModel] = React.useState<Model>(localModel || {
+  const [model, setModel] = React.useState<CodeGenerationModel>(localModel || {
     name: '',
     provider: '',
     mode: mode as unknown as ModelModeType.chat,
     completion_params: defaultCompletionParams,
   })
+  const { data: parameterRules } = useModelParameterRules(model.provider, model.name)
   const {
     defaultModel,
   } = useModelListAndDefaultModelAndCurrentProviderAndModel(ModelTypeEnum.textGeneration)
@@ -128,7 +151,7 @@ export const GetCodeGeneratorResModal: FC<IGetCodeGeneratorResProps> = (
   const handleCompletionParamsChange = useCallback((newParams: FormValue) => {
     const newModel = {
       ...model,
-      completion_params: newParams as CompletionParams,
+      completion_params: newParams as Partial<CompletionParams>,
     }
     setModel(newModel)
     localStorage.setItem('auto-gen-model', JSON.stringify(newModel))
@@ -146,7 +169,10 @@ export const GetCodeGeneratorResModal: FC<IGetCodeGeneratorResProps> = (
         node_id: nodeId,
         current: currentCode,
         instruction,
-        model_config: model,
+        model_config: {
+          ...model,
+          completion_params: normalizeCompletionParams(model.completion_params, parameterRules?.data),
+        },
         ideal_output: ideaOutput,
         language: languageMap[codeLanguages] || 'javascript',
       })
@@ -222,7 +248,7 @@ export const GetCodeGeneratorResModal: FC<IGetCodeGeneratorResProps> = (
                 popupClassName="w-[520px]!"
                 isAdvancedMode={true}
                 provider={model.provider}
-                completionParams={model.completion_params}
+                completionParams={normalizeCompletionParams(model.completion_params, parameterRules?.data)}
                 modelId={model.name}
                 setModel={handleModelChange}
                 onCompletionParamsChange={handleCompletionParamsChange}
