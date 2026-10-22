@@ -95,34 +95,35 @@ const ComponentPicker = ({
   })
   const [editor] = useLexicalComposerContext()
   const triggerMatchRef = useRef<MenuTextMatch | null>(null)
-  const isCodeSlashPicker = triggerString === '/' && currentBlock?.generatorType === GeneratorType.code
-  const slashInputIntentRef = useRef(false)
+  const isCodePicker = currentBlock?.generatorType === GeneratorType.code
+  const isCodeSlashPicker = triggerString === '/' && isCodePicker
+  const triggerInputIntentRef = useRef(false)
   const baseCheckForTriggerMatch = useBasicTypeaheadTriggerMatch(triggerString, {
     minLength: 0,
     maxLength: 75,
   })
   const checkForTriggerMatch = useCallback((text: string, editor: LexicalEditor) => {
-    // Existing slashes in instructions are prose, not a new insert-context command.
-    if (isCodeSlashPicker && !slashInputIntentRef.current) {
+    // Existing JSON braces and slashes are prose, not new insert-context commands.
+    if (isCodePicker && !triggerInputIntentRef.current) {
       triggerMatchRef.current = null
       return null
     }
     const match = baseCheckForTriggerMatch(text, editor)
     triggerMatchRef.current = match
     return match
-  }, [baseCheckForTriggerMatch, isCodeSlashPicker])
+  }, [baseCheckForTriggerMatch, isCodePicker])
 
   useEffect(() => {
-    if (!isCodeSlashPicker)
+    if (!isCodePicker)
       return
     const handleBeforeInput = (event: InputEvent) => {
-      if (event.inputType === 'insertText' && event.data === '/')
-        slashInputIntentRef.current = true
+      if (event.inputType === 'insertText' && event.data === triggerString)
+        triggerInputIntentRef.current = true
       else if (event.inputType === 'insertFromPaste')
-        slashInputIntentRef.current = false
+        triggerInputIntentRef.current = false
     }
     const handlePointerDown = () => {
-      slashInputIntentRef.current = false
+      triggerInputIntentRef.current = false
       triggerMatchRef.current = null
       editor.dispatchCommand(KEY_ESCAPE_COMMAND, new KeyboardEvent('keydown', { key: 'Escape' }))
     }
@@ -133,7 +134,7 @@ const ComponentPicker = ({
       root?.addEventListener('beforeinput', handleBeforeInput, true)
       root?.addEventListener('pointerdown', handlePointerDown, true)
     })
-  }, [editor, isCodeSlashPicker])
+  }, [editor, isCodePicker, triggerString])
 
   const [queryString, setQueryString] = useState<string | null>(null)
   const [blurHidden, setBlurHidden] = useState(false)
@@ -181,7 +182,7 @@ const ComponentPicker = ({
 
   eventEmitter?.useSubscription((v: EventEmitterValue) => {
     if (isCodeSlashPicker && typeof v !== 'string' && v.type === PROMPT_EDITOR_INSERT_QUICKLY && v.instanceId === instanceId)
-      slashInputIntentRef.current = true
+      triggerInputIntentRef.current = true
     if (typeof v !== 'string' && v.type === INSERT_VARIABLE_VALUE_BLOCK_COMMAND && typeof v.payload === 'string')
       editor.dispatchCommand(INSERT_VARIABLE_VALUE_BLOCK_COMMAND, `{{${v.payload}}}`)
   })
