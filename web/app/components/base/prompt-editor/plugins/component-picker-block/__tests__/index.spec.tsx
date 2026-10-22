@@ -11,6 +11,7 @@ import type {
 } from '../../../types'
 import type { NodeOutPutVar, Var } from '@/app/components/workflow/types'
 import type { EventEmitterValue } from '@/context/event-emitter'
+import { Dialog, DialogContent } from '@langgenius/dify-ui/dialog'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
@@ -37,6 +38,7 @@ import { INSERT_CONTEXT_BLOCK_COMMAND } from '../../context-block'
 import { INSERT_CURRENT_BLOCK_COMMAND } from '../../current-block'
 import { INSERT_ERROR_MESSAGE_BLOCK_COMMAND } from '../../error-message-block'
 import { INSERT_LAST_RUN_BLOCK_COMMAND } from '../../last-run-block'
+import { PROMPT_EDITOR_INSERT_QUICKLY } from '../../update-block'
 import { INSERT_VARIABLE_VALUE_BLOCK_COMMAND } from '../../variable-block'
 import { INSERT_WORKFLOW_VARIABLE_BLOCK_COMMAND } from '../../workflow-variable-block'
 import ComponentPicker from '../index'
@@ -182,6 +184,7 @@ const MinimalEditor: React.FC<{
         <CaptureEditorAndEmitter captures={captures} />
 
         <ComponentPicker
+          instanceId="picker-test"
           triggerString={triggerString}
           contextBlock={contextBlock}
           queryBlock={queryBlock}
@@ -270,6 +273,76 @@ describe('ComponentPicker (component-picker-block/index.tsx)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useRealTimers()
+  })
+
+  // A caret click in ordinary slash-separated instructions must not invoke a command.
+  it.each(['文字/普通文字', '近半年 / 近一年 / 不限)', '/普通文字', 'https://example.com/path'])(
+    'does not reopen the code-generator slash menu when clicking after existing text %s',
+    async (text) => {
+      const captures: Captures = { editor: null, eventEmitter: null }
+      render(<MinimalEditor triggerString="/" contextBlock={makeContextBlock()} currentBlock={makeCurrentBlock({ generatorType: GeneratorType.code })} captures={captures} />)
+      const editor = await waitForEditor(captures)
+      const editable = screen.getByTestId(CONTENT_EDITABLE_TEST_ID)
+      fireEvent.pointerDown(editable)
+      await setEditorText(editor, text, true)
+      await flushNextTick()
+      expect(screen.queryByText('common.promptEditor.context.item.title')).not.toBeInTheDocument()
+      expect(readEditorText(editor)).toBe(text)
+    },
+  )
+
+  it('opens code-generator suggestions for typed slash after a focus cycle and for the insert-context button', async () => {
+    const captures: Captures = { editor: null, eventEmitter: null }
+    render(<MinimalEditor triggerString="/" contextBlock={makeContextBlock()} currentBlock={makeCurrentBlock({ generatorType: GeneratorType.code })} captures={captures} />)
+    const editor = await waitForEditor(captures)
+    const editable = screen.getByTestId(CONTENT_EDITABLE_TEST_ID)
+    fireEvent.pointerDown(editable)
+    fireEvent.focus(editable)
+    fireEvent(editable, new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: '/' }))
+    await setEditorText(editor, '/', true)
+    expect(await screen.findByText('common.promptEditor.context.item.title')).toBeInTheDocument()
+
+    fireEvent.pointerDown(editable)
+    await setEditorText(editor, '/ordinary text', true)
+    await flushNextTick()
+    expect(screen.queryByText('common.promptEditor.context.item.title')).not.toBeInTheDocument()
+
+    const emitter = await waitForEventEmitter(captures)
+    await act(async () => {
+      emitter.emit({ type: PROMPT_EDITOR_INSERT_QUICKLY, instanceId: 'picker-test' })
+    })
+    await setEditorText(editor, '/', true)
+    expect(await screen.findByText('common.promptEditor.context.item.title')).toBeInTheDocument()
+
+    await act(async () => {
+      editor.dispatchCommand(BLUR_COMMAND, new FocusEvent('blur', { relatedTarget: document.createElement('button') }))
+      editor.dispatchCommand(FOCUS_COMMAND, new FocusEvent('focus'))
+    })
+    fireEvent.pointerDown(editable)
+    fireEvent(editable, new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: '/' }))
+    await setEditorText(editor, '/', true)
+    expect(await screen.findByText('common.promptEditor.context.item.title')).toBeInTheDocument()
+  })
+
+  it('keeps the parent code-generator dialog open when clicking at the end of slash-separated prose', async () => {
+    const captures: Captures = { editor: null, eventEmitter: null }
+    const onOpenChange = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <Dialog open onOpenChange={onOpenChange}>
+        <DialogContent>
+          <MinimalEditor triggerString="/" contextBlock={makeContextBlock()} currentBlock={makeCurrentBlock({ generatorType: GeneratorType.code })} captures={captures} />
+        </DialogContent>
+      </Dialog>,
+    )
+    const editor = await waitForEditor(captures)
+    await setEditorText(editor, '近半年 / 近一年 / 不限)', true)
+    await user.click(screen.getByTestId(CONTENT_EDITABLE_TEST_ID))
+    await flushNextTick()
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.queryByText('common.promptEditor.context.item.title')).not.toBeInTheDocument()
   })
 
   it('does not render a menu when there are no options and workflowVariableBlock is not shown (renderMenu returns null)', async () => {

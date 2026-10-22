@@ -31,7 +31,7 @@ from extensions.ext_storage import storage
 from graphon.enums import WorkflowNodeExecutionMetadataKey
 from graphon.model_runtime.entities.llm_entities import LLMResult
 from graphon.model_runtime.entities.message_entities import PromptMessage, SystemPromptMessage, UserPromptMessage
-from graphon.model_runtime.entities.model_entities import ModelType
+from graphon.model_runtime.entities.model_entities import ModelType, ParameterRule
 from graphon.model_runtime.errors.invoke import InvokeAuthorizationError, InvokeError
 from models import App, Message, WorkflowNodeExecutionModel
 from models.workflow import Workflow
@@ -67,6 +67,38 @@ def _normalize_completion_params(completion_params: dict[str, object]) -> tuple[
             normalized_parameters.pop(token_limit_key, None)
 
     return normalized_parameters, stop
+
+
+def _normalize_code_generation_params(
+    completion_params: dict[str, Any], parameter_rules: Sequence[ParameterRule]
+) -> dict[str, Any]:
+    """Repair legacy code-generator values using this model's rules without mutating saved settings."""
+    parameters = dict(completion_params)
+    for rule in parameter_rules:
+        key = rule.name if parameters.get(rule.name) is not None else rule.use_template
+        if key is None:
+            continue
+        value = parameters.get(key)
+        if not isinstance(value, int | float) or isinstance(value, bool):
+            continue
+        if (rule.min is None or value >= rule.min) and (rule.max is None or value <= rule.max):
+            continue
+        parameters.pop(key, None)
+        default = rule.default
+        if (
+            isinstance(default, int | float)
+            and not isinstance(default, bool)
+            and (rule.min is None or default >= rule.min)
+            and (rule.max is None or default <= rule.max)
+        ):
+            parameters[rule.name] = default
+
+    # Unknown aliases can still survive old browser caches; let the provider use its default.
+    for key in ("max_tokens", "max_completion_tokens", "max_output_tokens"):
+        value = parameters.get(key)
+        if isinstance(value, int | float) and not isinstance(value, bool) and value <= 0:
+            parameters.pop(key, None)
+    return parameters
 
 
 class WorkflowServiceInterface(Protocol):
@@ -398,8 +430,10 @@ class LLMGenerator:
         )
 
         prompt_messages = [UserPromptMessage(content=prompt)]
-        model_parameters = args.model_config_data.completion_params
         try:
+            model_parameters = _normalize_code_generation_params(
+                args.model_config_data.completion_params, model_instance.get_model_schema().parameter_rules
+            )
             response: LLMResult = model_instance.invoke_llm(
                 prompt_messages=list(prompt_messages), model_parameters=model_parameters, stream=False
             )

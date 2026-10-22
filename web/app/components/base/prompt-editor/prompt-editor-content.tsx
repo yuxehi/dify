@@ -154,6 +154,7 @@ const PromptEditorContent: FC<PromptEditorContentProps> = ({
       ))}
       <ComponentPickerBlock
         triggerString="/"
+        instanceId={instanceId}
         contextBlock={contextBlock}
         historyBlock={historyBlock}
         queryBlock={queryBlock}

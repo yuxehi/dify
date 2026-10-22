@@ -411,6 +411,22 @@ describe('usePromptOptions', () => {
 // useVariableOptions
 // ═══════════════════════════════════════════════════════════════════════════════
 describe('useVariableOptions', () => {
+  // Arbitrary prompt text must be searched literally, including JSON escapes.
+  it.each(['source_url})', 'a[b', 'trailing\\'])('should safely search for %j', (query) => {
+    const { result } = renderHook(
+      () => useVariableOptions(makeVariableBlock([{ value: query, name: query }]), query),
+      { wrapper: makeLexicalWrapper() },
+    )
+    expect(result.current[0]!.key).toBe(query)
+  })
+
+  it('should match a dot literally instead of as a wildcard', () => {
+    const { result } = renderHook(
+      () => useVariableOptions(makeVariableBlock([{ value: 'a.b', name: 'a.b' }, { value: 'axb', name: 'axb' }]), 'a.b'),
+      { wrapper: makeLexicalWrapper() },
+    )
+    expect(result.current.map(option => option.key)).not.toContain('axb')
+  })
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -580,6 +596,14 @@ describe('useVariableOptions', () => {
 // useExternalToolOptions
 // ═══════════════════════════════════════════════════════════════════════════════
 describe('useExternalToolOptions', () => {
+  // Use the same escaping contract for external-tool suggestions.
+  it.each(['weather})', 'a[b', 'trailing\\'])('should safely search for %j', (query) => {
+    const { result } = renderHook(
+      () => useExternalToolOptions(makeExternalToolBlock({}, [{ name: query, variableName: 'tool' }]), query),
+      { wrapper: makeLexicalWrapper() },
+    )
+    expect(result.current[0]!.key).toBe(query)
+  })
   beforeEach(() => {
     vi.clearAllMocks()
   })

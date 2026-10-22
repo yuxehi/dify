@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -322,6 +323,35 @@ class TestLLMGenerator:
         result = LLMGenerator.generate_code("tenant_id", payload)
         assert result["code"] == "print('hello')"
         assert result["language"] == "python"
+
+    @pytest.mark.parametrize(
+        ("parameters", "expected"),
+        [
+            ({"max_tokens": 0}, {"max_completion_tokens": 8192}),
+            ({"max_completion_tokens": 0}, {"max_completion_tokens": 8192}),
+            ({"max_output_tokens": -1}, {}),
+            ({"max_tokens": 2048}, {"max_tokens": 2048}),
+            ({"max_completion_tokens": 4096}, {"max_completion_tokens": 4096}),
+            ({"max_tokens": 0, "max_completion_tokens": 4096}, {"max_completion_tokens": 4096}),
+            ({"top_p": 0}, {"top_p": 0.8}),
+        ],
+    )
+    def test_generate_code_normalizes_legacy_parameters(
+        self, mock_model_instance, model_config_entity, parameters, expected
+    ):
+        model_config_entity.completion_params = {"temperature": 0.7, **parameters}
+        mock_model_instance.get_model_schema.return_value.parameter_rules = [
+            SimpleNamespace(name="max_completion_tokens", use_template="max_tokens", min=1, max=32768, default=8192),
+            SimpleNamespace(name="top_p", use_template="top_p", min=0.1, max=1, default=0.8),
+        ]
+        mock_model_instance.invoke_llm.return_value.message.get_text_content.return_value = "print(1)"
+        payload = RuleCodeGeneratePayload(instruction="print hello", model_config=model_config_entity)
+
+        result = LLMGenerator.generate_code("tenant_id", payload)
+
+        assert result["error"] == ""
+        assert mock_model_instance.invoke_llm.call_args.kwargs["model_parameters"] == {"temperature": 0.7, **expected}
+        assert model_config_entity.completion_params == {"temperature": 0.7, **parameters}
 
     def test_generate_code_javascript_success(self, mock_model_instance, model_config_entity):
         payload = RuleCodeGeneratePayload(
