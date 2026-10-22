@@ -29,6 +29,7 @@ import {
   KEY_ESCAPE_COMMAND,
 } from 'lexical'
 import * as React from 'react'
+import InstructionEditor from '@/app/components/app/configuration/config/automatic/instruction-editor'
 import { GeneratorType } from '@/app/components/app/configuration/config/automatic/types'
 import { VAR_REFERENCE_CHILD_POPUP_CLASS_NAME } from '@/app/components/workflow/nodes/_base/components/variable/var-reference-vars'
 import { VarType } from '@/app/components/workflow/types'
@@ -343,6 +344,92 @@ describe('ComponentPicker (component-picker-block/index.tsx)', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(onOpenChange).not.toHaveBeenCalled()
     expect(screen.queryByText('common.promptEditor.context.item.title')).not.toBeInTheDocument()
+  })
+
+  // JSON examples are instructions, even when the caret follows a brace or an escape.
+  it.each(['XXX', '月搜索量', '月购买量'])(
+    'should keep JSON prose editable without opening a variable menu when clicking after %s',
+    async (caretText) => {
+      const text = String.raw`结果以json字符串格式输出，输出格式参考：
+[{\"词根\":\"XXX\",\"月搜索量\":XXX,\"月购买量\":XXX,\"月搜索购买率\":\"6.92%\"},`
+      const captures: Captures = { editor: null, eventEmitter: null }
+      const onOpenChange = vi.fn()
+      render(
+        <Dialog open onOpenChange={onOpenChange}>
+          <DialogContent>
+            <MinimalEditor triggerString="{" currentBlock={makeCurrentBlock({ generatorType: GeneratorType.code })} workflowVariableBlock={makeWorkflowVariableBlock()} captures={captures} />
+          </DialogContent>
+        </Dialog>,
+      )
+      const editor = await waitForEditor(captures)
+      await setEditorText(editor, text, false)
+      const editable = screen.getByTestId(CONTENT_EDITABLE_TEST_ID)
+      await userEvent.setup().click(editable)
+      const offset = text.indexOf(caretText) + caretText.length
+      await act(async () => {
+        editor.update(() => {
+          $getRoot().getAllTextNodes()[0]!.select(offset, offset)
+        })
+      })
+      await flushNextTick()
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(onOpenChange).not.toHaveBeenCalled()
+      expect(screen.queryByPlaceholderText('workflow.common.searchVar')).not.toBeInTheDocument()
+      expect(readEditorText(editor)).toBe(text)
+    },
+  )
+
+  it.each(['XXX', '月搜索量', '月购买量'])(
+    'should keep the complete instruction editor open when placing the caret after %s in escaped JSON',
+    async (caretText) => {
+      const text = String.raw`结果以json字符串格式输出，输出格式参考：
+[{\"词根\":\"XXX\",\"月搜索量\":XXX,\"月购买量\":XXX,\"月搜索购买率\":\"6.92%\"},`
+      const onOpenChange = vi.fn()
+      render(
+        <EventEmitterContextProvider>
+          <Dialog open onOpenChange={onOpenChange}>
+            <DialogContent>
+              <InstructionEditor editorKey="json-example" generatorType={GeneratorType.code} value={text} onChange={vi.fn()} availableVars={[]} availableNodes={[]} isShowCurrentBlock isShowLastRunBlock />
+            </DialogContent>
+          </Dialog>
+        </EventEmitterContextProvider>,
+      )
+      const editable = screen.getByRole('textbox')
+      await userEvent.setup().click(editable)
+      await act(async () => {
+        const walker = document.createTreeWalker(editable, NodeFilter.SHOW_TEXT)
+        let node = walker.nextNode()
+        while (node && !node.textContent?.includes(caretText))
+          node = walker.nextNode()
+        expect(node).not.toBeNull()
+        const offset = node!.textContent!.indexOf(caretText) + caretText.length
+        const range = document.createRange()
+        range.setStart(node!, offset)
+        range.collapse(true)
+        window.getSelection()!.removeAllRanges()
+        window.getSelection()!.addRange(range)
+        fireEvent(document, new Event('selectionchange'))
+      })
+      await flushNextTick()
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(onOpenChange).not.toHaveBeenCalled()
+      expect(screen.queryByPlaceholderText('workflow.common.searchVar')).not.toBeInTheDocument()
+      expect(editable).toHaveTextContent(String.raw`[{\"词根\":\"XXX\",\"月搜索量\":XXX`)
+    },
+  )
+
+  it('should open code-generator variable suggestions when typing a new brace', async () => {
+    const captures: Captures = { editor: null, eventEmitter: null }
+    render(<MinimalEditor triggerString="{" currentBlock={makeCurrentBlock({ generatorType: GeneratorType.code })} workflowVariableBlock={makeWorkflowVariableBlock()} captures={captures} />)
+    const editor = await waitForEditor(captures)
+    const editable = screen.getByTestId(CONTENT_EDITABLE_TEST_ID)
+    fireEvent.pointerDown(editable)
+    fireEvent(editable, new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: '{' }))
+    await setEditorText(editor, '{', true)
+
+    expect(await screen.findByPlaceholderText('workflow.common.searchVar')).toBeInTheDocument()
   })
 
   it('does not render a menu when there are no options and workflowVariableBlock is not shown (renderMenu returns null)', async () => {
