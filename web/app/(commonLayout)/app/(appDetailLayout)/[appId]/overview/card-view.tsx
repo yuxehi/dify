@@ -12,7 +12,6 @@ import { useTranslation } from 'react-i18next'
 import AppCard from '@/app/components/app/overview/app-card'
 import TriggerCard from '@/app/components/app/overview/trigger-card'
 import { useStore as useAppStore } from '@/app/components/app/store'
-import CopyFeedback from '@/app/components/base/copy-feedback'
 import Loading from '@/app/components/base/loading'
 import MCPServiceCard from '@/app/components/tools/mcp/mcp-service-card'
 import { collaborationManager } from '@/app/components/workflow/collaboration/core/collaboration-manager'
@@ -181,17 +180,6 @@ const CardView: FC<ICardViewProps> = ({ appId, isInPanel, className }) => {
 
   const appCards = (
     <>
-      <div className="flex w-full shrink-0 items-center gap-2 rounded-xl border-[0.5px] border-effects-highlight bg-background-default px-3 py-2 xl:col-span-full">
-        <span className="shrink-0 system-xs-semibold text-text-secondary">
-          {t('overview.appId', { ns: 'appOverview' })}
-        </span>
-        <code className="min-w-0 flex-1 font-mono text-[11px] leading-4 break-all text-text-secondary select-all">
-          {appId}
-        </code>
-        <div className="shrink-0">
-          <CopyFeedback content={appId} />
-        </div>
-      </div>
       <AppCard
         appInfo={appDetail}
         cardType="webapp"
