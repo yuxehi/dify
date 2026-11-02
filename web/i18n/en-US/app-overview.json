@@ -35,6 +35,7 @@
   "overview.apiInfo.doc": "API Reference",
   "overview.apiInfo.explanation": "Easily integrated into your application",
   "overview.apiInfo.title": "Backend Service API",
+  "overview.appId": "APP ID",
   "overview.appInfo.accessibleAddress": "Public URL",
   "overview.appInfo.customize.entry": "Customize",
   "overview.appInfo.customize.explanation": "You can customize the frontend of the Web App to fit your scenario and style needs.",
