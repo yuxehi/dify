@@ -1,4 +1,7 @@
 import type { FC } from 'react'
+import type { LoopNodeType } from './types'
+import type { NodeProps } from '@/app/components/workflow/types'
+import { cn } from '@langgenius/dify-ui/cn'
 import {
   memo,
   useEffect,
@@ -9,12 +12,9 @@ import {
   useViewport,
 } from 'reactflow'
 import { LoopStartNodeDumb } from '../loop-start'
-import { useNodeLoopInteractions } from './use-interactions'
-import type { LoopNodeType } from './types'
 import AddBlock from './add-block'
-import cn from '@/utils/classnames'
 
-import type { NodeProps } from '@/app/components/workflow/types'
+import { useNodeLoopInteractions } from './use-interactions'
 
 const Node: FC<NodeProps<LoopNodeType>> = ({
   id,
@@ -31,14 +31,15 @@ const Node: FC<NodeProps<LoopNodeType>> = ({
 
   return (
     <div className={cn(
-      'relative min-w-[240px] min-h-[90px] w-full h-full rounded-2xl bg-[#F0F2F7]/90',
-    )}>
+      'relative h-full min-h-[90px] w-full min-w-[240px] rounded-2xl bg-workflow-canvas-workflow-bg',
+    )}
+    >
       <Background
         id={`loop-background-${id}`}
-        className='rounded-2xl !z-0'
+        className="z-0! rounded-2xl"
         gap={[14 / zoom, 14 / zoom]}
         size={2 / zoom}
-        color='#E4E5E7'
+        color="var(--color-workflow-canvas-workflow-dot-color)"
       />
       {
         data._isCandidate && (
@@ -46,7 +47,7 @@ const Node: FC<NodeProps<LoopNodeType>> = ({
         )
       }
       {
-        data._children!.length === 1 && (
+        data._children?.length === 1 && (
           <AddBlock
             loopNodeId={id}
             loopNodeData={data}

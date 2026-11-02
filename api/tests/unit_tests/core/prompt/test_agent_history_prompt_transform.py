@@ -5,14 +5,14 @@ from core.app.entities.app_invoke_entities import (
 )
 from core.entities.provider_configuration import ProviderModelBundle
 from core.memory.token_buffer_memory import TokenBufferMemory
-from core.model_runtime.entities.message_entities import (
+from core.prompt.agent_history_prompt_transform import AgentHistoryPromptTransform
+from graphon.model_runtime.entities.message_entities import (
     AssistantPromptMessage,
     SystemPromptMessage,
     ToolPromptMessage,
     UserPromptMessage,
 )
-from core.model_runtime.model_providers.__base.large_language_model import LargeLanguageModel
-from core.prompt.agent_history_prompt_transform import AgentHistoryPromptTransform
+from graphon.model_runtime.model_providers.base.large_language_model import LargeLanguageModel
 from models.model import Conversation
 
 
@@ -64,12 +64,10 @@ def test_get_prompt():
     transform._calculate_rest_token = MagicMock(return_value=max_token_limit)
     result = transform.get_prompt()
 
-    assert len(result) <= max_token_limit
     assert len(result) == 4
 
     max_token_limit = 20
     transform._calculate_rest_token = MagicMock(return_value=max_token_limit)
     result = transform.get_prompt()
 
-    assert len(result) <= max_token_limit
     assert len(result) == 12

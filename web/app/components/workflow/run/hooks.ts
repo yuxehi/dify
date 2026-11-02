@@ -1,15 +1,16 @@
+import type {
+  AgentLogItemWithChildren,
+  IterationDurationMap,
+  LoopDurationMap,
+  LoopVariableMap,
+  NodeTracing,
+} from '@/types/workflow'
+import { useBoolean } from 'ahooks'
 import {
   useCallback,
   useRef,
   useState,
 } from 'react'
-import { useBoolean } from 'ahooks'
-import type {
-  AgentLogItemWithChildren,
-  IterationDurationMap,
-  LoopDurationMap,
-  NodeTracing,
-} from '@/types/workflow'
 
 export const useLogs = () => {
   const [showRetryDetail, {
@@ -40,10 +41,12 @@ export const useLogs = () => {
   }] = useBoolean(false)
   const [loopResultList, setLoopResultList] = useState<NodeTracing[][]>([])
   const [loopResultDurationMap, setLoopResultDurationMap] = useState<LoopDurationMap>({})
-  const handleShowLoopResultList = useCallback((detail: NodeTracing[][], loopDurationMap: LoopDurationMap) => {
+  const [loopResultVariableMap, setLoopResultVariableMap] = useState<Record<string, any>>({})
+  const handleShowLoopResultList = useCallback((detail: NodeTracing[][], loopDurationMap: LoopDurationMap, loopVariableMap: LoopVariableMap) => {
     setShowLoopingDetailTrue()
     setLoopResultList(detail)
     setLoopResultDurationMap(loopDurationMap)
+    setLoopResultVariableMap(loopVariableMap)
   }, [setShowLoopingDetailTrue, setLoopResultList, setLoopResultDurationMap])
 
   const [agentOrToolLogItemStack, setAgentOrToolLogItemStack] = useState<AgentLogItemWithChildren[]>([])
@@ -56,9 +59,9 @@ export const useLogs = () => {
       agentOrToolLogItemStackRef.current = []
       return
     }
-    const { id, children } = detail
+    const { message_id: id, children } = detail
     let currentAgentOrToolLogItemStack = agentOrToolLogItemStackRef.current.slice()
-    const index = currentAgentOrToolLogItemStack.findIndex(logItem => logItem.id === id)
+    const index = currentAgentOrToolLogItemStack.findIndex(logItem => logItem.message_id === id)
 
     if (index > -1)
       currentAgentOrToolLogItemStack = currentAgentOrToolLogItemStack.slice(0, index + 1)
@@ -101,6 +104,8 @@ export const useLogs = () => {
     setLoopResultList,
     loopResultDurationMap,
     setLoopResultDurationMap,
+    loopResultVariableMap,
+    setLoopResultVariableMap,
     handleShowLoopResultList,
 
     agentOrToolLogItemStack,

@@ -1,16 +1,15 @@
 'use client'
-import { useCallback, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { useRouter, useSearchParams } from 'next/navigation'
-import cn from 'classnames'
+import { Button } from '@langgenius/dify-ui/button'
+import { cn } from '@langgenius/dify-ui/cn'
+import { toast } from '@langgenius/dify-ui/toast'
 import { RiCheckboxCircleFill } from '@remixicon/react'
 import { useCountDown } from 'ahooks'
-import Button from '@/app/components/base/button'
-import { changePasswordWithToken } from '@/service/common'
-import Toast from '@/app/components/base/toast'
+import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import Input from '@/app/components/base/input'
-
-const validPassword = /^(?=.*[a-zA-Z])(?=.*\d).{8,}$/
+import { validPassword } from '@/config'
+import { useRouter, useSearchParams } from '@/next/navigation'
+import { changePasswordWithToken } from '@/service/common'
 
 const ChangePasswordForm = () => {
   const { t } = useTranslation()
@@ -25,10 +24,7 @@ const ChangePasswordForm = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const showErrorMessage = useCallback((message: string) => {
-    Toast.notify({
-      type: 'error',
-      message,
-    })
+    toast.error(message)
   }, [])
 
   const getSignInUrl = () => {
@@ -51,15 +47,15 @@ const ChangePasswordForm = () => {
 
   const valid = useCallback(() => {
     if (!password.trim()) {
-      showErrorMessage(t('login.error.passwordEmpty'))
+      showErrorMessage(t('error.passwordEmpty', { ns: 'login' }))
       return false
     }
     if (!validPassword.test(password)) {
-      showErrorMessage(t('login.error.passwordInvalid'))
+      showErrorMessage(t('error.passwordInvalid', { ns: 'login' }))
       return false
     }
     if (password !== confirmPassword) {
-      showErrorMessage(t('common.account.notEqual'))
+      showErrorMessage(t('account.notEqual', { ns: 'common' }))
       return false
     }
     return true
@@ -88,66 +84,68 @@ const ChangePasswordForm = () => {
   return (
     <div className={
       cn(
-        'flex flex-col items-center w-full grow justify-center',
+        'flex w-full grow flex-col items-center justify-center',
         'px-6',
         'md:px-[108px]',
       )
-    }>
+    }
+    >
       {!showSuccess && (
-        <div className='flex flex-col md:w-[400px]'>
-          <div className="w-full mx-auto">
+        <div className="flex flex-col md:w-[400px]">
+          <div className="mx-auto w-full">
             <h2 className="title-4xl-semi-bold text-text-primary">
-              {t('login.changePassword')}
+              {t('changePassword', { ns: 'login' })}
             </h2>
-            <p className='mt-2 body-md-regular text-text-secondary'>
-              {t('login.changePasswordTip')}
+            <p className="mt-2 body-md-regular text-text-secondary">
+              {t('changePasswordTip', { ns: 'login' })}
             </p>
           </div>
 
-          <div className="w-full mx-auto mt-6">
-            <div className="bg-white">
+          <div className="mx-auto mt-6 w-full">
+            <div>
               {/* Password */}
-              <div className='mb-5'>
+              <div className="mb-5">
                 <label htmlFor="password" className="my-2 system-md-semibold text-text-secondary">
-                  {t('common.account.newPassword')}
+                  {t('account.newPassword', { ns: 'common' })}
                 </label>
-                <div className='relative mt-1'>
+                <div className="relative mt-1">
                   <Input
-                    id="password" type={showPassword ? 'text' : 'password'}
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    placeholder={t('login.passwordPlaceholder') || ''}
+                    placeholder={t('passwordPlaceholder', { ns: 'login' }) || ''}
                   />
 
                   <div className="absolute inset-y-0 right-0 flex items-center">
                     <Button
                       type="button"
-                      variant='ghost'
+                      variant="ghost"
                       onClick={() => setShowPassword(!showPassword)}
                     >
                       {showPassword ? '👀' : '😝'}
                     </Button>
                   </div>
                 </div>
-                <div className='mt-1 body-xs-regular text-text-secondary'>{t('login.error.passwordInvalid')}</div>
+                <div className="mt-1 body-xs-regular text-text-secondary">{t('error.passwordInvalid', { ns: 'login' })}</div>
               </div>
               {/* Confirm Password */}
-              <div className='mb-5'>
+              <div className="mb-5">
                 <label htmlFor="confirmPassword" className="my-2 system-md-semibold text-text-secondary">
-                  {t('common.account.confirmPassword')}
+                  {t('account.confirmPassword', { ns: 'common' })}
                 </label>
-                <div className='relative mt-1'>
+                <div className="relative mt-1">
                   <Input
                     id="confirmPassword"
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
-                    placeholder={t('login.confirmPasswordPlaceholder') || ''}
+                    placeholder={t('confirmPasswordPlaceholder', { ns: 'login' }) || ''}
                   />
                   <div className="absolute inset-y-0 right-0 flex items-center">
                     <Button
                       type="button"
-                      variant='ghost'
+                      variant="ghost"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     >
                       {showConfirmPassword ? '👀' : '😝'}
@@ -157,11 +155,11 @@ const ChangePasswordForm = () => {
               </div>
               <div>
                 <Button
-                  variant='primary'
-                  className='w-full'
+                  variant="primary"
+                  className="w-full"
                   onClick={handleChangePassword}
                 >
-                  {t('login.changePasswordBtn')}
+                  {t('changePasswordBtn', { ns: 'login' })}
                 </Button>
               </div>
             </div>
@@ -170,19 +168,30 @@ const ChangePasswordForm = () => {
       )}
       {showSuccess && (
         <div className="flex flex-col md:w-[400px]">
-          <div className="w-full mx-auto">
-            <div className="mb-3 flex justify-center items-center w-14 h-14 rounded-2xl border border-components-panel-border-subtle shadow-lg font-bold">
-              <RiCheckboxCircleFill className='w-6 h-6 text-text-success' />
+          <div className="mx-auto w-full">
+            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-components-panel-border-subtle font-bold shadow-lg">
+              <RiCheckboxCircleFill className="h-6 w-6 text-text-success" />
             </div>
             <h2 className="title-4xl-semi-bold text-text-primary">
-              {t('login.passwordChangedTip')}
+              {t('passwordChangedTip', { ns: 'login' })}
             </h2>
           </div>
-          <div className="w-full mx-auto mt-6">
-            <Button variant='primary' className='w-full' onClick={() => {
-              setLeftTime(undefined)
-              router.replace(getSignInUrl())
-            }}>{t('login.passwordChanged')} ({Math.round(countdown / 1000)}) </Button>
+          <div className="mx-auto mt-6 w-full">
+            <Button
+              variant="primary"
+              className="w-full"
+              onClick={() => {
+                setLeftTime(undefined)
+                router.replace(getSignInUrl())
+              }}
+            >
+              {t('passwordChanged', { ns: 'login' })}
+              {' '}
+              (
+              {Math.round(countdown / 1000)}
+              )
+              {' '}
+            </Button>
           </div>
         </div>
       )}

@@ -1,65 +1,66 @@
 'use client'
 
-import { RiArrowRightSLine } from '@remixicon/react'
 import type { MarketplaceCollection } from '../types'
-import CardWrapper from './card-wrapper'
 import type { Plugin } from '@/app/components/plugins/types'
-import { getLanguage } from '@/i18n/language'
-import cn from '@/utils/classnames'
-import type { SearchParamsFromCollection } from '@/app/components/plugins/marketplace/types'
-import { useMixedTranslation } from '@/app/components/plugins/marketplace/hooks'
+import { cn } from '@langgenius/dify-ui/cn'
+import { RiArrowRightSLine } from '@remixicon/react'
+import { useLocale, useTranslation } from '#i18n'
+import { getLanguage } from '@/i18n-config/language'
+import { useMarketplaceMoreClick } from '../atoms'
+import CardWrapper from './card-wrapper'
 
 type ListWithCollectionProps = {
   marketplaceCollections: MarketplaceCollection[]
   marketplaceCollectionPluginsMap: Record<string, Plugin[]>
   showInstallButton?: boolean
-  locale: string
   cardContainerClassName?: string
-  cardRender?: (plugin: Plugin) => JSX.Element | null
-  onMoreClick?: (searchParams?: SearchParamsFromCollection) => void
+  cardRender?: (plugin: Plugin) => React.JSX.Element | null
 }
 const ListWithCollection = ({
   marketplaceCollections,
   marketplaceCollectionPluginsMap,
   showInstallButton,
-  locale,
   cardContainerClassName,
   cardRender,
-  onMoreClick,
 }: ListWithCollectionProps) => {
-  const { t } = useMixedTranslation(locale)
+  const { t } = useTranslation()
+  const locale = useLocale()
+  const onMoreClick = useMarketplaceMoreClick()
 
   return (
     <>
       {
-        marketplaceCollections.map(collection => (
+        marketplaceCollections.filter((collection) => {
+          return marketplaceCollectionPluginsMap[collection.name]?.length
+        }).map(collection => (
           <div
             key={collection.name}
-            className='py-3'
+            className="py-3"
           >
-            <div className='flex justify-between items-end'>
+            <div className="flex items-end justify-between">
               <div>
-                <div className='title-xl-semi-bold text-text-primary'>{collection.label[getLanguage(locale)]}</div>
-                <div className='system-xs-regular text-text-tertiary'>{collection.description[getLanguage(locale)]}</div>
+                <div className="title-xl-semi-bold text-text-primary">{collection.label[getLanguage(locale)]}</div>
+                <div className="system-xs-regular text-text-tertiary">{collection.description[getLanguage(locale)]}</div>
               </div>
               {
-                collection.searchable && onMoreClick && (
+                collection.searchable && (
                   <div
-                    className='flex items-center system-xs-medium text-text-accent cursor-pointer '
-                    onClick={() => onMoreClick?.(collection.search_params)}
+                    className="flex cursor-pointer items-center system-xs-medium text-text-accent"
+                    onClick={() => onMoreClick(collection.search_params)}
                   >
-                    {t('plugin.marketplace.viewMore')}
-                    <RiArrowRightSLine className='w-4 h-4' />
+                    {t('marketplace.viewMore', { ns: 'plugin' })}
+                    <RiArrowRightSLine className="h-4 w-4" />
                   </div>
                 )
               }
             </div>
             <div className={cn(
-              'grid grid-cols-4 gap-3 mt-2',
+              'mt-2 grid grid-cols-4 gap-3',
               cardContainerClassName,
-            )}>
+            )}
+            >
               {
-                marketplaceCollectionPluginsMap[collection.name].map((plugin) => {
+                marketplaceCollectionPluginsMap[collection.name]!.map((plugin) => {
                   if (cardRender)
                     return cardRender(plugin)
 
@@ -68,7 +69,6 @@ const ListWithCollection = ({
                       key={plugin.plugin_id}
                       plugin={plugin}
                       showInstallButton={showInstallButton}
-                      locale={locale}
                     />
                   )
                 })

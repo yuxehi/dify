@@ -1,0 +1,35 @@
+# Local source-build override for the dev_yyf branch.
+#
+# Keep this file separate from docker-compose.yaml so production deployments can
+# continue using immutable registry tags. In local development, run:
+#   docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d --build
+#
+# The API image is built once from ../api and then reused by the API, websocket,
+# Celery worker, and beat services. The Web image is built from the repository
+# root because its pnpm workspace dependencies live outside ../web.
+services:
+  api:
+    image: dify-znt-api:1.14.2-dev
+    pull_policy: never
+    build:
+      context: ../api
+      dockerfile: Dockerfile
+
+  api_websocket:
+    image: dify-znt-api:1.14.2-dev
+    pull_policy: never
+
+  worker:
+    image: dify-znt-api:1.14.2-dev
+    pull_policy: never
+
+  worker_beat:
+    image: dify-znt-api:1.14.2-dev
+    pull_policy: never
+
+  web:
+    image: dify-znt-web:1.14.2-dev
+    pull_policy: never
+    build:
+      context: ..
+      dockerfile: web/Dockerfile

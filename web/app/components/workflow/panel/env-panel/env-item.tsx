@@ -1,10 +1,10 @@
-import { memo, useState } from 'react'
-import { capitalize } from 'lodash-es'
+import type { EnvironmentVariable } from '@/app/components/workflow/types'
+import { cn } from '@langgenius/dify-ui/cn'
 import { RiDeleteBinLine, RiEditLine, RiLock2Line } from '@remixicon/react'
+import { capitalize } from 'es-toolkit/string'
+import { memo, useState } from 'react'
 import { Env } from '@/app/components/base/icons/src/vender/line/others'
 import { useStore } from '@/app/components/workflow/store'
-import type { EnvironmentVariable } from '@/app/components/workflow/types'
-import cn from '@/utils/classnames'
 
 type EnvItemProps = {
   env: EnvironmentVariable
@@ -22,30 +22,41 @@ const EnvItem = ({
 
   return (
     <div className={cn(
-      'mb-1 px-2.5 py-2 bg-components-panel-on-panel-item-bg radius-md border border-components-panel-border-subtle shadow-xs hover:bg-components-panel-on-panel-item-bg-hover',
+      'group mb-1 rounded-lg border border-components-panel-border-subtle bg-components-panel-on-panel-item-bg shadow-xs hover:bg-components-panel-on-panel-item-bg-hover',
       destructive && 'border-state-destructive-border hover:bg-state-destructive-hover',
-    )}>
-      <div className='flex items-center justify-between'>
-        <div className='grow flex gap-1 items-center'>
-          <Env className='w-4 h-4 text-util-colors-violet-violet-600' />
-          <div className='text-text-primary system-sm-medium'>{env.name}</div>
-          <div className='text-text-tertiary system-xs-medium'>{capitalize(env.value_type)}</div>
-          {env.value_type === 'secret' && <RiLock2Line className='w-3 h-3 text-text-tertiary' />}
-        </div>
-        <div className='shrink-0 flex gap-1 items-center text-text-tertiary'>
-          <div className='p-1 radius-md cursor-pointer hover:bg-state-base-hover hover:text-text-secondary'>
-            <RiEditLine className='w-4 h-4' onClick={() => onEdit(env)}/>
+    )}
+    >
+      <div className="px-2.5 py-2">
+        <div className="flex items-center justify-between">
+          <div className="flex grow items-center gap-1">
+            <Env className="h-4 w-4 text-util-colors-violet-violet-600" />
+            <div className="system-sm-medium text-text-primary">{env.name}</div>
+            <div className="system-xs-medium text-text-tertiary">{capitalize(env.value_type)}</div>
+            {env.value_type === 'secret' && <RiLock2Line className="h-3 w-3 text-text-tertiary" />}
           </div>
-          <div
-            className='p-1 radius-md cursor-pointer hover:bg-state-destructive-hover hover:text-text-destructive'
-            onMouseOver={() => setDestructive(true)}
-            onMouseOut={() => setDestructive(false)}
-          >
-            <RiDeleteBinLine className='w-4 h-4' onClick={() => onDelete(env)} />
+          <div className="flex shrink-0 items-center gap-1 text-text-tertiary">
+            <div className="cursor-pointer rounded-lg p-1 hover:bg-state-base-hover hover:text-text-secondary">
+              <RiEditLine className="h-4 w-4" onClick={() => onEdit(env)} />
+            </div>
+            <div
+              className="cursor-pointer rounded-lg p-1 hover:bg-state-destructive-hover hover:text-text-destructive"
+              onMouseOver={() => setDestructive(true)}
+              onMouseOut={() => setDestructive(false)}
+            >
+              <RiDeleteBinLine className="h-4 w-4" onClick={() => onDelete(env)} />
+            </div>
           </div>
         </div>
+        <div className="truncate system-xs-regular text-text-tertiary">{env.value_type === 'secret' ? envSecrets[env.id] : env.value}</div>
       </div>
-      <div className='text-text-tertiary system-xs-regular truncate'>{env.value_type === 'secret' ? envSecrets[env.id] : env.value}</div>
+      {env.description && (
+        <>
+          <div className="h-[0.5px] bg-divider-subtle" />
+          <div className={cn('rounded-br-[8px] rounded-bl-[8px] bg-background-default-subtle px-2.5 py-2 group-hover:bg-transparent', destructive && 'bg-state-destructive-hover hover:bg-state-destructive-hover')}>
+            <div className="truncate system-xs-regular text-text-tertiary">{env.description}</div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

@@ -1,20 +1,20 @@
-import { useCallback } from 'react'
-import { useTranslation } from 'react-i18next'
-import Collapse from '../collapse'
-import { ErrorHandleTypeEnum } from './types'
-import ErrorHandleTypeSelector from './error-handle-type-selector'
-import FailBranchCard from './fail-branch-card'
-import DefaultValue from './default-value'
-import {
-  useDefaultValue,
-  useErrorHandle,
-} from './hooks'
 import type { DefaultValueForm } from './types'
 import type {
   CommonNodeType,
   Node,
 } from '@/app/components/workflow/types'
-import Tooltip from '@/app/components/base/tooltip'
+import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Infotip } from '@/app/components/base/infotip'
+import Collapse from '../collapse'
+import DefaultValue from './default-value'
+import ErrorHandleTypeSelector from './error-handle-type-selector'
+import FailBranchCard from './fail-branch-card'
+import {
+  useDefaultValue,
+  useErrorHandle,
+} from './hooks'
+import { ErrorHandleTypeEnum } from './types'
 
 type ErrorHandleProps = Pick<Node, 'id' | 'data'>
 const ErrorHandle = ({
@@ -44,24 +44,30 @@ const ErrorHandle = ({
 
   return (
     <>
-      <div className='py-4'>
+      <div className="py-4">
         <Collapse
           disabled={!error_strategy}
           collapsed={collapsed}
           onCollapse={setCollapsed}
+          hideCollapseIcon
           trigger={
-            <div className='grow flex items-center justify-between pr-4'>
-              <div className='flex items-center'>
-                <div className='mr-0.5 system-sm-semibold-uppercase text-text-secondary'>
-                  {t('workflow.nodes.common.errorHandle.title')}
+            collapseIcon => (
+              <div className="flex grow items-center justify-between pr-4">
+                <div className="flex items-center">
+                  <div className="mr-0.5 system-sm-semibold-uppercase text-text-secondary">
+                    {t('nodes.common.errorHandle.title', { ns: 'workflow' })}
+                  </div>
+                  <Infotip aria-label={t('nodes.common.errorHandle.tip', { ns: 'workflow' })}>
+                    {t('nodes.common.errorHandle.tip', { ns: 'workflow' })}
+                  </Infotip>
+                  {collapseIcon}
                 </div>
-                <Tooltip popupContent={t('workflow.nodes.common.errorHandle.tip')} />
+                <ErrorHandleTypeSelector
+                  value={error_strategy || ErrorHandleTypeEnum.none}
+                  onSelected={getHandleErrorHandleTypeChange(data)}
+                />
               </div>
-              <ErrorHandleTypeSelector
-                value={error_strategy || ErrorHandleTypeEnum.none}
-                onSelected={getHandleErrorHandleTypeChange(data)}
-              />
-            </div>
+            )
           }
         >
           <>

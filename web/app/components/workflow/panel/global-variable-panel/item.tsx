@@ -1,8 +1,9 @@
-import { memo } from 'react'
-import { capitalize } from 'lodash-es'
-import { Env } from '@/app/components/base/icons/src/vender/line/others'
 import type { GlobalVariable } from '@/app/components/workflow/types'
-import cn from '@/utils/classnames'
+import { cn } from '@langgenius/dify-ui/cn'
+import { capitalize } from 'es-toolkit/string'
+
+import { memo } from 'react'
+import { GlobalVariable as GlobalVariableIcon } from '@/app/components/base/icons/src/vender/line/others'
 
 type Props = {
   payload: GlobalVariable
@@ -13,16 +14,20 @@ const Item = ({
 }: Props) => {
   return (
     <div className={cn(
-      'mb-1 px-2.5 py-2 bg-components-panel-on-panel-item-bg radius-md border border-components-panel-border-subtle shadow-xs hover:bg-components-panel-on-panel-item-bg-hover',
-    )}>
-      <div className='flex items-center justify-between'>
-        <div className='grow flex gap-1 items-center'>
-          <Env className='w-4 h-4 text-util-colors-violet-violet-600' />
-          <div className='text-text-primary system-sm-medium'>{payload.name}</div>
-          <div className='text-text-tertiary system-xs-medium'>{capitalize(payload.value_type)}</div>
+      'mb-1 rounded-lg border border-components-panel-border-subtle bg-components-panel-on-panel-item-bg px-2.5 py-2 shadow-xs hover:bg-components-panel-on-panel-item-bg-hover',
+    )}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex grow items-center gap-1">
+          <GlobalVariableIcon className="h-4 w-4 text-util-colors-orange-orange-600" />
+          <div className="system-sm-medium text-text-primary">
+            <span className="text-text-tertiary">sys.</span>
+            {payload.name}
+          </div>
+          <div className="system-xs-medium text-text-tertiary">{capitalize(payload.value_type)}</div>
         </div>
       </div>
-      <div className='text-text-tertiary system-xs-regular truncate'>{payload.description}</div>
+      <div className="mt-1.5 truncate system-xs-regular text-text-tertiary">{payload.description}</div>
     </div>
   )
 }

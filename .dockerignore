@@ -1,0 +1,19 @@
+# Local dependency trees contain pnpm links that Windows Docker BuildKit cannot
+# safely transfer. The Web Dockerfile recreates them from pnpm-lock.yaml.
+node_modules
+**/node_modules
+**/node_modules/**
+
+# Build outputs and local runtime data are never inputs to the Web image.
+**/.next
+**/dist
+**/__pycache__
+**/.pytest_cache
+api/.venv
+docker/volumes
+
+# Repository/editor metadata only increases the build context size.
+.git
+.github
+.idea
+.vscode

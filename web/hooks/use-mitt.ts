@@ -8,42 +8,42 @@ const merge = <T extends Record<string, any>>(
   return Object.assign({}, ...args)
 }
 
-export type _Events = Record<EventType, unknown>
+type _Events = Record<EventType, unknown>
 
-export type UseSubcribeOption = {
+type UseSubscribeOption = {
   /**
-     * Whether the subscription is enabled.
-     * @default true
-     */
-  enabled: boolean;
+   * Whether the subscription is enabled.
+   * @default true
+   */
+  enabled: boolean
 }
 
-export type ExtendedOn<Events extends _Events> = {
+type ExtendedOn<Events extends _Events> = {
   <Key extends keyof Events>(
     type: Key,
     handler: Handler<Events[Key]>,
-    options?: UseSubcribeOption,
-  ): void;
+    options?: UseSubscribeOption,
+  ): void
   (
     type: '*',
     handler: WildcardHandler<Events>,
-    option?: UseSubcribeOption,
-  ): void;
+    option?: UseSubscribeOption,
+  ): void
 }
 
-export type UseMittReturn<Events extends _Events> = {
-  useSubcribe: ExtendedOn<Events>;
-  emit: Emitter<Events>['emit'];
+type UseMittReturn<Events extends _Events> = {
+  useSubscribe: ExtendedOn<Events>
+  emit: Emitter<Events>['emit']
 }
 
-const defaultSubcribeOption: UseSubcribeOption = {
+const defaultSubscribeOption: UseSubscribeOption = {
   enabled: true,
 }
 
 function useMitt<Events extends _Events>(
   mitt?: Emitter<Events>,
 ): UseMittReturn<Events> {
-  const emitterRef = useRef<Emitter<Events>>()
+  const emitterRef = useRef<Emitter<Events> | undefined>(undefined)
   if (!emitterRef.current)
     emitterRef.current = mitt ?? create<Events>()
 
@@ -52,12 +52,12 @@ function useMitt<Events extends _Events>(
     emitterRef.current = mitt
   }
   const emitter = emitterRef.current
-  const useSubcribe: ExtendedOn<Events> = (
+  const useSubscribe: ExtendedOn<Events> = (
     type: string,
     handler: any,
-    option?: UseSubcribeOption,
+    option?: UseSubscribeOption,
   ) => {
-    const { enabled } = merge(defaultSubcribeOption, option)
+    const { enabled } = merge(defaultSubscribeOption, option)
     useEffect(() => {
       if (enabled) {
         emitter.on(type, handler)
@@ -67,7 +67,7 @@ function useMitt<Events extends _Events>(
   }
   return {
     emit: emitter.emit,
-    useSubcribe,
+    useSubscribe,
   }
 }
 

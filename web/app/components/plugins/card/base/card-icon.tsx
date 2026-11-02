@@ -1,6 +1,8 @@
+import { cn } from '@langgenius/dify-ui/cn'
 import { RiCheckLine, RiCloseLine } from '@remixicon/react'
 import AppIcon from '@/app/components/base/app-icon'
-import cn from '@/utils/classnames'
+import { Mcp } from '@/app/components/base/icons/src/vender/other'
+import { shouldUseMcpIcon } from '@/utils/mcp'
 
 const iconSizeMap = {
   xs: 'w-4 h-4 text-base',
@@ -31,10 +33,11 @@ const Icon = ({
       <div className={cn('relative', className)}>
         <AppIcon
           size={size}
-          iconType={'emoji'}
+          iconType="emoji"
           icon={src.content}
           background={src.background}
-          className='rounded-md'
+          className="rounded-md"
+          innerIcon={shouldUseMcpIcon(src) ? <Mcp className="h-8 w-8 text-text-primary-on-surface" /> : undefined}
         />
       </div>
     )
@@ -42,22 +45,26 @@ const Icon = ({
 
   return (
     <div
-      className={cn('shrink-0 relative rounded-md bg-center bg-no-repeat bg-contain', iconSizeMap[size], className)}
+      className={cn('relative shrink-0 rounded-md bg-contain bg-center bg-no-repeat', iconSizeMap[size], className)}
       style={{
         backgroundImage: `url(${src})`,
       }}
     >
       {
         installed
-        && <div className={cn(iconClassName, 'bg-state-success-solid')}>
-          <RiCheckLine className='w-3 h-3 text-text-primary-on-surface' />
-        </div>
+        && (
+          <div className={cn(iconClassName, 'bg-state-success-solid')}>
+            <RiCheckLine className="h-3 w-3 text-text-primary-on-surface" />
+          </div>
+        )
       }
       {
         installFailed
-        && <div className={cn(iconClassName, 'bg-state-destructive-solid')}>
-          <RiCloseLine className='w-3 h-3 text-text-primary-on-surface' />
-        </div>
+        && (
+          <div className={cn(iconClassName, 'bg-state-destructive-solid')}>
+            <RiCloseLine className="h-3 w-3 text-text-primary-on-surface" />
+          </div>
+        )
       }
     </div>
   )

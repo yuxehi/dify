@@ -1,36 +1,57 @@
 'use client'
-import { useMemo, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import type { Collection } from './types'
-import Marketplace from './marketplace'
-import cn from '@/utils/classnames'
-import { useTabSearchParams } from '@/hooks/use-tab-searchparams'
-import TabSliderNew from '@/app/components/base/tab-slider-new'
-import LabelFilter from '@/app/components/tools/labels/filter'
+import { cn } from '@langgenius/dify-ui/cn'
+import { useSuspenseQuery } from '@tanstack/react-query'
+import { parseAsStringLiteral, useQueryState } from 'nuqs'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import Input from '@/app/components/base/input'
-import ProviderDetail from '@/app/components/tools/provider/detail'
-import Empty from '@/app/components/plugins/marketplace/empty'
-import CustomCreateCard from '@/app/components/tools/provider/custom-create-card'
-import WorkflowToolEmpty from '@/app/components/tools/add-tool-modal/empty'
+import TabSliderNew from '@/app/components/base/tab-slider-new'
 import Card from '@/app/components/plugins/card'
 import CardMoreInfo from '@/app/components/plugins/card/card-more-info'
+import { useTags } from '@/app/components/plugins/hooks'
+import Empty from '@/app/components/plugins/marketplace/empty'
 import PluginDetailPanel from '@/app/components/plugins/plugin-detail-panel'
-import { useSelector as useAppContextSelector } from '@/context/app-context'
+import LabelFilter from '@/app/components/tools/labels/filter'
+import CustomCreateCard from '@/app/components/tools/provider/custom-create-card'
+import ProviderDetail from '@/app/components/tools/provider/detail'
+import WorkflowToolEmpty from '@/app/components/tools/provider/empty'
+import { systemFeaturesQueryOptions } from '@/service/system-features'
+import { useCheckInstalled, useInvalidateInstalledPluginList } from '@/service/use-plugins'
 import { useAllToolProviders } from '@/service/use-tools'
-import { useInstalledPluginList, useInvalidateInstalledPluginList } from '@/service/use-plugins'
+import Marketplace from './marketplace'
+import { useMarketplace } from './marketplace/hooks'
+import MCPList from './mcp'
+import { getToolType } from './utils'
+
+const TOOL_PROVIDER_CATEGORY_VALUES = ['builtin', 'api', 'workflow', 'mcp'] as const
+type ToolProviderCategory = typeof TOOL_PROVIDER_CATEGORY_VALUES[number]
+const toolProviderCategorySet = new Set<string>(TOOL_PROVIDER_CATEGORY_VALUES)
+
+const isToolProviderCategory = (value: string): value is ToolProviderCategory => {
+  return toolProviderCategorySet.has(value)
+}
+
+const parseAsToolProviderCategory = parseAsStringLiteral(TOOL_PROVIDER_CATEGORY_VALUES)
+  .withDefault('builtin')
 
 const ProviderList = () => {
+  // const searchParams = useSearchParams()
+  // searchParams.get('category') === 'workflow'
   const { t } = useTranslation()
-  const containerRef = useRef<HTMLDivElement>(null)
-  const { enable_marketplace } = useAppContextSelector(s => s.systemFeatures)
-
-  const [activeTab, setActiveTab] = useTabSearchParams({
-    defaultTab: 'builtin',
+  const { getTagLabel } = useTags()
+  const { data: enable_marketplace } = useSuspenseQuery({
+    ...systemFeaturesQueryOptions(),
+    select: s => s.enable_marketplace,
   })
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const [activeTab, setActiveTab] = useQueryState('category', parseAsToolProviderCategory)
   const options = [
-    { value: 'builtin', text: t('tools.type.builtIn') },
-    { value: 'api', text: t('tools.type.custom') },
-    { value: 'workflow', text: t('tools.type.workflow') },
+    { value: 'builtin', text: t('type.builtIn', { ns: 'tools' }) },
+    { value: 'api', text: t('type.custom', { ns: 'tools' }) },
+    { value: 'workflow', text: t('type.workflow', { ns: 'tools' }) },
+    { value: 'mcp', text: 'MCP' },
   ]
   const [tagFilterValue, setTagFilterValue] = useState<string[]>([])
   const handleTagsChange = (value: string[]) => {
@@ -53,61 +74,107 @@ const ProviderList = () => {
     })
   }, [activeTab, tagFilterValue, keywords, collectionList])
 
-  const [currentProvider, setCurrentProvider] = useState<Collection | undefined>()
-  const { data: pluginList } = useInstalledPluginList()
+  const [currentProviderId, setCurrentProviderId] = useState<string | undefined>()
+  const currentProvider = useMemo<Collection | undefined>(() => {
+    return filteredCollectionList.find(collection => collection.id === currentProviderId)
+  }, [currentProviderId, filteredCollectionList])
+  const { data: checkedInstalledData } = useCheckInstalled({
+    pluginIds: currentProvider?.plugin_id ? [currentProvider.plugin_id] : [],
+    enabled: !!currentProvider?.plugin_id,
+  })
   const invalidateInstalledPluginList = useInvalidateInstalledPluginList()
   const currentPluginDetail = useMemo(() => {
-    const detail = pluginList?.plugins.find(plugin => plugin.plugin_id === currentProvider?.plugin_id)
-    return detail
-  }, [currentProvider?.plugin_id, pluginList?.plugins])
+    return checkedInstalledData?.plugins?.[0]
+  }, [checkedInstalledData])
+
+  const toolListTailRef = useRef<HTMLDivElement>(null)
+  const showMarketplacePanel = useCallback(() => {
+    containerRef.current?.scrollTo({
+      top: toolListTailRef.current
+        ? toolListTailRef.current?.offsetTop - 80
+        : 0,
+      behavior: 'smooth',
+    })
+  }, [toolListTailRef])
+
+  const marketplaceContext = useMarketplace(keywords, tagFilterValue)
+  const {
+    handleScroll,
+  } = marketplaceContext
+
+  const [isMarketplaceArrowVisible, setIsMarketplaceArrowVisible] = useState(true)
+  const onContainerScroll = useMemo(() => {
+    return (e: Event) => {
+      handleScroll(e)
+      if (containerRef.current && toolListTailRef.current)
+        setIsMarketplaceArrowVisible(containerRef.current.scrollTop < (toolListTailRef.current?.offsetTop - 80))
+    }
+  }, [handleScroll, containerRef, toolListTailRef, setIsMarketplaceArrowVisible])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (container)
+      container.addEventListener('scroll', onContainerScroll)
+
+    return () => {
+      if (container)
+        container.removeEventListener('scroll', onContainerScroll)
+    }
+  }, [onContainerScroll])
 
   return (
     <>
-      <div className='relative flex overflow-hidden shrink-0 h-0 grow'>
+      <div className="relative flex h-0 shrink-0 grow overflow-hidden">
         <div
           ref={containerRef}
-          className='relative flex flex-col overflow-y-auto bg-background-body grow'
+          className="relative flex grow flex-col overflow-y-auto bg-background-body"
         >
           <div className={cn(
-            'sticky top-0 flex justify-between items-center pt-4 px-12 pb-2 leading-[56px] bg-background-body z-20 flex-wrap gap-y-2',
-            currentProvider && 'pr-6',
-          )}>
+            'sticky top-0 z-10 flex flex-wrap items-center justify-between gap-y-2 bg-background-body px-12 pt-4 pb-2 leading-[56px]',
+            currentProviderId && 'pr-6',
+          )}
+          >
             <TabSliderNew
               value={activeTab}
               onChange={(state) => {
+                if (!isToolProviderCategory(state))
+                  return
                 setActiveTab(state)
                 if (state !== activeTab)
-                  setCurrentProvider(undefined)
+                  setCurrentProviderId(undefined)
               }}
               options={options}
             />
-            <div className='flex items-center gap-2'>
-              <LabelFilter value={tagFilterValue} onChange={handleTagsChange} />
+            <div className="flex items-center gap-2">
+              {activeTab !== 'mcp' && (
+                <LabelFilter value={tagFilterValue} onChange={handleTagsChange} />
+              )}
               <Input
                 showLeftIcon
                 showClearIcon
-                wrapperClassName='w-[200px]'
+                wrapperClassName="w-[200px]"
                 value={keywords}
                 onChange={e => handleKeywordsChange(e.target.value)}
                 onClear={() => handleKeywordsChange('')}
               />
             </div>
           </div>
-          {(filteredCollectionList.length > 0 || activeTab !== 'builtin') && (
+          {activeTab !== 'mcp' && (
             <div className={cn(
-              'relative grid content-start grid-cols-1 gap-4 px-12 pt-2 pb-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 shrink-0',
+              'relative grid shrink-0 grid-cols-1 content-start gap-4 px-12 pt-2 pb-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
               !filteredCollectionList.length && activeTab === 'workflow' && 'grow',
-            )}>
+            )}
+            >
               {activeTab === 'api' && <CustomCreateCard onRefreshData={refetch} />}
               {filteredCollectionList.map(collection => (
                 <div
                   key={collection.id}
-                  onClick={() => setCurrentProvider(collection)}
+                  onClick={() => setCurrentProviderId(collection.id)}
                 >
                   <Card
                     className={cn(
-                      'border-[1.5px] border-transparent cursor-pointer',
-                      currentProvider?.id === collection.id && 'border-components-option-card-option-selected-border',
+                      'cursor-pointer border-[1.5px] border-transparent',
+                      currentProviderId === collection.id && 'border-components-option-card-option-selected-border',
                     )}
                     hideCornerMark
                     payload={{
@@ -116,44 +183,46 @@ const ProviderList = () => {
                       org: collection.plugin_id ? collection.plugin_id.split('/')[0] : '',
                       name: collection.plugin_id ? collection.plugin_id.split('/')[1] : collection.name,
                     } as any}
-                    footer={
+                    footer={(
                       <CardMoreInfo
-                        tags={collection.labels}
+                        tags={collection.labels?.map(label => getTagLabel(label)) || []}
                       />
-                    }
+                    )}
                   />
                 </div>
               ))}
-              {!filteredCollectionList.length && activeTab === 'workflow' && <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2'><WorkflowToolEmpty /></div>}
+              {!filteredCollectionList.length && activeTab === 'workflow' && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"><WorkflowToolEmpty type={getToolType(activeTab)} /></div>}
             </div>
           )}
           {!filteredCollectionList.length && activeTab === 'builtin' && (
-            <Empty lightCard text={t('tools.noTools')} className='px-12 h-[224px]' />
+            <Empty lightCard text={t('noTools', { ns: 'tools' })} className="h-[224px] shrink-0 px-12" />
           )}
-          {
-            enable_marketplace && activeTab === 'builtin' && (
-              <Marketplace
-                onMarketplaceScroll={() => {
-                  containerRef.current?.scrollTo({ top: containerRef.current.scrollHeight, behavior: 'smooth' })
-                }}
-                searchPluginText={keywords}
-                filterPluginTags={tagFilterValue}
-              />
-            )
-          }
+          <div ref={toolListTailRef} />
+          {enable_marketplace && activeTab === 'builtin' && (
+            <Marketplace
+              searchPluginText={keywords}
+              filterPluginTags={tagFilterValue}
+              isMarketplaceArrowVisible={isMarketplaceArrowVisible}
+              showMarketplacePanel={showMarketplacePanel}
+              marketplaceContext={marketplaceContext}
+            />
+          )}
+          {activeTab === 'mcp' && (
+            <MCPList searchText={keywords} />
+          )}
         </div>
       </div>
       {currentProvider && !currentProvider.plugin_id && (
         <ProviderDetail
           collection={currentProvider}
-          onHide={() => setCurrentProvider(undefined)}
+          onHide={() => setCurrentProviderId(undefined)}
           onRefreshData={refetch}
         />
       )}
       <PluginDetailPanel
         detail={currentPluginDetail}
         onUpdate={() => invalidateInstalledPluginList()}
-        onHide={() => setCurrentProvider(undefined)}
+        onHide={() => setCurrentProviderId(undefined)}
       />
     </>
   )

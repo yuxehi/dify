@@ -1,8 +1,9 @@
-import { Plan, type PlanInfo, Priority } from '@/app/components/billing/type'
+import type { BasicPlan, PlanInfo } from '@/app/components/billing/type'
+import { Plan, Priority } from '@/app/components/billing/type'
 
 const supportModelProviders = 'OpenAI/Anthropic/Llama2/Azure OpenAI/Hugging Face/Replicate'
 
-export const NUM_INFINITE = 99999999
+export const NUM_INFINITE = -1
 export const contractSales = 'contractSales'
 export const unAvailable = 'unAvailable'
 
@@ -10,7 +11,7 @@ export const contactSalesUrl = 'https://vikgc6bnu1s.typeform.com/dify-business'
 export const getStartedWithCommunityUrl = 'https://github.com/langgenius/dify'
 export const getWithPremiumUrl = 'https://aws.amazon.com/marketplace/pp/prodview-t22mebxzwjhu6'
 
-export const ALL_PLANS: Record<Plan, PlanInfo> = {
+export const ALL_PLANS: Record<BasicPlan, PlanInfo> = {
   sandbox: {
     level: 1,
     price: 0,
@@ -22,8 +23,10 @@ export const ALL_PLANS: Record<Plan, PlanInfo> = {
     vectorSpace: '50MB',
     documentsUploadQuota: 0,
     documentsRequestQuota: 10,
+    apiRateLimit: 5000,
     documentProcessingPriority: Priority.standard,
     messageRequest: 200,
+    triggerEvents: 3000,
     annotatedResponse: 10,
     logHistory: 30,
   },
@@ -38,8 +41,10 @@ export const ALL_PLANS: Record<Plan, PlanInfo> = {
     vectorSpace: '5GB',
     documentsUploadQuota: 0,
     documentsRequestQuota: 100,
+    apiRateLimit: NUM_INFINITE,
     documentProcessingPriority: Priority.priority,
     messageRequest: 5000,
+    triggerEvents: 20000,
     annotatedResponse: 2000,
     logHistory: NUM_INFINITE,
   },
@@ -54,15 +59,17 @@ export const ALL_PLANS: Record<Plan, PlanInfo> = {
     vectorSpace: '20GB',
     documentsUploadQuota: 0,
     documentsRequestQuota: 1000,
+    apiRateLimit: NUM_INFINITE,
     documentProcessingPriority: Priority.topPriority,
     messageRequest: 10000,
+    triggerEvents: NUM_INFINITE,
     annotatedResponse: 5000,
     logHistory: NUM_INFINITE,
   },
 }
 
 export const defaultPlan = {
-  type: Plan.sandbox,
+  type: Plan.sandbox as BasicPlan,
   usage: {
     documents: 50,
     vectorSpace: 1,
@@ -70,6 +77,8 @@ export const defaultPlan = {
     teamMembers: 1,
     annotatedResponse: 1,
     documentsUploadQuota: 0,
+    apiRateLimit: 0,
+    triggerEvents: 0,
   },
   total: {
     documents: 50,
@@ -78,5 +87,11 @@ export const defaultPlan = {
     teamMembers: 1,
     annotatedResponse: 10,
     documentsUploadQuota: 0,
+    apiRateLimit: ALL_PLANS.sandbox.apiRateLimit,
+    triggerEvents: ALL_PLANS.sandbox.triggerEvents,
+  },
+  reset: {
+    apiRateLimit: null,
+    triggerEvents: null,
   },
 }

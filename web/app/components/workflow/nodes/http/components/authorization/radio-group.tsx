@@ -1,7 +1,8 @@
 'use client'
 import type { FC } from 'react'
-import React, { useCallback } from 'react'
-import cn from '@/utils/classnames'
+import { cn } from '@langgenius/dify-ui/cn'
+import * as React from 'react'
+import { useCallback } from 'react'
 
 type Option = {
   value: string
@@ -21,9 +22,10 @@ const Item: FC<ItemProps> = ({
   return (
     <div
       className={cn(
-        isSelected ? 'border-[2px] border-primary-400 bg-white shadow-xs' : 'border border-gray-100 bg-gray-25',
-        'w-0 grow flex items-center justify-center h-8 cursor-pointer rounded-lg text-[13px] font-normal text-gray-900')
-      }
+        'flex h-8 grow cursor-default items-center rounded-md border border-components-option-card-option-border bg-components-option-card-option-bg px-2 system-sm-regular text-text-secondary',
+        !isSelected && 'cursor-pointer hover:border-components-option-card-option-border-hover hover:bg-components-option-card-option-bg-hover hover:shadow-xs',
+        isSelected && 'border-[1.5px] border-components-option-card-option-selected-border bg-components-option-card-option-selected-bg system-sm-medium shadow-xs',
+      )}
       onClick={onClick}
     >
       {title}
@@ -46,7 +48,7 @@ const RadioGroup: FC<Props> = ({
     return () => onChange(value)
   }, [onChange])
   return (
-    <div className='flex space-x-2'>
+    <div className="flex space-x-2">
       {options.map(option => (
         <Item
           key={option.value}

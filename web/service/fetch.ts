@@ -1,8 +1,11 @@
-import type { AfterResponseHook, BeforeErrorHook, BeforeRequestHook, Hooks } from 'ky'
-import ky from 'ky'
+import type { AfterResponseHook, BeforeRequestHook, Hooks } from 'ky'
 import type { IOtherOptions } from './base'
-import Toast from '@/app/components/base/toast'
-import { API_PREFIX, MARKETPLACE_API_PREFIX, PUBLIC_API_PREFIX } from '@/config'
+import { toast } from '@langgenius/dify-ui/toast'
+import Cookies from 'js-cookie'
+import ky, { HTTPError } from 'ky'
+import { API_PREFIX, APP_VERSION, CSRF_COOKIE_NAME, CSRF_HEADER_NAME, IS_MARKETPLACE, MARKETPLACE_API_PREFIX, PASSPORT_HEADER_NAME, PUBLIC_API_PREFIX, WEB_APP_SHARE_CODE_HEADER_NAME } from '@/config'
+import { applyTeachingAuthorization } from './teaching-auth'
+import { getWebAppAccessToken, getWebAppPassport } from './webapp-auth'
 
 const TIME_OUT = 100000
 
@@ -21,8 +24,13 @@ export type FetchOptionType = Omit<RequestInit, 'body'> & {
   body?: BodyInit | Record<string, any> | null
 }
 
-const afterResponse204: AfterResponseHook = async (_request, _options, response) => {
-  if (response.status === 204) return Response.json({ result: 'success' })
+const afterResponse204: AfterResponseHook = async ({ response }) => {
+  if (response.status === 204) {
+    return new Response(JSON.stringify({ result: 'success' }), {
+      status: 200,
+      headers: { 'Content-Type': ContentType.json },
+    })
+  }
 }
 
 export type ResponseError = {
@@ -31,81 +39,79 @@ export type ResponseError = {
   status: number
 }
 
+const createResponseFromHTTPError = (error: HTTPError): Response => {
+  const headers = new Headers(error.response.headers)
+  headers.delete('content-length')
+
+  let body: BodyInit | null = null
+  if (typeof error.data === 'string')
+    body = error.data
+  else if (error.data !== undefined)
+    body = JSON.stringify(error.data)
+
+  if (body !== null && !headers.has('content-type'))
+    headers.set('content-type', ContentType.json)
+
+  return new Response(body, {
+    status: error.response.status,
+    statusText: error.response.statusText,
+    headers,
+  })
+}
+
 const afterResponseErrorCode = (otherOptions: IOtherOptions): AfterResponseHook => {
-  return async (_request, _options, response) => {
-    const clonedResponse = response.clone()
-    if (!/^(2|3)\d{2}$/.test(String(clonedResponse.status))) {
-      const bodyJson = clonedResponse.json() as Promise<ResponseError>
-      switch (clonedResponse.status) {
-        case 403:
-          bodyJson.then((data: ResponseError) => {
-            if (!otherOptions.silent)
-              Toast.notify({ type: 'error', message: data.message })
-            if (data.code === 'already_setup')
-              globalThis.location.href = `${globalThis.location.origin}/signin`
-          })
-          break
-        case 401:
-          return Promise.reject(response)
-        // fall through
-        default:
-          bodyJson.then((data: ResponseError) => {
-            if (!otherOptions.silent)
-              Toast.notify({ type: 'error', message: data.message })
-          })
-          return Promise.reject(response)
+  return async ({ response }) => {
+    if (!/^([23])\d{2}$/.test(String(response.status))) {
+      let errorData: ResponseError | null = null
+      try {
+        const data: unknown = await response.clone().json()
+        errorData = data as ResponseError
       }
+      catch {}
+      const shouldNotifyError = response.status !== 401 && errorData && !otherOptions.silent
+
+      if (shouldNotifyError && errorData)
+        toast.error(errorData.message)
+
+      if (response.status === 403 && errorData?.code === 'already_setup')
+        globalThis.location.href = `${globalThis.location.origin}/signin`
     }
   }
 }
 
-const beforeErrorToast = (otherOptions: IOtherOptions): BeforeErrorHook => {
-  return (error) => {
-    if (!otherOptions.silent)
-      Toast.notify({ type: 'error', message: error.message })
-    return error
-  }
-}
+const SHARE_ROUTE_DENY_LIST = new Set(['webapp-signin', 'check-code', 'login'])
 
-export const getPublicToken = () => {
-  let token = ''
-  const sharedToken = globalThis.location.pathname.split('/').slice(-1)[0]
-  const accessToken = localStorage.getItem('token') || JSON.stringify({ [sharedToken]: '' })
-  let accessTokenJson = { [sharedToken]: '' }
+const resolveShareCode = () => {
+  const pathnameSegments = globalThis.location.pathname.split('/').filter(Boolean)
+  const lastSegment = pathnameSegments.at(-1) || ''
+  if (lastSegment && !SHARE_ROUTE_DENY_LIST.has(lastSegment))
+    return lastSegment
+
+  const redirectParam = new URLSearchParams(globalThis.location.search).get('redirect_url')
+  if (!redirectParam)
+    return ''
   try {
-    accessTokenJson = JSON.parse(accessToken)
+    const redirectUrl = new URL(decodeURIComponent(redirectParam), globalThis.location.origin)
+    const redirectSegments = redirectUrl.pathname.split('/').filter(Boolean)
+    const redirectSegment = redirectSegments.at(-1) || ''
+    return SHARE_ROUTE_DENY_LIST.has(redirectSegment) ? '' : redirectSegment
   }
-  catch { }
-  token = accessTokenJson[sharedToken]
-  return token || ''
-}
-
-export function getAccessToken(isPublicAPI?: boolean) {
-  if (isPublicAPI) {
-    const sharedToken = globalThis.location.pathname.split('/').slice(-1)[0]
-    const accessToken = localStorage.getItem('token') || JSON.stringify({ [sharedToken]: '' })
-    let accessTokenJson = { [sharedToken]: '' }
-    try {
-      accessTokenJson = JSON.parse(accessToken)
-    }
-    catch (e) {
-
-    }
-    return accessTokenJson[sharedToken]
-  }
-  else {
-    return localStorage.getItem('console_token') || ''
+  catch {
+    return ''
   }
 }
 
-const beforeRequestPublicAuthorization: BeforeRequestHook = (request) => {
-  const token = getAccessToken(true)
-  request.headers.set('Authorization', `Bearer ${token}`)
-}
-
-const beforeRequestAuthorization: BeforeRequestHook = (request) => {
-  const accessToken = getAccessToken()
-  request.headers.set('Authorization', `Bearer ${accessToken}`)
+const beforeRequestPublicWithCode: BeforeRequestHook = ({ request }) => {
+  const accessToken = getWebAppAccessToken()
+  if (accessToken)
+    request.headers.set('Authorization', `Bearer ${accessToken}`)
+  else
+    request.headers.delete('Authorization')
+  const shareCode = resolveShareCode()
+  if (!shareCode)
+    return
+  request.headers.set(WEB_APP_SHARE_CODE_HEADER_NAME, shareCode)
+  request.headers.set(PASSPORT_HEADER_NAME, getWebAppPassport(shareCode))
 }
 
 const baseHooks: Hooks = {
@@ -119,7 +125,7 @@ const baseClient = ky.create({
   timeout: TIME_OUT,
 })
 
-export const baseOptions: RequestInit = {
+export const getBaseOptions = (): RequestInit => ({
   method: 'GET',
   mode: 'cors',
   credentials: 'include', // always send cookies、HTTP Basic authentication.
@@ -127,10 +133,28 @@ export const baseOptions: RequestInit = {
     'Content-Type': ContentType.json,
   }),
   redirect: 'follow',
-}
+})
 
 async function base<T>(url: string, options: FetchOptionType = {}, otherOptions: IOtherOptions = {}): Promise<T> {
-  const { params, body, headers, ...init } = Object.assign({}, baseOptions, options)
+  // In fetchCompat mode, skip baseOptions to avoid overriding Request object's method, headers,
+  const baseOptions = otherOptions.fetchCompat
+    ? {
+        mode: 'cors',
+        credentials: 'include', // always send cookies、HTTP Basic authentication.
+        redirect: 'follow',
+      } as const
+    : {
+        mode: 'cors',
+        credentials: 'include', // always send cookies、HTTP Basic authentication.
+        headers: new Headers({
+          'Content-Type': ContentType.json,
+        }),
+        method: 'GET',
+        redirect: 'follow',
+      } as const
+  const { params, body, headers: headersFromProps, ...init } = { ...baseOptions, ...options }
+  const headers = new Headers(headersFromProps || {})
+
   const {
     isPublicAPI = false,
     isMarketplaceAPI = false,
@@ -138,14 +162,17 @@ async function base<T>(url: string, options: FetchOptionType = {}, otherOptions:
     needAllResponseContent,
     deleteContentType,
     getAbortController,
+    fetchCompat = false,
+    request,
   } = otherOptions
 
-  const base
-    = isMarketplaceAPI
-      ? MARKETPLACE_API_PREFIX
-      : isPublicAPI
-        ? PUBLIC_API_PREFIX
-        : API_PREFIX
+  let base: string
+  if (isMarketplaceAPI)
+    base = MARKETPLACE_API_PREFIX
+  else if (isPublicAPI)
+    base = PUBLIC_API_PREFIX
+  else
+    base = API_PREFIX
 
   if (getAbortController) {
     const abortController = new AbortController()
@@ -153,23 +180,29 @@ async function base<T>(url: string, options: FetchOptionType = {}, otherOptions:
     options.signal = abortController.signal
   }
 
-  const fetchPathname = `${base}${url.startsWith('/') ? url : `/${url}`}`
+  const fetchPathname = base + (url.startsWith('/') ? url : `/${url}`)
+  const usesTeachingAuth = !isMarketplaceAPI && !isPublicAPI && applyTeachingAuthorization(headers)
+  if (!isMarketplaceAPI) {
+    if (usesTeachingAuth)
+      headers.delete(CSRF_HEADER_NAME)
+    else
+      headers.set(CSRF_HEADER_NAME, Cookies.get(CSRF_COOKIE_NAME()) || '')
+  }
 
   if (deleteContentType)
-    (headers as any).delete('Content-Type')
+    headers.delete('Content-Type')
+
+  // ! For Marketplace API, help to filter tags added in new version
+  if (isMarketplaceAPI)
+    headers.set('X-Dify-Version', !IS_MARKETPLACE ? APP_VERSION : '999.0.0')
 
   const client = baseClient.extend({
     hooks: {
       ...baseHooks,
-      beforeError: [
-        ...baseHooks.beforeError || [],
-        beforeErrorToast(otherOptions),
-      ],
       beforeRequest: [
         ...baseHooks.beforeRequest || [],
-        isPublicAPI && beforeRequestPublicAuthorization,
-        !isPublicAPI && !isMarketplaceAPI && beforeRequestAuthorization,
-      ].filter(Boolean),
+        isPublicAPI && beforeRequestPublicWithCode,
+      ].filter((h): h is BeforeRequestHook => Boolean(h)),
       afterResponse: [
         ...baseHooks.afterResponse || [],
         afterResponseErrorCode(otherOptions),
@@ -177,29 +210,73 @@ async function base<T>(url: string, options: FetchOptionType = {}, otherOptions:
     },
   })
 
-  const res = await client(fetchPathname, {
-    ...init,
-    headers,
-    credentials: isMarketplaceAPI
-      ? 'omit'
-      : (options.credentials || 'include'),
-    retry: {
-      methods: [],
-    },
-    ...(bodyStringify ? { json: body } : { body: body as BodyInit }),
-    searchParams: params,
-  })
+  let res: Response
+  try {
+    res = await client(request || fetchPathname, {
+      ...init,
+      headers,
+      credentials: isMarketplaceAPI
+        ? 'omit'
+        : usesTeachingAuth ? 'omit' : (options.credentials || 'include'),
+      retry: {
+        methods: [],
+      },
+      ...(bodyStringify && !fetchCompat ? { json: body } : { body: body as BodyInit }),
+      searchParams: !fetchCompat ? params : undefined,
+      fetch(resource: RequestInfo | URL, options?: RequestInit) {
+        if (resource instanceof Request && options) {
+          const mergedHeaders = new Headers(options.headers || {})
+          resource.headers.forEach((value, key) => {
+            mergedHeaders.append(key, value)
+          })
+          options.headers = mergedHeaders
+        }
+        return globalThis.fetch(resource, options)
+      },
+    })
+  }
+  catch (error) {
+    if (error instanceof HTTPError)
+      throw createResponseFromHTTPError(error)
+    throw error
+  }
 
-  if (needAllResponseContent)
+  if (needAllResponseContent || fetchCompat)
     return res as T
   const contentType = res.headers.get('content-type')
   if (
     contentType
     && [ContentType.download, ContentType.audio, ContentType.downloadZip].includes(contentType)
-  )
+  ) {
     return await res.blob() as T
+  }
 
   return await res.json() as T
+}
+
+/**
+ * Fire-and-forget POST with `keepalive: true` for use during page unload.
+ * Includes credentials, Authorization (if available), and CSRF header
+ * so the request is authenticated, matching the headers sent by the
+ * standard `base()` fetch wrapper.
+ */
+export function postWithKeepalive(url: string, body: Record<string, unknown>): void {
+  const headers = new Headers({
+    'Content-Type': ContentType.json,
+    [CSRF_HEADER_NAME]: Cookies.get(CSRF_COOKIE_NAME()) || '',
+  })
+
+  const usesTeachingAuth = applyTeachingAuthorization(headers)
+  if (usesTeachingAuth)
+    headers.delete(CSRF_HEADER_NAME)
+
+  globalThis.fetch(url, {
+    method: 'POST',
+    keepalive: true,
+    credentials: usesTeachingAuth ? 'omit' : 'include',
+    headers,
+    body: JSON.stringify(body),
+  }).catch(() => {})
 }
 
 export { base }

@@ -1,4 +1,4 @@
-from flask_restful import fields  # type: ignore
+from flask_restx import fields
 
 from libs.helper import TimestampField
 
@@ -11,6 +11,15 @@ child_chunk_fields = {
     "type": fields.String,
     "created_at": TimestampField,
     "updated_at": TimestampField,
+}
+
+attachment_fields = {
+    "id": fields.String,
+    "name": fields.String,
+    "size": fields.Integer,
+    "extension": fields.String,
+    "mime_type": fields.String,
+    "source_url": fields.String,
 }
 
 segment_fields = {
@@ -39,10 +48,6 @@ segment_fields = {
     "error": fields.String,
     "stopped_at": TimestampField,
     "child_chunks": fields.List(fields.Nested(child_chunk_fields)),
-}
-
-segment_list_response = {
-    "data": fields.List(fields.Nested(segment_fields)),
-    "has_more": fields.Boolean,
-    "limit": fields.Integer,
+    "attachments": fields.List(fields.Nested(attachment_fields)),
+    "summary": fields.String,  # Summary content for the segment
 }

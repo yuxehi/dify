@@ -1,34 +1,30 @@
-import React, { type FC, useCallback } from 'react'
-import { RiHistoryLine } from '@remixicon/react'
+import type { FC } from 'react'
+import { Button } from '@langgenius/dify-ui/button'
+import { cn } from '@langgenius/dify-ui/cn'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@langgenius/dify-ui/tooltip'
+import * as React from 'react'
+import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useKeyPress } from 'ahooks'
-import Button from '../../base/button'
-import Tooltip from '../../base/tooltip'
-import { getKeyboardKeyCodeBySystem } from '../utils'
+import useTheme from '@/hooks/use-theme'
+import { ShortcutKbd } from '../shortcuts/shortcut-kbd'
+import { useWorkflowShortcut } from '../shortcuts/use-workflow-hotkeys'
 
 type VersionHistoryButtonProps = {
   onClick: () => Promise<unknown> | unknown
 }
 
-const VERSION_HISTORY_SHORTCUT = ['⌘', '⇧', 'H']
-
 const PopupContent = React.memo(() => {
   const { t } = useTranslation()
   return (
-    <div className='flex items-center gap-x-1'>
-      <div className='text-text-secondary system-xs-medium px-0.5'>
-        {t('workflow.common.versionHistory')}
+    <div className="flex items-center gap-x-1">
+      <div className="px-0.5 system-xs-medium text-text-secondary">
+        {t('common.versionHistory', { ns: 'workflow' })}
       </div>
-      <div className='flex items-center gap-x-0.5'>
-        {VERSION_HISTORY_SHORTCUT.map(key => (
-          <span
-            key={key}
-            className='rounded-[4px] bg-components-kbd-bg-white text-text-tertiary system-kbd px-[1px]'
-          >
-            {key}
-          </span>
-        ))}
-      </div>
+      <ShortcutKbd shortcut="workflow.version-history" bgColor="gray" textColor="secondary" />
     </div>
   )
 })
@@ -38,29 +34,37 @@ PopupContent.displayName = 'PopupContent'
 const VersionHistoryButton: FC<VersionHistoryButtonProps> = ({
   onClick,
 }) => {
+  const { theme } = useTheme()
   const handleViewVersionHistory = useCallback(async () => {
     await onClick?.()
   }, [onClick])
 
-  useKeyPress(`${getKeyboardKeyCodeBySystem('ctrl')}.shift.h`, (e) => {
-    e.preventDefault()
+  useWorkflowShortcut('workflow.version-history', () => {
     handleViewVersionHistory()
-  }
-  , { exactMatch: true, useCapture: true })
+  })
 
-  return <Tooltip
-    popupContent={<PopupContent />}
-    noDecoration
-    popupClassName='rounded-lg border-[0.5px] border-components-panel-border bg-components-tooltip-bg
-    shadow-lg shadow-shadow-shadow-5 backdrop-blur-[5px] p-1.5'
-  >
-    <Button
-      className={'p-2'}
-      onClick={handleViewVersionHistory}
-    >
-      <RiHistoryLine className='w-4 h-4 text-components-button-secondary-text' />
-    </Button>
-  </Tooltip>
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={(
+          <Button
+            className={cn(
+              'rounded-lg border border-transparent p-2',
+              theme === 'dark' && 'border-black/5 bg-white/10 backdrop-blur-xs',
+            )}
+            onClick={handleViewVersionHistory}
+          >
+            <span className="i-ri-history-line h-4 w-4 text-components-button-secondary-text" />
+          </Button>
+        )}
+      />
+      <TooltipContent
+        className="rounded-lg border-[0.5px] border-components-panel-border bg-components-tooltip-bg p-1.5 shadow-lg shadow-shadow-shadow-5 backdrop-blur-[5px]"
+      >
+        <PopupContent />
+      </TooltipContent>
+    </Tooltip>
+  )
 }
 
 export default VersionHistoryButton

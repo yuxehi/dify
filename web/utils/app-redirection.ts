@@ -1,15 +1,25 @@
-export const getRedirection = (
+import { AppModeEnum } from '@/types/app'
+
+export const getRedirectionPath = (
   isCurrentWorkspaceEditor: boolean,
-  app: any,
-  redirectionFunc: (href: string) => void,
+  app: { id: string, mode: AppModeEnum },
 ) => {
   if (!isCurrentWorkspaceEditor) {
-    redirectionFunc(`/app/${app.id}/overview`)
+    return `/app/${app.id}/overview`
   }
   else {
-    if (app.mode === 'workflow' || app.mode === 'advanced-chat')
-      redirectionFunc(`/app/${app.id}/workflow`)
+    if (app.mode === AppModeEnum.WORKFLOW || app.mode === AppModeEnum.ADVANCED_CHAT)
+      return `/app/${app.id}/workflow`
     else
-      redirectionFunc(`/app/${app.id}/configuration`)
+      return `/app/${app.id}/configuration`
   }
+}
+
+export const getRedirection = (
+  isCurrentWorkspaceEditor: boolean,
+  app: { id: string, mode: AppModeEnum },
+  redirectionFunc: (href: string) => void,
+) => {
+  const redirectionPath = getRedirectionPath(isCurrentWorkspaceEditor, app)
+  redirectionFunc(redirectionPath)
 }

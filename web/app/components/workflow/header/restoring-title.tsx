@@ -1,35 +1,35 @@
 import { memo, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useWorkflow } from '../hooks'
+import { useFormatTimeFromNow } from '@/hooks/use-format-time-from-now'
+import useTimestamp from '@/hooks/use-timestamp'
 import { useStore } from '../store'
 import { WorkflowVersion } from '../types'
-import useTimestamp from '@/hooks/use-timestamp'
 
 const RestoringTitle = () => {
   const { t } = useTranslation()
-  const { formatTimeFromNow } = useWorkflow()
+  const { formatTimeFromNow } = useFormatTimeFromNow()
   const { formatTime } = useTimestamp()
   const currentVersion = useStore(state => state.currentVersion)
   const isDraft = currentVersion?.version === WorkflowVersion.Draft
-  const publishStatus = isDraft ? t('workflow.common.unpublished') : t('workflow.common.published')
+  const publishStatus = isDraft ? t('common.unpublished', { ns: 'workflow' }) : t('common.published', { ns: 'workflow' })
 
   const versionName = useMemo(() => {
     if (isDraft)
-      return t('workflow.versionHistory.currentDraft')
-    return currentVersion?.marked_name || t('workflow.versionHistory.defaultName')
+      return t('versionHistory.currentDraft', { ns: 'workflow' })
+    return currentVersion?.marked_name || t('versionHistory.defaultName', { ns: 'workflow' })
   }, [currentVersion, t, isDraft])
 
   return (
-    <div className='flex flex-col gap-y-0.5'>
-      <div className='flex items-center gap-x-1'>
-        <span className='text-text-primary system-sm-semibold'>
+    <div className="flex flex-col gap-y-0.5">
+      <div className="flex items-center gap-x-1">
+        <span className="system-sm-semibold text-text-primary">
           {versionName}
         </span>
-        <span className='px-1 py-0.5 rounded-[5px] border border-text-accent-secondary bg-components-badge-bg-dimm text-text-accent-secondary system-2xs-medium-uppercase'>
-          {t('workflow.common.viewOnly')}
+        <span className="rounded-[5px] border border-text-accent-secondary bg-components-badge-bg-dimm px-1 py-0.5 system-2xs-medium-uppercase text-text-accent-secondary">
+          {t('common.viewOnly', { ns: 'workflow' })}
         </span>
       </div>
-      <div className='flex items-center gap-x-1 h-4 text-text-tertiary system-xs-regular'>
+      <div className="flex h-4 items-center gap-x-1 system-xs-regular text-text-tertiary">
         {
           currentVersion && (
             <>

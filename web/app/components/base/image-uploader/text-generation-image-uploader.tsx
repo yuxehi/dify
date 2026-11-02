@@ -1,23 +1,23 @@
 import type { FC } from 'react'
+import type { ImageFile, VisionSettings } from '@/types/app'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@langgenius/dify-ui/popover'
 import {
   Fragment,
   useEffect,
   useState,
 } from 'react'
 import { useTranslation } from 'react-i18next'
-import Uploader from './uploader'
+import { Link03 } from '@/app/components/base/icons/src/vender/line/general'
+import { ImagePlus } from '@/app/components/base/icons/src/vender/line/images'
+import { TransferMethod } from '@/types/app'
+import { useImageFiles } from './hooks'
 import ImageLinkInput from './image-link-input'
 import ImageList from './image-list'
-import { useImageFiles } from './hooks'
-import { ImagePlus } from '@/app/components/base/icons/src/vender/line/images'
-import { Link03 } from '@/app/components/base/icons/src/vender/line/general'
-import {
-  PortalToFollowElem,
-  PortalToFollowElemContent,
-  PortalToFollowElemTrigger,
-} from '@/app/components/base/portal-to-follow-elem'
-import type { ImageFile, VisionSettings } from '@/types/app'
-import { TransferMethod } from '@/types/app'
+import Uploader from './uploader'
 
 type PasteImageLinkButtonProps = {
   onUpload: (imageFile: ImageFile) => void
@@ -35,44 +35,50 @@ const PasteImageLinkButton: FC<PasteImageLinkButtonProps> = ({
     onUpload(imageFile)
   }
 
-  const handleToggle = () => {
-    if (disabled)
-      return
-
-    setOpen(v => !v)
-  }
-
   return (
-    <PortalToFollowElem
+    <Popover
       open={open}
-      onOpenChange={setOpen}
-      placement='top-start'
+      onOpenChange={(nextOpen) => {
+        if (disabled)
+          return
+        setOpen(nextOpen)
+      }}
     >
-      <PortalToFollowElemTrigger onClick={handleToggle}>
-        <div className={`
-          relative flex items-center justify-center px-3 h-8 bg-components-button-tertiary-bg hover:bg-components-button-tertiary-bg-hover text-xs text-text-tertiary rounded-lg
-          ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
-        `}>
-          <Link03 className='mr-2 w-4 h-4' />
-          {t('common.imageUploader.pasteImageLink')}
-        </div>
-      </PortalToFollowElemTrigger>
-      <PortalToFollowElemContent className='z-10'>
-        <div className='p-2 w-[320px] bg-components-panel-bg border-[0.5px] border-components-panel-border rounded-lg shadow-lg'>
+      <PopoverTrigger
+        render={(
+          <div
+            className={`
+              relative flex h-8 items-center justify-center rounded-lg bg-components-button-tertiary-bg px-3 text-xs text-text-tertiary hover:bg-components-button-tertiary-bg-hover
+              ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
+            `}
+          >
+            <Link03 className="mr-2 h-4 w-4" />
+            {t('imageUploader.pasteImageLink', { ns: 'common' })}
+          </div>
+        )}
+      />
+      <PopoverContent
+        placement="top-start"
+        sideOffset={0}
+        popupClassName="border-none bg-transparent shadow-none"
+      >
+        <div className="w-[320px] rounded-lg border-[0.5px] border-components-panel-border bg-components-panel-bg p-2 shadow-lg">
           <ImageLinkInput onUpload={handleUpload} />
         </div>
-      </PortalToFollowElemContent>
-    </PortalToFollowElem>
+      </PopoverContent>
+    </Popover>
   )
 }
 
 type TextGenerationImageUploaderProps = {
   settings: VisionSettings
   onFilesChange: (files: ImageFile[]) => void
+  disabled?: boolean
 }
 const TextGenerationImageUploader: FC<TextGenerationImageUploaderProps> = ({
   settings,
   onFilesChange,
+  disabled,
 }) => {
   const { t } = useTranslation()
 
@@ -92,18 +98,19 @@ const TextGenerationImageUploader: FC<TextGenerationImageUploaderProps> = ({
   const localUpload = (
     <Uploader
       onUpload={onUpload}
-      disabled={files.length >= settings.number_limits}
+      disabled={files.length >= settings.number_limits || disabled}
       limit={+settings.image_file_size_limit!}
     >
       {
         hovering => (
           <div className={`
-            flex items-center justify-center px-3 h-8 bg-components-button-tertiary-bg  
-            text-xs text-text-tertiary rounded-lg cursor-pointer
+            flex h-8 cursor-pointer items-center justify-center rounded-lg
+            bg-components-button-tertiary-bg px-3 text-xs text-text-tertiary
             ${hovering && 'hover:bg-components-button-tertiary-bg-hover'}
-          `}>
-            <ImagePlus className='mr-2 w-4 h-4' />
-            {t('common.imageUploader.uploadFromComputer')}
+          `}
+          >
+            <ImagePlus className="mr-2 h-4 w-4" />
+            {t('imageUploader.uploadFromComputer', { ns: 'common' })}
           </div>
         )
       }
@@ -113,13 +120,13 @@ const TextGenerationImageUploader: FC<TextGenerationImageUploaderProps> = ({
   const urlUpload = (
     <PasteImageLinkButton
       onUpload={onUpload}
-      disabled={files.length >= settings.number_limits}
+      disabled={files.length >= settings.number_limits || disabled}
     />
   )
 
   return (
     <div>
-      <div className='mb-1'>
+      <div className="mb-1">
         <ImageList
           list={files}
           onRemove={onRemove}
@@ -128,7 +135,7 @@ const TextGenerationImageUploader: FC<TextGenerationImageUploaderProps> = ({
           onImageLinkLoadSuccess={onImageLinkLoadSuccess}
         />
       </div>
-      <div className={`grid gap-1 ${settings.transfer_methods.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      <div className={`grid gap-1 ${settings.transfer_methods.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`} data-testid="upload-actions">
         {
           settings.transfer_methods.map((method) => {
             if (method === TransferMethod.local_file)

@@ -1,5 +1,5 @@
-import { VarType } from '../../types'
 import type { OutputVar } from './types'
+import { VarType } from '../../types'
 import { CodeLanguage } from './types'
 
 export const extractFunctionParams = (code: string, language: CodeLanguage) => {
@@ -10,14 +10,14 @@ export const extractFunctionParams = (code: string, language: CodeLanguage) => {
     [CodeLanguage.python3]: /def\s+main\s*\((.*?)\)/,
     [CodeLanguage.javascript]: /function\s+main\s*\((.*?)\)/,
   }
-  const match = code.match(patterns[language])
+  const match = patterns[language].exec(code)
   const params: string[] = []
 
   if (match?.[1]) {
     params.push(...match[1].split(',')
       .map(p => p.trim())
       .filter(Boolean)
-      .map(p => p.split(':')[0].trim()),
+      .map(p => p.split(':')[0]!.trim()),
     )
   }
 
@@ -25,13 +25,13 @@ export const extractFunctionParams = (code: string, language: CodeLanguage) => {
 }
 export const extractReturnType = (code: string, language: CodeLanguage): OutputVar => {
   const codeWithoutComments = code.replace(/\/\*\*[\s\S]*?\*\//, '')
-  console.log(codeWithoutComments)
+  // console.log(codeWithoutComments)
 
   const returnIndex = codeWithoutComments.indexOf('return')
   if (returnIndex === -1)
     return {}
 
-  // returnから始まる部分文字列を取得
+  // Extract the substring starting with 'return'.
   const codeAfterReturn = codeWithoutComments.slice(returnIndex)
 
   let bracketCount = 0
@@ -64,23 +64,23 @@ export const extractReturnType = (code: string, language: CodeLanguage): OutputV
     return {}
 
   const returnContent = codeAfterReturn.slice(startIndex + 1, endIndex - 1)
-  console.log(returnContent)
+  // console.log(returnContent)
 
   const result: OutputVar = {}
 
-  const keyRegex = /['"]?(\w+)['"]?\s*:(?![^{]*})/g
+  const keyRegex = /['"]?(\w+)['"]?\s*:(?![^{]*\})/g
   const matches = returnContent.matchAll(keyRegex)
 
   for (const match of matches) {
-    console.log(`Found key: "${match[1]}" from match: "${match[0]}"`)
+    // console.log(`Found key: "${match[1]}" from match: "${match[0]}"`)
     const key = match[1]
-    result[key] = {
+    result[key!] = {
       type: VarType.string,
       children: null,
     }
   }
 
-  console.log(result)
+  // console.log(result)
 
   return result
 }

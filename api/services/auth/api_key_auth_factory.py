@@ -1,9 +1,9 @@
-from services.auth.api_key_auth_base import ApiKeyAuthBase
+from services.auth.api_key_auth_base import ApiKeyAuthBase, AuthCredentials
 from services.auth.auth_type import AuthType
 
 
 class ApiKeyAuthFactory:
-    def __init__(self, provider: str, credentials: dict):
+    def __init__(self, provider: str, credentials: AuthCredentials):
         auth_factory = self.get_apikey_auth_factory(provider)
         self.auth = auth_factory(credentials)
 
@@ -17,6 +17,10 @@ class ApiKeyAuthFactory:
                 from services.auth.firecrawl.firecrawl import FirecrawlAuth
 
                 return FirecrawlAuth
+            case AuthType.WATERCRAWL:
+                from services.auth.watercrawl.watercrawl import WatercrawlAuth
+
+                return WatercrawlAuth
             case AuthType.JINA:
                 from services.auth.jina.jina import JinaAuth
 

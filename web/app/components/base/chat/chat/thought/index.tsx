@@ -1,10 +1,10 @@
 'use client'
 import type { FC } from 'react'
-import React from 'react'
 import type { ThoughtItem, ToolInfoInThought } from '../type'
+import * as React from 'react'
 import ToolDetail from '@/app/components/base/chat/chat/answer/tool-detail'
 
-export interface IThoughtProps {
+export type IThoughtProps = {
   thought: ThoughtItem
   isFinished: boolean
 }
@@ -14,7 +14,7 @@ function getValue(value: string, isValueArray: boolean, index: number) {
     try {
       return JSON.parse(value)[index]
     }
-    catch (e) {
+    catch {
     }
   }
   return value
@@ -29,7 +29,7 @@ const Thought: FC<IThoughtProps> = ({
       if (Array.isArray(JSON.parse(thought.tool)))
         return [JSON.parse(thought.tool), true]
     }
-    catch (e) {
+    catch {
     }
     return [[thought.tool], false]
   })()
@@ -45,7 +45,7 @@ const Thought: FC<IThoughtProps> = ({
   })
 
   return (
-    <div className='my-2 space-y-2'>
+    <div className="my-2 space-y-2">
       {toolThoughtList.map((item: ToolInfoInThought, index) => (
         <ToolDetail
           key={index}

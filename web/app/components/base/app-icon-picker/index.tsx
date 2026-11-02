@@ -1,20 +1,20 @@
 import type { FC } from 'react'
+import type { Area } from 'react-easy-crop'
+import type { OnImageInput } from './ImageInput'
+import type { AppIconType, ImageFile } from '@/types/app'
+import { Button } from '@langgenius/dify-ui/button'
+import { cn } from '@langgenius/dify-ui/cn'
+import { Dialog, DialogContent } from '@langgenius/dify-ui/dialog'
+import { RiImageCircleAiLine } from '@remixicon/react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { Area } from 'react-easy-crop'
-import Modal from '../modal'
+import { DISABLE_UPLOAD_IMAGE_AS_ICON } from '@/config'
 import Divider from '../divider'
-import Button from '../button'
-import { ImagePlus } from '../icons/src/vender/line/images'
-import { useLocalFileUploader } from '../image-uploader/hooks'
 import EmojiPickerInner from '../emoji-picker/Inner'
-import type { OnImageInput } from './ImageInput'
+import { useLocalFileUploader } from '../image-uploader/hooks'
 import ImageInput from './ImageInput'
 import s from './style.module.css'
 import getCroppedImg from './utils'
-import type { AppIconType, ImageFile } from '@/types/app'
-import cn from '@/utils/classnames'
-import { DISABLE_UPLOAD_IMAGE_AS_ICON } from '@/config'
 
 export type AppIconEmojiSelection = {
   type: 'emoji'
@@ -33,23 +33,27 @@ export type AppIconSelection = AppIconEmojiSelection | AppIconImageSelection
 type AppIconPickerProps = {
   onSelect?: (payload: AppIconSelection) => void
   onClose?: () => void
+  initialEmoji?: {
+    icon: string
+    background?: string | null
+  }
   className?: string
 }
 
 const AppIconPicker: FC<AppIconPickerProps> = ({
   onSelect,
   onClose,
-  className,
+  initialEmoji,
 }) => {
   const { t } = useTranslation()
 
   const tabs = [
-    { key: 'emoji', label: t('app.iconPicker.emoji'), icon: <span className="text-lg">🤖</span> },
-    { key: 'image', label: t('app.iconPicker.image'), icon: <ImagePlus /> },
+    { key: 'emoji', label: t('iconPicker.emoji', { ns: 'app' }), icon: <span className="text-lg">🤖</span> },
+    { key: 'image', label: t('iconPicker.image', { ns: 'app' }), icon: <RiImageCircleAiLine className="size-4" /> },
   ]
   const [activeTab, setActiveTab] = useState<AppIconType>('emoji')
 
-  const [emoji, setEmoji] = useState<{ emoji: string; background: string }>()
+  const [emoji, setEmoji] = useState<{ emoji: string, background: string }>()
   const handleSelectEmoji = useCallback((emoji: string, background: string) => {
     setEmoji({ emoji, background })
   }, [setEmoji])
@@ -71,7 +75,7 @@ const AppIconPicker: FC<AppIconPickerProps> = ({
     },
   })
 
-  type InputImageInfo = { file: File } | { tempUrl: string; croppedAreaPixels: Area; fileName: string }
+  type InputImageInfo = { file: File } | { tempUrl: string, croppedAreaPixels: Area, fileName: string }
   const [inputImageInfo, setInputImageInfo] = useState<InputImageInfo>()
 
   const handleImageInput: OnImageInput = async (isCropped: boolean, fileOrTempUrl: string | File, croppedAreaPixels?: Area, fileName?: string) => {
@@ -106,44 +110,56 @@ const AppIconPicker: FC<AppIconPickerProps> = ({
     }
   }
 
-  return <Modal
-    onClose={() => { }}
-    isShow
-    closable={false}
-    wrapperClassName={className}
-    className={cn(s.container, '!w-[362px] !p-0')}
-  >
-    {false && !DISABLE_UPLOAD_IMAGE_AS_ICON && <div className="p-2 pb-0 w-full">
-      <div className='p-1 flex items-center justify-center gap-2 bg-background-body rounded-xl'>
-        {tabs.map(tab => (
-          <button
-            key={tab.key}
-            className={`
-                        p-2 flex-1 flex justify-center items-center h-8 rounded-xl text-sm shrink-0 font-medium
-                        ${activeTab === tab.key && 'bg-components-main-nav-nav-button-bg-active shadow-md'}
-                      `}
-            onClick={() => setActiveTab(tab.key as AppIconType)}
-          >
-            {tab.icon} &nbsp; {tab.label}
-          </button>
-        ))}
-      </div>
-    </div>}
+  return (
+    <Dialog open>
+      <DialogContent className={cn('w-full overflow-hidden! border-none text-left align-middle', s.container, 'h-[min(462px,calc(100dvh-2rem))]! max-h-none! w-[362px]! p-0!')}>
 
-    <EmojiPickerInner className={cn(activeTab === 'emoji' ? 'block' : 'hidden', 'pt-2')} onSelect={handleSelectEmoji} />
-    <ImageInput className={activeTab === 'image' ? 'block' : 'hidden'} onImageInput={handleImageInput} />
+        {!DISABLE_UPLOAD_IMAGE_AS_ICON && (
+          <div className="w-full p-2 pb-0">
+            <div className="flex items-center justify-center gap-2 rounded-xl bg-background-body p-1 text-text-primary">
+              {tabs.map(tab => (
+                <button
+                  type="button"
+                  key={tab.key}
+                  className={cn(
+                    'flex h-8 flex-1 shrink-0 items-center justify-center rounded-lg p-2 system-sm-medium text-text-tertiary',
+                    activeTab === tab.key && 'bg-components-main-nav-nav-button-bg-active text-text-accent shadow-md',
+                  )}
+                  onClick={() => setActiveTab(tab.key as AppIconType)}
+                >
+                  {tab.icon}
+                  {' '}
+&nbsp;
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
-    <Divider className='m-0' />
-    <div className='w-full flex items-center justify-center p-3 gap-2'>
-      <Button className='w-full' onClick={() => onClose?.()}>
-        {t('app.iconPicker.cancel')}
-      </Button>
+        {activeTab === 'emoji' && (
+          <EmojiPickerInner
+            className={cn('flex-1 overflow-hidden pt-2')}
+            emoji={initialEmoji?.icon}
+            background={initialEmoji?.background ?? undefined}
+            onSelect={handleSelectEmoji}
+          />
+        )}
+        {activeTab === 'image' && <ImageInput className={cn('flex-1 overflow-hidden')} onImageInput={handleImageInput} />}
 
-      <Button variant="primary" className='w-full' disabled={uploading} loading={uploading} onClick={handleSelect}>
-        {t('app.iconPicker.ok')}
-      </Button>
-    </div>
-  </Modal>
+        <Divider className="m-0" />
+        <div className="flex w-full items-center justify-center gap-2 p-3">
+          <Button className="w-full" onClick={() => onClose?.()}>
+            {t('iconPicker.cancel', { ns: 'app' })}
+          </Button>
+
+          <Button variant="primary" className="w-full" disabled={uploading} loading={uploading} onClick={handleSelect}>
+            {t('iconPicker.ok', { ns: 'app' })}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
 }
 
 export default AppIconPicker

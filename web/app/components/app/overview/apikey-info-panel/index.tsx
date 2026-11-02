@@ -1,14 +1,16 @@
 'use client'
 import type { FC } from 'react'
-import React, { useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Button } from '@langgenius/dify-ui/button'
+import { cn } from '@langgenius/dify-ui/cn'
 import { RiCloseLine } from '@remixicon/react'
-import cn from '@/utils/classnames'
-import Button from '@/app/components/base/button'
+import * as React from 'react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LinkExternal02 } from '@/app/components/base/icons/src/vender/line/general'
+import { ACCOUNT_SETTING_TAB } from '@/app/components/header/account-setting/constants'
 import { IS_CE_EDITION } from '@/config'
-import { useProviderContext } from '@/context/provider-context'
 import { useModalContext } from '@/context/modal-context'
+import { useProviderContext } from '@/context/provider-context'
 
 const APIKeyInfoPanel: FC = () => {
   const isCloud = !IS_CE_EDITION
@@ -27,45 +29,47 @@ const APIKeyInfoPanel: FC = () => {
     return null
 
   return (
-    <div className={cn('bg-components-panel-bg border-components-panel-border', 'mb-6 relative rounded-2xl shadow-md border p-8 ')}>
-      <div className={cn('text-[24px] text-text-primary font-semibold', isCloud ? 'flex items-center h-8 space-x-1' : 'leading-8 mb-6')}>
-        {isCloud && <em-emoji id={'😀'} />}
+    <div className={cn('border-components-panel-border bg-components-panel-bg', 'relative mb-6 rounded-2xl border p-8 shadow-md')}>
+      <div className={cn('text-[24px] font-semibold text-text-primary', isCloud ? 'flex h-8 items-center space-x-1' : 'mb-6 leading-8')}>
+        {isCloud && <em-emoji id="😀" />}
         {isCloud
           ? (
-            <div>{t('appOverview.apiKeyInfo.cloud.trial.title', { providerName: 'OpenAI' })}</div>
-          )
+              <div>{t('apiKeyInfo.cloud.trial.title', { ns: 'appOverview', providerName: 'OpenAI' })}</div>
+            )
           : (
-            <div>
-              <div>{t('appOverview.apiKeyInfo.selfHost.title.row1')}</div>
-              <div>{t('appOverview.apiKeyInfo.selfHost.title.row2')}</div>
-            </div>
-          )}
+              <div>
+                <div>{t('apiKeyInfo.selfHost.title.row1', { ns: 'appOverview' })}</div>
+                <div>{t('apiKeyInfo.selfHost.title.row2', { ns: 'appOverview' })}</div>
+              </div>
+            )}
       </div>
       {isCloud && (
-        <div className='mt-1 text-sm text-text-tertiary font-normal'>{t(`appOverview.apiKeyInfo.cloud.${'trial'}.description`)}</div>
+        <div className="mt-1 text-sm font-normal text-text-tertiary">{t(`apiKeyInfo.cloud.${'trial'}.description`, { ns: 'appOverview' })}</div>
       )}
       <Button
-        variant='primary'
-        className='mt-2 space-x-2'
-        onClick={() => setShowAccountSettingModal({ payload: 'provider' })}
+        variant="primary"
+        className="mt-2 space-x-2"
+        onClick={() => setShowAccountSettingModal({ payload: ACCOUNT_SETTING_TAB.PROVIDER })}
       >
-        <div className='text-sm font-medium'>{t('appOverview.apiKeyInfo.setAPIBtn')}</div>
-        <LinkExternal02 className='w-4 h-4' />
+        <div className="text-sm font-medium">{t('apiKeyInfo.setAPIBtn', { ns: 'appOverview' })}</div>
+        <LinkExternal02 className="h-4 w-4" />
       </Button>
       {!isCloud && (
         <a
-          className='mt-2 flex items-center h-[26px] text-xs  font-medium text-[#155EEF] p-1 space-x-1'
-          href='https://cloud.dify.ai/apps'
-          target='_blank' rel='noopener noreferrer'
+          className="mt-2 flex h-[26px] items-center space-x-1 p-1 text-xs font-medium text-[#155EEF]"
+          href="https://cloud.dify.ai/apps"
+          target="_blank"
+          rel="noopener noreferrer"
         >
-          <div>{t('appOverview.apiKeyInfo.tryCloud')}</div>
-          <LinkExternal02 className='w-3 h-3' />
+          <div>{t('apiKeyInfo.tryCloud', { ns: 'appOverview' })}</div>
+          <LinkExternal02 className="h-3 w-3" />
         </a>
       )}
       <div
         onClick={() => setIsShow(false)}
-        className='absolute right-4 top-4 flex items-center justify-center w-8 h-8 cursor-pointer '>
-        <RiCloseLine className='w-4 h-4 text-text-tertiary' />
+        className="absolute top-4 right-4 flex h-8 w-8 cursor-pointer items-center justify-center"
+      >
+        <RiCloseLine className="h-4 w-4 text-text-tertiary" />
       </div>
     </div>
   )

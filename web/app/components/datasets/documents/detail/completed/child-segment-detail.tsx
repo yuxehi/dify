@@ -1,21 +1,23 @@
-import React, { type FC, useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import type { FC } from 'react'
+import type { ChildChunkDetail, ChunkingMode } from '@/models/datasets'
+import { cn } from '@langgenius/dify-ui/cn'
 import {
   RiCloseLine,
   RiCollapseDiagonalLine,
   RiExpandDiagonalLine,
 } from '@remixicon/react'
+import * as React from 'react'
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import Divider from '@/app/components/base/divider'
+import { useEventEmitterContextContext } from '@/context/event-emitter'
+import { formatNumber } from '@/utils/format'
+import { formatTime } from '@/utils/time'
 import ActionButtons from './common/action-buttons'
 import ChunkContent from './common/chunk-content'
 import Dot from './common/dot'
 import { SegmentIndexTag } from './common/segment-index-tag'
 import { useSegmentListContext } from './index'
-import type { ChildChunkDetail, ChunkingMode } from '@/models/datasets'
-import { useEventEmitterContextContext } from '@/context/event-emitter'
-import { formatNumber } from '@/utils/format'
-import classNames from '@/utils/classnames'
-import Divider from '@/app/components/base/divider'
-import { formatTime } from '@/utils/time'
 
 type IChildSegmentDetailProps = {
   chunkId: string
@@ -59,35 +61,33 @@ const ChildSegmentDetail: FC<IChildSegmentDetailProps> = ({
 
   const wordCountText = useMemo(() => {
     const count = content.length
-    return `${formatNumber(count)} ${t('datasetDocuments.segment.characters', { count })}`
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return `${formatNumber(count)} ${t('segment.characters', { ns: 'datasetDocuments', count })}`
   }, [content.length])
 
   const EditTimeText = useMemo(() => {
     const timeText = formatTime({
       date: (childChunkInfo?.updated_at ?? 0) * 1000,
-      dateFormat: 'MM/DD/YYYY h:mm:ss',
+      dateFormat: `${t('segment.dateTimeFormat', { ns: 'datasetDocuments' })}`,
     })
-    return `${t('datasetDocuments.segment.editedAt')} ${timeText}`
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return `${t('segment.editedAt', { ns: 'datasetDocuments' })} ${timeText}`
   }, [childChunkInfo?.updated_at])
 
   return (
-    <div className={'flex flex-col h-full'}>
-      <div className={classNames('flex items-center justify-between', fullScreen ? 'py-3 pr-4 pl-6 border border-divider-subtle' : 'pt-3 pr-3 pl-4')}>
-        <div className='flex flex-col'>
-          <div className='text-text-primary system-xl-semibold'>{t('datasetDocuments.segment.editChildChunk')}</div>
-          <div className='flex items-center gap-x-2'>
-            <SegmentIndexTag positionId={childChunkInfo?.position || ''} labelPrefix={t('datasetDocuments.segment.childChunk') as string} />
+    <div className="flex h-full flex-col">
+      <div className={cn('flex items-center justify-between', fullScreen ? 'border border-divider-subtle py-3 pr-4 pl-6' : 'pt-3 pr-3 pl-4')}>
+        <div className="flex flex-col">
+          <div className="system-xl-semibold text-text-primary">{t('segment.editChildChunk', { ns: 'datasetDocuments' })}</div>
+          <div className="flex items-center gap-x-2">
+            <SegmentIndexTag positionId={childChunkInfo?.position || ''} labelPrefix={t('segment.childChunk', { ns: 'datasetDocuments' }) as string} />
             <Dot />
-            <span className='text-text-tertiary system-xs-medium'>{wordCountText}</span>
+            <span className="system-xs-medium text-text-tertiary">{wordCountText}</span>
             <Dot />
-            <span className='text-text-tertiary system-xs-medium'>
+            <span className="system-xs-medium text-text-tertiary">
               {EditTimeText}
             </span>
           </div>
         </div>
-        <div className='flex items-center'>
+        <div className="flex items-center">
           {fullScreen && (
             <>
               <ActionButtons
@@ -96,19 +96,31 @@ const ChildSegmentDetail: FC<IChildSegmentDetailProps> = ({
                 loading={loading}
                 isChildChunk={true}
               />
-              <Divider type='vertical' className='h-3.5 bg-divider-regular ml-4 mr-2' />
+              <Divider type="vertical" className="mr-2 ml-4 h-3.5 bg-divider-regular" />
             </>
           )}
-          <div className='w-8 h-8 flex justify-center items-center p-1.5 cursor-pointer mr-1' onClick={toggleFullScreen}>
-            {fullScreen ? <RiCollapseDiagonalLine className='w-4 h-4 text-text-tertiary' /> : <RiExpandDiagonalLine className='w-4 h-4 text-text-tertiary' />}
-          </div>
-          <div className='w-8 h-8 flex justify-center items-center p-1.5 cursor-pointer' onClick={onCancel}>
-            <RiCloseLine className='w-4 h-4 text-text-tertiary' />
-          </div>
+          <button
+            type="button"
+            aria-label={t(fullScreen ? 'operation.zoomOut' : 'operation.zoomIn', { ns: 'common' })}
+            className="mr-1 flex h-8 w-8 cursor-pointer items-center justify-center border-none bg-transparent p-1.5"
+            onClick={toggleFullScreen}
+          >
+            {fullScreen
+              ? <RiCollapseDiagonalLine className="h-4 w-4 text-text-tertiary" aria-hidden="true" />
+              : <RiExpandDiagonalLine className="h-4 w-4 text-text-tertiary" aria-hidden="true" />}
+          </button>
+          <button
+            type="button"
+            aria-label={t('operation.close', { ns: 'common' })}
+            className="flex h-8 w-8 cursor-pointer items-center justify-center border-none bg-transparent p-1.5"
+            onClick={onCancel}
+          >
+            <RiCloseLine className="h-4 w-4 text-text-tertiary" aria-hidden="true" />
+          </button>
         </div>
       </div>
-      <div className={classNames('flex grow w-full', fullScreen ? 'flex-row justify-center px-6 pt-6' : 'py-3 px-4')}>
-        <div className={classNames('break-all overflow-hidden whitespace-pre-line h-full', fullScreen ? 'w-1/2' : 'w-full')}>
+      <div className={cn('flex w-full grow', fullScreen ? 'flex-row justify-center px-6 pt-6' : 'px-4 py-3')}>
+        <div className={cn('h-full overflow-hidden break-all whitespace-pre-line', fullScreen ? 'w-1/2' : 'w-full')}>
           <ChunkContent
             docForm={docForm}
             question={content}
@@ -118,7 +130,7 @@ const ChildSegmentDetail: FC<IChildSegmentDetailProps> = ({
         </div>
       </div>
       {!fullScreen && (
-        <div className='flex items-center justify-end p-4 pt-3 border-t-[1px] border-t-divider-subtle'>
+        <div className="flex items-center justify-end border-t border-t-divider-subtle p-4 pt-3">
           <ActionButtons
             handleCancel={handleCancel}
             handleSave={handleSave}

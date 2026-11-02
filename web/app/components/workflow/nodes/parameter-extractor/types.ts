@@ -3,14 +3,15 @@ import type { CommonNodeType, Memory, ModelConfig, ValueSelector, VisionSetting 
 export enum ParamType {
   string = 'string',
   number = 'number',
-  bool = 'bool',
+  bool = 'boolean',
   select = 'select',
   arrayString = 'array[string]',
   arrayNumber = 'array[number]',
   arrayObject = 'array[object]',
+  arrayBool = 'array[boolean]',
 }
 
-export interface Param {
+export type Param = {
   name: string
   type: ParamType
   options?: string[]

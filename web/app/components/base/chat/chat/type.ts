@@ -1,32 +1,35 @@
-import type { TypeWithI18N } from '@/app/components/header/account-setting/model-provider-page/declarations'
-import type { Annotation, MessageRating } from '@/models/log'
 import type { FileEntity } from '@/app/components/base/file-uploader/types'
+import type { TypeWithI18N } from '@/app/components/header/account-setting/model-provider-page/declarations'
 import type { InputVarType } from '@/app/components/workflow/types'
-import type { FileResponse } from '@/types/workflow'
+import type { Annotation, MessageRating } from '@/models/log'
+import type {
+  FileResponse,
+  HumanInputFilledFormData,
+  HumanInputFormData,
+} from '@/types/workflow'
 
-export interface MessageMore {
+type MessageMore = {
   time: string
   tokens: number
   latency: number | string
+  tokens_per_second?: number | string
 }
 
-export interface FeedbackType {
+export type FeedbackType = {
   rating: MessageRating
   content?: string | null
 }
 
 export type FeedbackFunc = (
   messageId: string,
-  feedback: FeedbackType
+  feedback: FeedbackType,
 ) => Promise<any>
 export type SubmitAnnotationFunc = (
   messageId: string,
-  content: string
+  content: string,
 ) => Promise<any>
 
-export type DisplayScene = 'web' | 'console'
-
-export interface ToolInfoInThought {
+export type ToolInfoInThought = {
   name: string
   label: string
   input: string
@@ -34,20 +37,21 @@ export interface ToolInfoInThought {
   isFinished: boolean
 }
 
-export interface ThoughtItem {
+export type ThoughtItem = {
   id: string
   tool: string // plugin or dataset. May has multi.
   thought: string
   tool_input: string
   tool_labels?: { [key: string]: TypeWithI18N }
   message_id: string
+  conversation_id: string
   observation: string
   position: number
   files?: string[]
   message_files?: FileEntity[]
 }
 
-export interface CitationItem {
+export type CitationItem = {
   content: string
   data_source_type: string
   dataset_name: string
@@ -62,7 +66,20 @@ export interface CitationItem {
   word_count: number
 }
 
-export interface IChatItem {
+export type ExtraContent
+  = {
+    type: 'human_input'
+    submitted: false
+    form_definition: HumanInputFormData
+    workflow_run_id: string
+  }
+  | {
+    type: 'human_input'
+    submitted: true
+    form_submission_data: HumanInputFilledFormData
+  }
+
+export type IChatItem = {
   id: string
   content: string
   citation?: CitationItem[]
@@ -90,7 +107,7 @@ export interface IChatItem {
   useCurrentUserAvatar?: boolean
   isOpeningStatement?: boolean
   suggestedQuestions?: string[]
-  log?: { role: string; text: string; files?: FileEntity[] }[]
+  log?: { role: string, text: string, files?: FileEntity[] }[]
   agent_thoughts?: ThoughtItem[]
   message_files?: FileEntity[]
   workflow_run_id?: string
@@ -102,9 +119,13 @@ export interface IChatItem {
   siblingIndex?: number
   prevSibling?: string
   nextSibling?: string
+  // for human input
+  humanInputFormDataList?: HumanInputFormData[]
+  humanInputFilledFormDataList?: HumanInputFilledFormData[]
+  extra_contents?: ExtraContent[]
 }
 
-export interface Metadata {
+export type Metadata = {
   retriever_resources?: CitationItem[]
   annotation_reply: {
     id: string
@@ -115,32 +136,24 @@ export interface Metadata {
   }
 }
 
-export interface MessageEnd {
+export type MessageEnd = {
   id: string
   metadata: Metadata
   files?: FileResponse[]
 }
 
-export interface MessageReplace {
+export type MessageReplace = {
   id: string
   task_id: string
   answer: string
   conversation_id: string
 }
 
-export interface AnnotationReply {
-  id: string
-  task_id: string
-  answer: string
-  conversation_id: string
-  annotation_id: string
-  annotation_author_name: string
-}
-
-export interface InputForm {
+export type InputForm = {
   type: InputVarType
   label: string
   variable: any
   required: boolean
+  hide: boolean
   [key: string]: any
 }

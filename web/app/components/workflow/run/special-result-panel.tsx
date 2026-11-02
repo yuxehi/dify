@@ -1,13 +1,14 @@
-import { RetryResultPanel } from './retry-log'
-import { IterationResultPanel } from './iteration-log'
-import { LoopResultPanel } from './loop-log'
-import { AgentResultPanel } from './agent-log'
 import type {
   AgentLogItemWithChildren,
   IterationDurationMap,
   LoopDurationMap,
+  LoopVariableMap,
   NodeTracing,
 } from '@/types/workflow'
+import { AgentResultPanel } from './agent-log'
+import { IterationResultPanel } from './iteration-log'
+import { LoopResultPanel } from './loop-log'
+import { RetryResultPanel } from './retry-log'
 
 export type SpecialResultPanelProps = {
   showRetryDetail?: boolean
@@ -23,6 +24,7 @@ export type SpecialResultPanelProps = {
   setShowLoopingDetailFalse?: () => void
   loopResultList?: NodeTracing[][]
   loopResultDurationMap?: LoopDurationMap
+  loopResultVariableMap?: LoopVariableMap
 
   agentOrToolLogItemStack?: AgentLogItemWithChildren[]
   agentOrToolLogListMap?: Record<string, AgentLogItemWithChildren[]>
@@ -42,6 +44,7 @@ const SpecialResultPanel = ({
   setShowLoopingDetailFalse,
   loopResultList,
   loopResultDurationMap,
+  loopResultVariableMap,
 
   agentOrToolLogItemStack,
   agentOrToolLogListMap,
@@ -51,7 +54,8 @@ const SpecialResultPanel = ({
     <div onClick={(e) => {
       e.stopPropagation()
       e.nativeEvent.stopImmediatePropagation()
-    }}>
+    }}
+    >
       {
         !!showRetryDetail && !!retryResultList?.length && setShowRetryDetailFalse && (
           <RetryResultPanel
@@ -75,6 +79,7 @@ const SpecialResultPanel = ({
             list={loopResultList}
             onBack={setShowLoopingDetailFalse}
             loopDurationMap={loopResultDurationMap}
+            loopVariableMap={loopResultVariableMap}
           />
         )
       }

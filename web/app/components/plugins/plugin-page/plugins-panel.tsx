@@ -1,19 +1,53 @@
 'use client'
-import { useMemo } from 'react'
+import type { PluginDetail } from '../types'
 import type { FilterState } from './filter-management'
+import { Button } from '@langgenius/dify-ui/button'
+import { useDebounceFn } from 'ahooks'
+import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
+import Loading from '@/app/components/base/loading'
+import PluginDetailPanel from '@/app/components/plugins/plugin-detail-panel'
+import { useGetLanguage } from '@/context/i18n'
+import { renderI18nObject } from '@/i18n-config'
+import { useInstalledPluginList, useInvalidateInstalledPluginList } from '@/service/use-plugins'
+import { usePluginsWithLatestVersion } from '../hooks'
+import { usePluginPageContext } from './context'
+import Empty from './empty'
 import FilterManagement from './filter-management'
 import List from './list'
-import { useInstalledPluginList, useInvalidateInstalledPluginList } from '@/service/use-plugins'
-import PluginDetailPanel from '@/app/components/plugins/plugin-detail-panel'
-import { usePluginPageContext } from './context'
-import { useDebounceFn } from 'ahooks'
-import Empty from './empty'
-import Loading from '../../base/loading'
+
+const matchesSearchQuery = (plugin: PluginDetail & { latest_version: string }, query: string, locale: string): boolean => {
+  if (!query)
+    return true
+  const lowerQuery = query.toLowerCase()
+  const { declaration } = plugin
+  // Match plugin_id
+  if (plugin.plugin_id.toLowerCase().includes(lowerQuery))
+    return true
+  // Match plugin name
+  if (plugin.name?.toLowerCase().includes(lowerQuery))
+    return true
+  // Match declaration name
+  if (declaration.name?.toLowerCase().includes(lowerQuery))
+    return true
+  // Match localized label
+  const label = renderI18nObject(declaration.label, locale)
+  if (label?.toLowerCase().includes(lowerQuery))
+    return true
+  // Match localized description
+  const description = renderI18nObject(declaration.description, locale)
+  if (description?.toLowerCase().includes(lowerQuery))
+    return true
+  return false
+}
 
 const PluginsPanel = () => {
+  const { t } = useTranslation()
+  const locale = useGetLanguage()
   const filters = usePluginPageContext(v => v.filters) as FilterState
   const setFilters = usePluginPageContext(v => v.setFilters)
-  const { data: pluginList, isLoading: isPluginListLoading } = useInstalledPluginList()
+  const { data: pluginList, isLoading: isPluginListLoading, isFetching, isLastPage, loadNextPage } = useInstalledPluginList()
+  const pluginListWithLatestVersion = usePluginsWithLatestVersion(pluginList?.plugins)
   const invalidateInstalledPluginList = useInvalidateInstalledPluginList()
   const currentPluginID = usePluginPageContext(v => v.currentPluginID)
   const setCurrentPluginID = usePluginPageContext(v => v.setCurrentPluginID)
@@ -24,39 +58,57 @@ const PluginsPanel = () => {
 
   const filteredList = useMemo(() => {
     const { categories, searchQuery, tags } = filters
-    const filteredList = pluginList?.plugins.filter((plugin) => {
+    const filteredList = pluginListWithLatestVersion.filter((plugin) => {
       return (
         (categories.length === 0 || categories.includes(plugin.declaration.category))
         && (tags.length === 0 || tags.some(tag => plugin.declaration.tags.includes(tag)))
-        && (searchQuery === '' || plugin.plugin_id.toLowerCase().includes(searchQuery.toLowerCase()))
+        && matchesSearchQuery(plugin, searchQuery, locale)
       )
     })
     return filteredList
-  }, [pluginList, filters])
+  }, [pluginListWithLatestVersion, filters, locale])
 
   const currentPluginDetail = useMemo(() => {
-    const detail = pluginList?.plugins.find(plugin => plugin.plugin_id === currentPluginID)
+    const detail = pluginListWithLatestVersion.find(plugin => plugin.plugin_id === currentPluginID)
     return detail
-  }, [currentPluginID, pluginList?.plugins])
+  }, [currentPluginID, pluginListWithLatestVersion])
 
   const handleHide = () => setCurrentPluginID(undefined)
 
   return (
     <>
-      <div className='flex flex-col pt-1 pb-3 px-12 justify-center items-start gap-3 self-stretch'>
-        <div className='h-px self-stretch bg-divider-subtle'></div>
+      <div className="flex flex-col items-start justify-center gap-3 self-stretch px-12 pt-1 pb-3">
+        <div className="h-px self-stretch bg-divider-subtle"></div>
         <FilterManagement
           onFilterChange={handleFilterChange}
         />
       </div>
-      {isPluginListLoading ? <Loading type='app' /> : (filteredList?.length ?? 0) > 0 ? (
-        <div className='flex px-12 items-start content-start gap-2 grow self-stretch flex-wrap'>
-          <div className='w-full'>
-            <List pluginList={filteredList || []} />
-          </div>
-        </div>
-      ) : (
-        <Empty />
+      {isPluginListLoading && <Loading type="app" />}
+      {!isPluginListLoading && (
+        <>
+          {(filteredList?.length ?? 0) > 0
+            ? (
+                <div className="flex grow flex-wrap content-start items-start justify-center gap-2 self-stretch overflow-y-auto px-12">
+                  <div className="w-full">
+                    <List pluginList={filteredList || []} />
+                  </div>
+                  {!isLastPage && (
+                    <div className="flex justify-center py-4">
+                      {isFetching
+                        ? <Loading className="size-8" />
+                        : (
+                            <Button onClick={loadNextPage}>
+                              {t('common.loadMore', { ns: 'workflow' })}
+                            </Button>
+                          )}
+                    </div>
+                  )}
+                </div>
+              )
+            : (
+                <Empty />
+              )}
+        </>
       )}
       <PluginDetailPanel
         detail={currentPluginDetail}

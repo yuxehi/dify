@@ -1,13 +1,15 @@
-from core.model_runtime.entities.llm_entities import LLMResult
-from core.model_runtime.entities.message_entities import PromptMessage, SystemPromptMessage, UserPromptMessage
+from __future__ import annotations
+
 from core.tools.__base.tool import Tool
 from core.tools.__base.tool_runtime import ToolRuntime
 from core.tools.entities.tool_entities import ToolProviderType
 from core.tools.utils.model_invocation_utils import ModelInvocationUtils
+from graphon.model_runtime.entities.llm_entities import LLMResult
+from graphon.model_runtime.entities.message_entities import PromptMessage, SystemPromptMessage, UserPromptMessage
 
 _SUMMARY_PROMPT = """You are a professional language researcher, you are interested in the language
-and you can quickly aimed at the main point of an webpage and reproduce it in your own words but 
-retain the original meaning and keep the key points. 
+and you can quickly aimed at the main point of an webpage and reproduce it in your own words but
+retain the original meaning and keep the key points.
 however, the text you got is too long, what you got is possible a part of the text.
 Please summarize the text you got.
 """
@@ -20,17 +22,13 @@ class BuiltinTool(Tool):
     :param meta: the meta data of a tool call processing
     """
 
-    provider: str
-
     def __init__(self, provider: str, **kwargs):
         super().__init__(**kwargs)
         self.provider = provider
 
-    def fork_tool_runtime(self, runtime: ToolRuntime) -> "BuiltinTool":
+    def fork_tool_runtime(self, runtime: ToolRuntime) -> BuiltinTool:
         """
-        fork a new tool with meta data
-
-        :param meta: the meta data of a tool call processing, tenant_id is required
+        fork a new tool with metadata
         :return: the new tool
         """
         return self.__class__(
@@ -43,7 +41,7 @@ class BuiltinTool(Tool):
         """
         invoke model
 
-        :param model_config: the model config
+        :param user_id: the user id
         :param prompt_messages: the prompt messages
         :param stop: the stop words
         :return: the model result
@@ -52,9 +50,10 @@ class BuiltinTool(Tool):
         return ModelInvocationUtils.invoke(
             user_id=user_id,
             tenant_id=self.runtime.tenant_id or "",
-            tool_type="builtin",
+            tool_type=ToolProviderType.BUILT_IN,
             tool_name=self.entity.identity.name,
             prompt_messages=prompt_messages,
+            caller_user_id=self.runtime.user_id,
         )
 
     def tool_provider_type(self) -> ToolProviderType:
@@ -64,7 +63,6 @@ class BuiltinTool(Tool):
         """
         get max tokens
 
-        :param model_config: the model config
         :return: the max tokens
         """
         if self.runtime is None:
@@ -72,6 +70,7 @@ class BuiltinTool(Tool):
 
         return ModelInvocationUtils.get_max_llm_context_tokens(
             tenant_id=self.runtime.tenant_id or "",
+            user_id=self.runtime.user_id,
         )
 
     def get_prompt_tokens(self, prompt_messages: list[PromptMessage]) -> int:
@@ -85,7 +84,9 @@ class BuiltinTool(Tool):
             raise ValueError("runtime is required")
 
         return ModelInvocationUtils.calculate_tokens(
-            tenant_id=self.runtime.tenant_id or "", prompt_messages=prompt_messages
+            tenant_id=self.runtime.tenant_id or "",
+            prompt_messages=prompt_messages,
+            user_id=self.runtime.user_id,
         )
 
     def summary(self, user_id: str, content: str) -> str:
